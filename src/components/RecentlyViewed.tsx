@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { getProductById } from "@/lib/mockData";
+import { getProductById as getMockProductById } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
+import { useCatalog } from "@/context/catalogContext";
 import { useCartStore, useCartHydrated } from "@/lib/store/useCartStore";
 
 /**
@@ -23,11 +24,16 @@ export default function RecentlyViewed({
 }) {
   const hydrated = useCartHydrated();
   const recentlyViewed = useCartStore((state) => state.recentlyViewed);
+  // Live catalog (Wix when enabled) so the price here matches the PDP/cart.
+  // Falls back to the mock twin only if the id isn't in the live catalog.
+  const catalog = useCatalog();
+  const resolve = (id: string) =>
+    catalog.find((p) => p.id === id) ?? getMockProductById(id);
 
   const items = hydrated
     ? recentlyViewed
         .filter((id) => id !== currentId)
-        .map(getProductById)
+        .map(resolve)
         .filter((p): p is NonNullable<typeof p> => p !== undefined)
         .slice(0, 3)
     : [];
