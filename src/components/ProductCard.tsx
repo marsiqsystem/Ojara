@@ -4,17 +4,72 @@ import type { Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import AddToCartButton from "@/components/AddToCartButton";
 
+// Badge lookup, most specific phrase first — "evil eye" has to beat the generic
+// "protection" rule, and "green aventurine" has to beat "green". Matching is a
+// plain lowercase substring test against the product name, so a stone added in
+// Wix with no mockData twin still gets a real badge instead of the generic
+// default.
+const BADGE_KEYWORDS: ReadonlyArray<readonly [readonly string[], string]> = [
+  [["evil eye", "nazar", "turkish eye"], "Nazar Protection"],
+  [["pcod", "pcos"], "Women's Wellness"],
+  [["weight"], "Weight Loss"],
+  [["seven chakra", "7 chakra", "chakra"], "Chakra Balance"],
+  [["rudraksha", "mala", "tulsi"], "Sacred Tradition"],
+  [["black tourmaline", "obsidian", "black onyx", "shungite", "hematite", "protect"], "Shield & Protection"],
+  [["rose quartz", "rhodonite", "kunzite", "love"], "Love & Harmony"],
+  [["citrine", "pyrite", "wealth", "money", "abundance", "prosper"], "Attract Wealth"],
+  [["green aventurine", "jade", "malachite", "luck"], "Luck & Growth"],
+  [["tiger eye", "tiger's eye", "tigers eye", "carnelian", "bloodstone", "confidence"], "Courage & Confidence"],
+  [["clear quartz", "selenite", "howlite", "clarity", "cleans"], "Clarity & Cleansing"],
+  [["moonstone", "pearl", "labradorite", "intuition"], "Intuition & Insight"],
+  [["turquoise", "amazonite", "aquamarine", "peace"], "Peace & Truth"],
+  [["garnet", "red jasper", "sunstone", "lava", "energy", "vitality"], "Energy & Vitality"],
+  [["amethyst", "lepidolite", "calm", "focus", "sleep"], "Calm & Focus"],
+];
+
+/**
+ * Resolve the badge shown on a product card.
+ *
+ * Keyword match on the name wins; otherwise fall back to the category the
+ * product was found under, and finally to the brand-generic line.
+ */
+export function getDynamicBadge(
+  productName: string,
+  categoryName?: string,
+): string {
+  const name = productName.toLowerCase();
+
+  for (const [keywords, badge] of BADGE_KEYWORDS) {
+    if (keywords.some((keyword) => name.includes(keyword))) return badge;
+  }
+
+  return categoryName?.trim() || "Wear Your Intention";
+}
+
 // Shared by the home collection grid and every /category/[slug] page, so a
 // product looks and behaves the same wherever a shopper meets it.
 export default function ProductCard({
   product,
   sizes = "(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw",
+  className = "",
+  categoryName,
 }: {
   product: Product;
   sizes?: string;
+  // Lets a caller size the card for its container — e.g. a fixed width and
+  // snap point when the card sits in a horizontal scroll rail instead of a grid.
+  className?: string;
+  // Wix collection this card is being listed under, when the caller knows it.
+  categoryName?: string;
 }) {
+  // Curated `intention` stands in as the category fallback when the caller has
+  // no collection name, so the six hand-written products keep their own copy
+  // rather than being flattened to a keyword guess.
+  const badge = getDynamicBadge(product.name, categoryName ?? product.intention);
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl bg-sand shadow-sm transition-all duration-500 md:hover:-translate-y-1 md:hover:shadow-2xl md:hover:shadow-champagne-gold/20">
+    <article
+      className={`group flex flex-col overflow-hidden rounded-2xl bg-sand shadow-sm transition-all duration-500 md:hover:-translate-y-1 md:hover:shadow-2xl md:hover:shadow-champagne-gold/20 ${className}`}
+    >
       <Link
         href={`/product/${product.id}`}
         prefetch
@@ -30,7 +85,7 @@ export default function ProductCard({
           />
           {/* Intention badge — front and center to the brand story */}
           <span className="absolute left-2 top-2 rounded-full bg-midnight-navy/90 px-2.5 py-1 text-[0.6rem] uppercase tracking-[0.15em] text-champagne-gold backdrop-blur-sm sm:left-4 sm:top-4 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.2em]">
-            {product.intention}
+            {badge}
           </span>
           {product.isBundle && (
             <span className="absolute right-2 top-2 rounded-full bg-champagne-gold px-2.5 py-1 text-[0.6rem] uppercase tracking-[0.15em] text-midnight-navy shadow-sm sm:right-4 sm:top-4 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.2em]">

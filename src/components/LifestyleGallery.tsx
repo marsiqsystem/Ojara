@@ -3,12 +3,12 @@ import Image from "next/image";
 const img = (id: string) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=800&q=80`;
 
-// Verified spiritual-wellness stills, with an asymmetrical row-span layout.
+// Verified spiritual-wellness stills, all rendered at one uniform portrait ratio.
 const shots = [
-  { id: "photo-1658915294986-ecae46200c99", alt: "A candle and healing crystals on a linen flatlay", span: "row-span-2" },
-  { id: "photo-1618721025639-9affb7d96901", alt: "Sacred smudge smoke rising in a cleansing ritual", span: "row-span-3" },
-  { id: "photo-1652536160742-9f46c4a1a838", alt: "A blue evil eye amulet against a pale wall", span: "row-span-3" },
-  { id: "photo-1632980205460-e490e885e848", alt: "A glowing raw amethyst crystal cluster", span: "row-span-2" },
+  { id: "photo-1658915294986-ecae46200c99", alt: "A candle and healing crystals on a linen flatlay" },
+  { id: "photo-1618721025639-9affb7d96901", alt: "Sacred smudge smoke rising in a cleansing ritual" },
+  { id: "photo-1652536160742-9f46c4a1a838", alt: "A blue evil eye amulet against a pale wall" },
+  { id: "photo-1632980205460-e490e885e848", alt: "A glowing raw amethyst crystal cluster" },
 ];
 
 export default function LifestyleGallery() {
@@ -24,11 +24,11 @@ export default function LifestyleGallery() {
           </h2>
         </div>
 
-        <div className="grid auto-rows-[7rem] grid-cols-2 gap-3 sm:auto-rows-[10rem] sm:gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 lg:grid-cols-4">
           {shots.map((shot) => (
             <figure
               key={shot.id}
-              className={`group relative overflow-hidden rounded-xl bg-sand ${shot.span}`}
+              className="group relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-sand"
             >
               <Image
                 src={img(shot.id)}
