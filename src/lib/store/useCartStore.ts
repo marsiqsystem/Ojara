@@ -20,9 +20,6 @@ export interface CartItem {
   quantity: number;
 }
 
-// How many recently-viewed product IDs we keep on hand.
-const RECENTLY_VIEWED_LIMIT = 8;
-
 interface CartState {
   cartItems: CartItem[];
   isCartOpen: boolean;
@@ -34,8 +31,6 @@ interface CartState {
   // — duplicate ids (#ojara-email/#ojara-password) and two aria-modal dialogs,
   // which broke label->input focus and made the form look untypeable.
   isAuthOpen: boolean;
-  // Product IDs, most-recent first. Powers the "Recently Viewed" rails.
-  recentlyViewed: string[];
   // Coupon + gift-wrap live on the store so they survive the cart → checkout
   // hand-off (the checkout modal reads them) and a page refresh.
   appliedCoupon: string;
@@ -51,7 +46,6 @@ interface CartState {
   closeCheckout: () => void;
   openAuth: () => void;
   closeAuth: () => void;
-  addRecentlyViewed: (productId: string) => void;
   setAppliedCoupon: (code: string) => void;
   setGiftWrap: (on: boolean) => void;
   setGiftNote: (note: string) => void;
@@ -99,7 +93,6 @@ export const useCartStore = create<CartState>()(
       isCartOpen: false,
       isCheckoutOpen: false,
       isAuthOpen: false,
-      recentlyViewed: [],
       appliedCoupon: "",
       giftWrap: false,
       giftNote: "",
@@ -162,15 +155,6 @@ export const useCartStore = create<CartState>()(
       openAuth: () => set({ isAuthOpen: true, isCartOpen: false }),
       closeAuth: () => set({ isAuthOpen: false }),
 
-      addRecentlyViewed: (productId) =>
-        set((state) => ({
-          // Move to the front, drop any duplicate, cap the list length.
-          recentlyViewed: [
-            productId,
-            ...state.recentlyViewed.filter((id) => id !== productId),
-          ].slice(0, RECENTLY_VIEWED_LIMIT),
-        })),
-
       setAppliedCoupon: (code) => set({ appliedCoupon: code }),
       setGiftWrap: (on) => set({ giftWrap: on }),
       setGiftNote: (note) => set({ giftNote: note }),
@@ -178,11 +162,9 @@ export const useCartStore = create<CartState>()(
     {
       name: "ojara-cart",
       storage: createJSONStorage(() => localStorage),
-      // Cart contents and browsing history survive refreshes — never the
-      // open/closed UI state.
+      // Cart contents survive refreshes — never the open/closed UI state.
       partialize: (state) => ({
         cartItems: state.cartItems,
-        recentlyViewed: state.recentlyViewed,
         appliedCoupon: state.appliedCoupon,
         giftWrap: state.giftWrap,
         giftNote: state.giftNote,

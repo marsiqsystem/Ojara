@@ -8,7 +8,6 @@ import {
   selectTotalPrice,
   useCartHydrated,
 } from "@/lib/store/useCartStore";
-import RecentlyViewed from "@/components/RecentlyViewed";
 import { formatPrice } from "@/lib/format";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { evaluateCoupon, PRIMARY_COUPON, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
@@ -234,10 +233,6 @@ export default function CartDrawer() {
                 <p className="mt-2 text-sm text-warm-grey">
                   Add a piece to carry your intention.
                 </p>
-              </div>
-              {/* Nudge back into the catalogue with their own history */}
-              <div className="mt-10">
-                <RecentlyViewed variant="compact" onNavigate={closeCart} />
               </div>
             </div>
           ) : (

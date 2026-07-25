@@ -13,8 +13,6 @@ import ProductGallery from "@/components/ProductGallery";
 import ShareButton from "@/components/ShareButton";
 import JsonLd from "@/components/seo/JsonLd";
 import { productSchema } from "@/lib/seo";
-import RecentlyViewed from "@/components/RecentlyViewed";
-import TrackRecentlyViewed from "@/components/TrackRecentlyViewed";
 import ProductCtas from "@/components/ProductCtas";
 import StickyAddToBag from "@/components/StickyAddToBag";
 import BackButton from "@/components/BackButton";
@@ -136,8 +134,6 @@ export default async function ProductDetailPage({
     <div className="bg-ivory">
       {/* Product structured data for search engines + AI shopping surfaces */}
       <JsonLd id="ld-product" data={productSchema(product)} />
-      {/* Record this visit in the persisted browsing history */}
-      <TrackRecentlyViewed productId={product.id} />
 
       {/* Breadcrumb trail + back control */}
       <nav
@@ -357,9 +353,6 @@ export default async function ProductDetailPage({
 
       {/* Wider cross-sell at the very bottom of the page */}
       <YouMayAlsoLike currentId={product.id} />
-
-      {/* Personalised history — reads from persisted browsing state */}
-      <RecentlyViewed currentId={product.id} />
     </div>
   );
 }

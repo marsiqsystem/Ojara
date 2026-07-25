@@ -3,8 +3,6 @@ import { Cinzel, Montserrat } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { WixClientContextProvider } from "@/context/wixContext";
-import { CatalogProvider } from "@/context/catalogContext";
-import { getAllProducts } from "@/lib/catalog";
 import Header from "@/components/Header";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import Footer from "@/components/Footer";
@@ -99,16 +97,11 @@ export const metadata: Metadata = {
   ...(Object.keys(verification).length ? { verification } : {}),
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Live catalog, resolved once per render (cached by catalog.ts's revalidate)
-  // and shared with client components that only persist a product id — today
-  // RecentlyViewed, so it shows live Wix prices instead of the mock fallback.
-  const catalogProducts = await getAllProducts();
-
   return (
     <html
       lang="en"
@@ -125,7 +118,6 @@ export default async function RootLayout({
         <GoogleTagManager />
         {/* Every Wix-backed feature (auth, cart, checkout) reads the client from here */}
         <WixClientContextProvider>
-          <CatalogProvider products={catalogProducts}>
           <LenisProvider>
             <AnnouncementBar />
             <Header />
@@ -150,7 +142,6 @@ export default async function RootLayout({
               }}
             />
           </LenisProvider>
-          </CatalogProvider>
         </WixClientContextProvider>
       </body>
     </html>
