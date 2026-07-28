@@ -50,7 +50,11 @@ export interface CouponTier {
 // Codes are matched case-insensitively. When live, Wix validates authoritatively;
 // this mirror only drives the "add ₹X to unlock" nudge + the pre-apply preview.
 //
-// OJAS10 — created in Wix on 2026-07-18: 10% off, minimum order subtotal ₹1499.
+// OJAS10   — created in Wix on 2026-07-18: 10% off, minimum order subtotal ₹1499.
+// AKSHAT30 — created in Wix on 2026-07-27: 30% off, all products, no minimum,
+//            valid Jul 27 – Aug 10 2026. Wix enforces the date window; this mirror
+//            does not, so it may preview the discount after Aug 10 (Wix will then
+//            reject it at apply-time). Remove this tier once the code expires.
 export const COUPON_TIERS: CouponTier[] = [
   {
     code: "OJAS10",
@@ -58,6 +62,13 @@ export const COUPON_TIERS: CouponTier[] = [
     minimum: 1499,
     value: 0.1,
     label: "10% off orders over ₹1499",
+  },
+  {
+    code: "AKSHAT30",
+    type: "PERCENT",
+    minimum: 0,
+    value: 0.3,
+    label: "30% off any order",
   },
 ];
 
@@ -114,12 +125,20 @@ export interface TotalsInput {
   appliedCouponCode?: string;
   /** Optional gift-wrap charge (₹). A real charge — added on top of the total. */
   giftWrapFee?: number;
+  /**
+   * Sacred Bundle discount (₹) earned in the checkout upsell. Like the prepaid
+   * −₹50 this is NOT a Wix coupon and STACKS on top of one; /api/checkout
+   * reconciles it onto the order as a GLOBAL custom discount. See bundle.ts.
+   */
+  bundleDiscount?: number;
 }
 
 export interface Totals {
   subtotal: number;
   couponDiscount: number;
   prepaidDiscount: number;
+  /** Sacred Bundle discount folded into the total (0 when none earned). */
+  bundleDiscount: number;
   /** Gift-wrap charge folded into the total (0 when not selected). */
   giftWrapFee: number;
   /** The real amount charged. Never negative. */
@@ -139,6 +158,7 @@ export const computeTotals = ({
   wixReportedDiscount,
   appliedCouponCode,
   giftWrapFee = 0,
+  bundleDiscount = 0,
 }: TotalsInput): Totals => {
   const subtotal = cartSubtotal(lines);
 
@@ -151,14 +171,16 @@ export const computeTotals = ({
   }
 
   const prepaidDiscount = isPrepaid ? PREPAID_DISCOUNT : 0;
+  const bundle = Math.max(0, Math.round(bundleDiscount));
   const wrap = Math.max(0, giftWrapFee);
   const total =
-    Math.max(0, subtotal - couponDiscount - prepaidDiscount) + wrap;
+    Math.max(0, subtotal - couponDiscount - prepaidDiscount - bundle) + wrap;
 
   return {
     subtotal,
     couponDiscount,
     prepaidDiscount,
+    bundleDiscount: bundle,
     giftWrapFee: wrap,
     total,
     // *** DISPLAY ONLY — never send to a gateway / order / email. ***

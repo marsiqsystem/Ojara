@@ -2,18 +2,18 @@ import type { Metadata } from "next";
 import PolicyPage from "@/components/PolicyPage";
 
 export const metadata: Metadata = {
-  title: "Shipping & Returns",
+  title: "Shipping & Exchanges",
   alternates: { canonical: "/shipping-returns" },
   description:
-    "Shipping times, costs, and our 30-day authentic returns policy.",
+    "Free shipping on every order, plus our 48-hour exchange policy.",
 };
 
 export default function ShippingReturnsPage() {
   return (
     <PolicyPage
-      title="Shipping & Returns"
+      title="Shipping & Exchanges"
       updated="July 2026"
-      intro="Every OJARA piece is cleansed, wrapped, and dispatched with care. Here's everything you need to know about how your order travels to you — and how to return it if it isn't the right fit."
+      intro="Every OJARA piece is cleansed, wrapped, and dispatched with care. Here's everything you need to know about how your order travels to you — and how exchanges work if it isn't the right fit."
       sections={[
         {
           heading: "Processing Time",
@@ -25,7 +25,7 @@ export default function ShippingReturnsPage() {
           heading: "Shipping Times & Costs",
           body: [
             "Domestic orders arrive within 3–7 business days. International orders typically arrive within 7–21 business days, depending on destination and customs.",
-            "Enjoy complimentary standard shipping on all orders over $75. Below that, a flat shipping rate is calculated at checkout. Expedited options are available where offered.",
+            "Shipping is complimentary on every order — always free, with no minimum spend. Expedited options are available where offered.",
           ],
         },
         {
@@ -41,10 +41,10 @@ export default function ShippingReturnsPage() {
           ],
         },
         {
-          heading: "30-Day Authentic Returns",
+          heading: "48-Hour Exchange Policy",
           body: [
-            "If your piece doesn't resonate, you may return it within 30 days of delivery for a refund or exchange. Items must be unused and in their original packaging.",
-            "To begin a return, email ojara.jewel@gmail.com with your order number. We'll guide you through the process. Return shipping is the responsibility of the customer unless the item arrived damaged or incorrect.",
+            "We do not offer returns or refunds. If your piece isn't the right fit, you may request an exchange within 48 hours of delivery. Items must be unused and in their original packaging.",
+            "To request an exchange, email ojara.jewel@gmail.com with your order number and a photo within 48 hours of delivery, and we'll guide you through the process.",
           ],
         },
         {

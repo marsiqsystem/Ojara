@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { categories } from "@/lib/mockData";
-import { getCategoryBySlug, getProductsByCategory } from "@/lib/catalog";
+import { getCategories, getCategoryBySlug, getProductsByCategory } from "@/lib/catalog";
 import ProductCard from "@/components/ProductCard";
 import ValueProps from "@/components/ValueProps";
 import BackButton from "@/components/BackButton";
@@ -49,7 +49,14 @@ export default async function CategoryPage({
   }
 
   const categoryProducts = await getProductsByCategory(category);
-  const siblings = categories.filter((c) => c.group === category.group);
+
+  // Lateral nav — source siblings from the LIVE category list (not mockData), so
+  // every chip resolves to a real page. The old mock slugs (e.g. "tourmaline",
+  // "protection") don't match the live Wix collection slugs, which is why these
+  // chips were 404-ing. On "All Products" there are no true siblings, so this
+  // comes back with just the current page and the nav is hidden below.
+  const allCategories = await getCategories();
+  const siblings = allCategories.filter((c) => c.group === category.group);
 
   return (
     <div className="bg-ivory">
@@ -106,12 +113,14 @@ export default async function CategoryPage({
         </p>
       </header>
 
-      {/* Sibling categories — keep the shopper moving laterally */}
+      {/* Sibling categories — keep the shopper moving laterally. Only render when
+          there's somewhere else to go (more than just the current page). */}
+      {siblings.length > 1 && (
       <nav
         aria-label={
           category.group === "intention"
             ? "Other intentions"
-            : "Other stones"
+            : "Other collections"
         }
         className="mx-auto max-w-6xl px-6 pb-14"
       >
@@ -137,6 +146,7 @@ export default async function CategoryPage({
           })}
         </ul>
       </nav>
+      )}
 
       {/* Products */}
       <section className="mx-auto max-w-6xl px-6 pb-24">

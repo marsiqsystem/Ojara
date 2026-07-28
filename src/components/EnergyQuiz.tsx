@@ -66,19 +66,28 @@ export default function EnergyQuiz({
     : undefined;
 
   return (
+    // The OVERLAY is the scroll container: it fills the viewport and scrolls the
+    // whole dialog when the dialog is taller than the screen. This is what fixes
+    // the "can't scroll at all" lock — the modal no longer depends on its own
+    // inner box overflowing, and the background stays locked as intended.
+    // data-lenis-prevent stops the site's smooth-scroll from swallowing the wheel.
     <div
       aria-hidden={!open}
       onClick={onClose}
-      className={`fixed inset-0 z-[90] flex items-center justify-center bg-midnight-navy/70 px-6 backdrop-blur-md transition-opacity duration-500 ease-out ${
+      data-lenis-prevent
+      className={`fixed inset-0 z-[90] overflow-y-auto overscroll-contain bg-midnight-navy/70 backdrop-blur-md transition-opacity duration-500 ease-out ${
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
+      {/* min-h-full centres the dialog when it fits, and lets it sit at the top
+          (with breathing room from the py padding) and scroll when it's taller. */}
+      <div className="flex min-h-full items-center justify-center px-6 py-10">
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Find Your Bracelet quiz"
         onClick={(e) => e.stopPropagation()}
-        className={`relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-ivory shadow-2xl transition-all duration-500 ease-out ${
+        className={`relative w-full max-w-lg overflow-hidden rounded-3xl bg-ivory shadow-2xl transition-all duration-500 ease-out ${
           open ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-95 opacity-0"
         }`}
       >
@@ -104,10 +113,9 @@ export default function EnergyQuiz({
           </svg>
         </button>
 
-        {/* Scrollable body — caps at the dialog height so tall result content can
-            scroll instead of overflowing off the top/bottom of the viewport. The
-            close button above stays pinned outside this scroll area. */}
-        <div data-lenis-prevent className="overflow-y-auto">
+        {/* Body — natural height. The overlay above does the scrolling, so this
+            never gets clipped no matter how short the screen is. */}
+        <div>
         {/* Progress dots */}
         <div className="flex items-center justify-center gap-2 pt-8">
           {[1, 2].map((s) => (
@@ -197,6 +205,7 @@ export default function EnergyQuiz({
           )}
         </div>
         </div>
+      </div>
       </div>
     </div>
   );

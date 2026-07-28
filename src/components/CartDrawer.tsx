@@ -13,9 +13,6 @@ import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { evaluateCoupon, PRIMARY_COUPON, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
 import { trackEvent } from "@/lib/analytics/capi";
 
-// Spend this much (in rupees) to unlock complimentary shipping.
-const FREE_SHIPPING_THRESHOLD = 1500;
-
 export default function CartDrawer() {
   const isCartOpen = useCartStore((state) => state.isCartOpen);
   const closeCart = useCartStore((state) => state.closeCart);
@@ -52,7 +49,9 @@ export default function CartDrawer() {
   const couponDiscount = appliedCoupon ? coupon.discount : 0;
   const displayTotal = Math.max(0, totalPrice + giftWrapFee - couponDiscount);
 
-  // Viora-style unlock nudge for the promoted coupon.
+  // Coupon unlock nudge — "Add ₹X more to save 10% with OJAS10". Flips to a
+  // success line once the threshold is met. (Free shipping has no nudge — it's
+  // free on every order.)
   const couponRemaining = Math.max(0, PRIMARY_COUPON.minimum - totalPrice);
   const couponUnlocked = totalPrice >= PRIMARY_COUPON.minimum;
 
@@ -90,14 +89,6 @@ export default function CartDrawer() {
     });
     openCheckout();
   };
-
-  // Free-shipping progress: how far to the threshold, and how full the bar is.
-  const amountToFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - totalPrice);
-  const hasFreeShipping = amountToFreeShipping === 0;
-  const shippingProgress = Math.min(
-    100,
-    (totalPrice / FREE_SHIPPING_THRESHOLD) * 100,
-  );
 
   // Close on Escape and lock body scroll while open.
   useEffect(() => {
@@ -162,42 +153,10 @@ export default function CartDrawer() {
           </button>
         </div>
 
-        {/* Free-shipping progress — nudges average order value upward */}
-        {cartItems.length > 0 && (
-          <div className="border-b border-midnight-navy/10 px-6 py-4 bg-sand/10">
-            <p className="text-center text-xs leading-5 tracking-wide text-midnight-navy/80 sm:text-sm">
-              {hasFreeShipping ? (
-                <span className="font-semibold text-champagne-gold">
-                  ✦ You have unlocked Free Shipping!
-                </span>
-              ) : (
-                <>
-                  You are{" "}
-                  <span className="font-bold text-midnight-navy">
-                    {formatPrice(amountToFreeShipping)}
-                  </span>{" "}
-                  away from Free Shipping!
-                </>
-              )}
-            </p>
-            <div
-              className="mt-3 h-2 w-full overflow-hidden rounded-full bg-sand"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={FREE_SHIPPING_THRESHOLD}
-              aria-valuenow={Math.min(totalPrice, FREE_SHIPPING_THRESHOLD)}
-              aria-label="Progress toward free shipping"
-            >
-              <div
-                className="h-full rounded-full bg-champagne-gold transition-[width] duration-500 ease-out"
-                style={{ width: `${shippingProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Coupon unlock nudge — Viora style. "Add ₹X more to save 10%". Flips to a
-            success line once the threshold is met (and auto-applies below). */}
+        {/* Coupon unlock nudge — "Add ₹X more to save 10% with OJAS10". Flips to
+            a success line once the threshold is met. No free-shipping bar: shipping
+            is free on every order. This is a slim fixed band, so it doesn't eat
+            into the items list. */}
         {cartItems.length > 0 && (
           <div className="border-b border-midnight-navy/10 px-6 py-3 bg-champagne-gold/5">
             <p className="text-center text-xs leading-5 tracking-wide text-midnight-navy/80 sm:text-sm">
@@ -212,20 +171,29 @@ export default function CartDrawer() {
                   <span className="font-bold text-midnight-navy">
                     {formatPrice(couponRemaining)}
                   </span>{" "}
-                  more to save 10% with{" "}
+                  more to be eligible for{" "}
                   <span className="font-semibold text-champagne-gold">
                     {PRIMARY_COUPON.code}
-                  </span>
+                  </span>{" "}
+                  — 10% off
                 </>
               )}
             </p>
           </div>
         )}
 
-        {/* Items scroll rail. min-h-0 lets this flex child actually shrink so a
-            tall footer (gift-wrap note open) can't squeeze it past the point where
-            it stops scrolling. */}
-        <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto px-6 py-2">
+        {/* Items rail. When the bag has items it sizes to its content and only
+            scrolls once it runs out of room — so the footer hugs the last product
+            instead of the list stretching to fill the drawer (which left a big
+            empty gap under a single item). min-h-0 lets this flex child shrink so
+            a tall footer can't push it past the point where it stops scrolling.
+            Empty bag keeps flex-1 so the "your bag is empty" note stays centred. */}
+        <div
+          data-lenis-prevent
+          className={`min-h-0 overflow-y-auto px-6 py-2 ${
+            cartItems.length === 0 ? "flex-1" : "shrink"
+          }`}
+        >
           {cartItems.length === 0 ? (
             <div className="flex h-full flex-col justify-center">
               <div className="text-center">
@@ -328,10 +296,10 @@ export default function CartDrawer() {
         {cartItems.length > 0 && (
           <div
             data-lenis-prevent
-            className="max-h-[62vh] flex-shrink-0 overflow-y-auto border-t border-midnight-navy/15 px-6 py-6 bg-sand/15 shadow-[0_-8px_30px_rgba(0,0,0,0.03)] backdrop-blur-md"
+            className="max-h-[52vh] flex-shrink-0 overflow-y-auto border-t border-midnight-navy/15 px-6 py-4 bg-sand/15 shadow-[0_-8px_30px_rgba(0,0,0,0.03)] backdrop-blur-md"
           >
             {/* Luxury gift wrap + intention note upsells */}
-            <div className="mb-4 border-b border-midnight-navy/10 pb-4">
+            <div className="mb-3 border-b border-midnight-navy/10 pb-3">
               <button
                 type="button"
                 role="switch"
@@ -388,7 +356,7 @@ export default function CartDrawer() {
             </div>
 
             {/* Offer code toggle */}
-            <div className="mb-4 border-b border-midnight-navy/10 pb-4">
+            <div className="mb-3 border-b border-midnight-navy/10 pb-3">
               <button
                 type="button"
                 onClick={() => setPromoOpen((v) => !v)}

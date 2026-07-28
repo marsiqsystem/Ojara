@@ -16,6 +16,11 @@ import {
 import { WIX_ENABLED, BRAND_NAME } from "@/lib/commerce/config";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { trackEvent } from "@/lib/analytics/capi";
+import SacredUpsellFlow, {
+  type SacredUpsellSelection,
+} from "@/components/SacredUpsellFlow";
+import { pickUpsellProducts } from "@/lib/commerce/bundle";
+import type { Product } from "@/lib/mockData";
 
 type PaymentMethod = "PREPAID" | "COD";
 
@@ -87,7 +92,14 @@ export default function CheckoutModal() {
   const giftWrap = useCartStore((s) => s.giftWrap);
   const giftNote = useCartStore((s) => s.giftNote);
 
-  const [step, setStep] = useState<1 | 2>(1);
+  // 1 contact → 2 sacred bundle upsell → 3 delivery & payment. The upsell is
+  // skipped outright when there's nothing relevant left to offer.
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [upsell, setUpsell] = useState<SacredUpsellSelection>({
+    items: [],
+    discount: 0,
+  });
+  const [catalog, setCatalog] = useState<Product[]>([]);
   const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
   const [fullName, setFullName] = useState("");
@@ -111,17 +123,26 @@ export default function CheckoutModal() {
 
   // Normalised cart lines — the seam. Today from the local store; when the Wix
   // cart takes over (Phase 2) this maps the Wix lineItems to the same shape.
+  // Bundle picks ride alongside the cart as ordinary lines, so they are priced,
+  // emailed, and pushed to the Wix cart by exactly the same code path. Their
+  // discount travels separately as `bundleDiscount` — see lib/commerce/bundle.ts.
   const lines = useMemo(
     () =>
-      cartItems.map((ci) => ({
-        id: ci.product.id,
-        name: ci.product.name,
-        price: ci.product.price,
-        quantity: ci.quantity,
-        image: ci.product.image,
-        wixCatalogItemId: ci.product.wixCatalogItemId,
+      [
+        ...cartItems.map((ci) => ({
+          product: ci.product,
+          quantity: ci.quantity,
+        })),
+        ...upsell.items.map((product) => ({ product, quantity: 1 })),
+      ].map(({ product, quantity }) => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity,
+        image: product.image,
+        wixCatalogItemId: product.wixCatalogItemId,
       })),
-    [cartItems],
+    [cartItems, upsell.items],
   );
 
   const isPrepaid = paymentMethod === "PREPAID";
@@ -132,8 +153,31 @@ export default function CheckoutModal() {
         isPrepaid,
         appliedCouponCode: appliedCoupon || undefined,
         giftWrapFee,
+        bundleDiscount: upsell.discount,
       }),
-    [lines, isPrepaid, appliedCoupon, giftWrapFee],
+    [lines, isPrepaid, appliedCoupon, giftWrapFee, upsell.discount],
+  );
+
+  // Primary item = the highest-value thing in the cart. That's what the ritual
+  // is built around, so it's what the suggestions are matched against.
+  const primaryProduct = useMemo(
+    () =>
+      cartItems.reduce<Product | undefined>(
+        (best, ci) =>
+          !best || ci.product.price > best.price ? ci.product : best,
+        undefined,
+      ),
+    [cartItems],
+  );
+
+  const cartIds = useMemo(
+    () => cartItems.map((ci) => ci.product.id),
+    [cartItems],
+  );
+
+  const upsellSuggestions = useMemo(
+    () => pickUpsellProducts(primaryProduct, catalog, cartIds),
+    [primaryProduct, catalog, cartIds],
   );
 
   // Lock scroll (Lenis-aware) while open, and close on Escape.
@@ -150,13 +194,33 @@ export default function CheckoutModal() {
     };
   }, [open, onClose]);
 
+  // Catalogue for the upsell step. Fetched once the modal opens rather than at
+  // mount, so a shopper who never checks out never pays for the request.
+  useEffect(() => {
+    if (!open || catalog.length) return;
+    let cancelled = false;
+    fetch("/api/products")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: Product[]) => {
+        if (!cancelled && Array.isArray(list)) setCatalog(list);
+      })
+      // A failed catalogue load must never block checkout — the upsell step
+      // simply doesn't appear.
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, catalog.length]);
+
   const goToStep2 = () => {
     if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
       setError("Please enter a valid email address.");
       return;
     }
     setError("");
-    setStep(2);
+    // Nothing worth offering → don't stand a dead step between the shopper and
+    // the delivery form.
+    setStep(upsellSuggestions.length ? 2 : 3);
   };
 
   const validateDelivery = (): string => {
@@ -203,12 +267,15 @@ export default function CheckoutModal() {
       summary: {
         subtotal: String(totals.subtotal),
         shipping: "0",
-        discount: String(totals.couponDiscount + totals.prepaidDiscount),
+        discount: String(
+          totals.couponDiscount + totals.prepaidDiscount + totals.bundleDiscount,
+        ),
         giftWrap: giftWrapFee ? String(giftWrapFee) : undefined,
         total: String(totals.total),
       },
       amount: totals.total.toFixed(2),
       couponCode: appliedCoupon || undefined,
+      bundleDiscount: totals.bundleDiscount || undefined,
       giftWrap,
       giftNote: giftWrap ? giftNote.trim() || undefined : undefined,
       stateName,
@@ -280,6 +347,7 @@ export default function CheckoutModal() {
         summary: payload.summary,
         amount: payload.amount,
         couponCode: payload.couponCode,
+        bundleDiscount: payload.bundleDiscount,
         giftWrap: payload.giftWrap,
         giftNote: payload.giftNote,
       }),
@@ -315,6 +383,7 @@ export default function CheckoutModal() {
     setProcessing(false);
     setError("");
     setAppliedCoupon("");
+    setUpsell({ items: [], discount: 0 });
     if (WIX_ENABLED) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (wixClient as any).currentCart
@@ -454,7 +523,12 @@ export default function CheckoutModal() {
               Checkout
             </h2>
             <p className="mt-1 text-[0.65rem] uppercase tracking-[0.2em] text-midnight-navy/50">
-              Step {step} of 2 · {step === 1 ? "Contact" : "Delivery & Payment"}
+              Step {step} of 3 ·{" "}
+              {step === 1
+                ? "Contact"
+                : step === 2
+                  ? "Your Ritual"
+                  : "Delivery & Payment"}
             </p>
           </div>
           <button
@@ -503,6 +577,14 @@ export default function CheckoutModal() {
                 Continue
               </button>
             </div>
+          ) : step === 2 ? (
+            <SacredUpsellFlow
+              primary={primaryProduct}
+              catalog={catalog}
+              cartIds={cartIds}
+              onChange={setUpsell}
+              onContinue={() => setStep(3)}
+            />
           ) : (
             <div className="space-y-5">
               {/* Delivery details */}
@@ -608,6 +690,9 @@ export default function CheckoutModal() {
                 {totals.prepaidDiscount > 0 && (
                   <Row label="Online payment discount" value={`− ${formatPrice(totals.prepaidDiscount)}`} valueClass="text-champagne-gold font-semibold" />
                 )}
+                {totals.bundleDiscount > 0 && (
+                  <Row label="✦ Sacred Bundle" value={`− ${formatPrice(totals.bundleDiscount)}`} valueClass="text-champagne-gold font-semibold" />
+                )}
                 {totals.giftWrapFee > 0 && (
                   <Row label="Gift wrap & note" value={`+ ${formatPrice(totals.giftWrapFee)}`} />
                 )}
@@ -620,8 +705,8 @@ export default function CheckoutModal() {
           )}
         </div>
 
-        {/* Sticky footer CTA (step 2 only) */}
-        {step === 2 && (
+        {/* Sticky footer CTA (delivery step only) */}
+        {step === 3 && (
           <div className="border-t border-midnight-navy/15 bg-ivory/95 px-6 py-4 backdrop-blur">
             <button
               type="button"

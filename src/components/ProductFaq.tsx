@@ -29,7 +29,7 @@ export default function ProductFaq({ product }: { product: Product }) {
     {
       question: "What if it isn't the right fit?",
       answer:
-        "You're covered by our 30-day authentic returns. If the piece doesn't resonate, return it unused in its original packaging within 30 days for a refund or exchange.",
+        "We offer exchanges rather than returns. If the piece isn't the right fit, request an exchange within 48 hours of delivery — unused and in its original packaging — and we'll help you swap it.",
     },
   ];
 

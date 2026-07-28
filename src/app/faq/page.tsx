@@ -37,9 +37,9 @@ const faqs: FaqItem[] = [
       "Domestic orders arrive within 3–7 business days and international orders within 7–21 business days. You'll receive tracking as soon as your order ships. See our Shipping & Returns page for full details.",
   },
   {
-    question: "What is your return policy?",
+    question: "What is your exchange policy?",
     answer:
-      "We offer 30-day authentic returns. If your piece doesn't resonate, return it unused in its original packaging within 30 days for a refund or exchange.",
+      "We don't offer returns or refunds — we offer exchanges. If your piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging, and we'll help you swap it.",
   },
   {
     question: "Do you offer gift wrapping?",

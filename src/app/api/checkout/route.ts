@@ -38,6 +38,11 @@ type CheckoutAddressPayload = {
   razorpayAmount?: string;
 };
 
+// Ceiling on the client-supplied Sacred Bundle discount. The tier tops out at
+// 30% of three upsell pieces; at today's catalogue that is well under ₹2,000.
+// A generous cap still makes a tampered payload harmless.
+const BUNDLE_DISCOUNT_CAP = 5000;
+
 const normalizeText = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
 const getWixErrorMessage = (err: unknown) => {
@@ -136,6 +141,16 @@ export async function POST(req: Request) {
     const giftNote = normalizeText(body?.giftNote);
     const couponCode = normalizeText(body?.couponCode).toUpperCase();
 
+    // Sacred Bundle discount (₹). Not a Wix coupon — reconciled below as a
+    // GLOBAL custom discount, exactly like the prepaid −₹50. Clamped and
+    // re-rounded server-side: this arrives from the browser, so it is treated as
+    // a request, not as truth. BUNDLE_DISCOUNT_CAP is the ceiling any legitimate
+    // 30%-of-three-items tier can reach.
+    const bundleDiscount = Math.min(
+      BUNDLE_DISCOUNT_CAP,
+      Math.max(0, Math.round(Number(body?.bundleDiscount) || 0)),
+    );
+
     if (!email || !fullName || !phone || !addressLine1 || !city || !state || !postalCode) {
       return NextResponse.json(
         { error: "Missing checkout contact or shipping details." },
@@ -227,6 +242,9 @@ export async function POST(req: Request) {
           : []),
         ...(razorpayAmount ? [{ title: "Amount Paid", value: razorpayAmount }] : []),
         ...(couponCode ? [{ title: "Coupon", value: couponCode }] : []),
+        ...(bundleDiscount > 0
+          ? [{ title: "Sacred Bundle", value: `−₹${bundleDiscount}` }]
+          : []),
         ...(giftWrap ? [{ title: "Gift Wrap", value: "Yes (+₹149)" }] : []),
         ...(giftWrap && giftNote ? [{ title: "Gift Note", value: giftNote }] : []),
       ],
@@ -289,7 +307,10 @@ export async function POST(req: Request) {
     // them. Two things Wix doesn't know about are reconciled here:
     //   • gift wrap  — a real +₹149 charge (both COD and prepaid),
     //   • prepaid −₹50 — the flat online-payment discount (prepaid only; it's not
-    //     a Wix coupon).
+    //     a Wix coupon),
+    //   • Sacred Bundle — the checkout upsell tier (10/15/30% of the added
+    //     pieces). Also not a Wix coupon, so without this the shopper would be
+    //     billed the undiscounted total they were never quoted.
     // Best-effort: on any failure the original order stands. Never blocks the order.
     let finalTotal = wixOrderTotal;
     let committedOrder: Record<string, unknown> | null = null;
@@ -299,7 +320,7 @@ export async function POST(req: Request) {
     const prepaidDiscountAmount =
       paymentMethod === "PREPAID" && razorpayPaymentId ? PREPAID_DISCOUNT : 0;
 
-    if (giftWrapAmount > 0 || prepaidDiscountAmount > 0) {
+    if (giftWrapAmount > 0 || prepaidDiscountAmount > 0 || bundleDiscount > 0) {
       try {
         const draftRes = await wixClient.draftOrders.createDraftOrder({
           sourceOrderId: orderId,
@@ -327,15 +348,29 @@ export async function POST(req: Request) {
           });
         }
 
-        if (prepaidDiscountAmount > 0) {
+        if (prepaidDiscountAmount > 0 || bundleDiscount > 0) {
           await wixClient.draftOrders.createCustomDiscounts(draftId, {
             discounts: [
-              {
-                priceAmount: { amount: prepaidDiscountAmount.toFixed(2) },
-                discountType: "GLOBAL",
-                applyToDraftOrder: true,
-                description: "Online payment discount",
-              },
+              ...(prepaidDiscountAmount > 0
+                ? [
+                    {
+                      priceAmount: { amount: prepaidDiscountAmount.toFixed(2) },
+                      discountType: "GLOBAL" as const,
+                      applyToDraftOrder: true,
+                      description: "Online payment discount",
+                    },
+                  ]
+                : []),
+              ...(bundleDiscount > 0
+                ? [
+                    {
+                      priceAmount: { amount: bundleDiscount.toFixed(2) },
+                      discountType: "GLOBAL" as const,
+                      applyToDraftOrder: true,
+                      description: "Sacred Bundle discount",
+                    },
+                  ]
+                : []),
             ],
           });
         }
@@ -345,7 +380,7 @@ export async function POST(req: Request) {
             sendNotificationsToBuyer: false,
             sendNotificationsToBusiness: false,
           },
-          reason: "Gift wrap / online payment adjustment",
+          reason: "Gift wrap / online payment / Sacred Bundle adjustment",
         });
 
         committedOrder = commitRes?.orderAfterCommit || null;
@@ -354,7 +389,10 @@ export async function POST(req: Request) {
           | undefined;
         const fallbackTotal =
           Number.isFinite(wixOrderTotal)
-            ? wixOrderTotal + giftWrapAmount - prepaidDiscountAmount
+            ? wixOrderTotal +
+              giftWrapAmount -
+              prepaidDiscountAmount -
+              bundleDiscount
             : Number(razorpayAmount);
         finalTotal =
           committedTotal?.total?.amount != null

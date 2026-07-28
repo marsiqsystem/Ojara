@@ -53,7 +53,7 @@ const columns: FooterColumn[] = [
   {
     title: "Support",
     links: [
-      { label: "Shipping & Returns", href: "/shipping-returns" },
+      { label: "Shipping & Exchanges", href: "/shipping-returns" },
       { label: "FAQ", href: "/faq" },
       { label: "Contact", href: "/contact" },
     ],
