@@ -57,6 +57,6 @@ export const SITE_URL = (
 ).replace(/\/$/, "");
 
 export const SUPPORT_EMAIL =
-  process.env.SUPPORT_EMAIL || process.env.GMAIL_USER || "hello@ojara.in";
+  process.env.SUPPORT_EMAIL || process.env.GMAIL_USER || "ojara.jewel@gmail.com";
 
 export const BRAND_NAME = "OJARA";

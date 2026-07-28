@@ -5,7 +5,6 @@ import Image from "next/image";
 import { getProductById, type Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import AddToCartButton from "@/components/AddToCartButton";
-import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 
 type Intention = "Wealth" | "Protection" | "Vitality" | "Focus";
 
@@ -37,17 +36,18 @@ export default function EnergyQuiz({
   const [step, setStep] = useState(1);
   const [intention, setIntention] = useState<Intention | null>(null);
 
-  // Lock scroll + close on Escape while open.
+  // Close on Escape while open. The background is deliberately NOT locked: the
+  // owner wants scrolling over the dimmed area to move the page behind, while
+  // scrolling over the dialog box scrolls the box (see data-lenis-prevent +
+  // overscroll-contain on the box below).
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKeyDown);
-    lockScroll();
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      unlockScroll();
     };
   }, [open, onClose]);
 
@@ -66,28 +66,27 @@ export default function EnergyQuiz({
     : undefined;
 
   return (
-    // The OVERLAY is the scroll container: it fills the viewport and scrolls the
-    // whole dialog when the dialog is taller than the screen. This is what fixes
-    // the "can't scroll at all" lock — the modal no longer depends on its own
-    // inner box overflowing, and the background stays locked as intended.
-    // data-lenis-prevent stops the site's smooth-scroll from swallowing the wheel.
+    // The BOX is the scroll container: it caps at 85vh and scrolls its own
+    // content, with data-lenis-prevent so the site's smooth-scroll doesn't
+    // swallow the wheel and overscroll-contain so hitting the box's end doesn't
+    // bleed into the page. The overlay itself doesn't scroll or lock, so a wheel
+    // over the dimmed area falls through to Lenis and moves the page behind —
+    // exactly the "inside scrolls the box, outside scrolls the site" behaviour.
     <div
       aria-hidden={!open}
       onClick={onClose}
-      data-lenis-prevent
-      className={`fixed inset-0 z-[90] overflow-y-auto overscroll-contain bg-midnight-navy/70 backdrop-blur-md transition-opacity duration-500 ease-out ${
+      className={`fixed inset-0 z-[90] bg-midnight-navy/70 backdrop-blur-md transition-opacity duration-500 ease-out ${
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
-      {/* min-h-full centres the dialog when it fits, and lets it sit at the top
-          (with breathing room from the py padding) and scroll when it's taller. */}
       <div className="flex min-h-full items-center justify-center px-6 py-10">
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Find Your Bracelet quiz"
         onClick={(e) => e.stopPropagation()}
-        className={`relative w-full max-w-lg overflow-hidden rounded-3xl bg-ivory shadow-2xl transition-all duration-500 ease-out ${
+        data-lenis-prevent
+        className={`relative max-h-[85vh] w-full max-w-lg overflow-y-auto overflow-x-hidden overscroll-contain rounded-3xl bg-ivory shadow-2xl transition-all duration-500 ease-out ${
           open ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-95 opacity-0"
         }`}
       >

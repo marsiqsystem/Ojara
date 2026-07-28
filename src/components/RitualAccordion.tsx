@@ -29,8 +29,8 @@ export default function RitualAccordion({ product }: { product: Product }) {
     },
     {
       key: "shipping",
-      title: "Shipping & Returns",
-      body: "Free standard delivery on all PAN-India orders. Orders dispatch within 24-48 hours. Returns or replacements accepted within 30 days of delivery if the piece doesn't resonate.",
+      title: "Shipping & Exchanges",
+      body: "Free standard delivery on all PAN-India orders. Orders dispatch within 24-48 hours. We don't offer returns or refunds — we offer exchanges: if the piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging.",
     },
   ];
 

@@ -1,7 +1,10 @@
-// Manifestation Stories — UGC social proof styled as an editorial spread rather
-// than a review grid. Cinzel (font-heading) carries the quotes; Montserrat
-// (font-sans) grounds the names. Laid out as a CSS masonry via columns so the
-// quotes stagger like a magazine feature.
+import ScrollRail from "@/components/ScrollRail";
+
+// Manifestation Stories — UGC social proof. Cinzel (font-heading) carries the
+// quotes; Montserrat (font-sans) grounds the names. A horizontal swipe rail at
+// every size, matching the other rails on the page (Categories, The Collection,
+// Rituals) — the old build split into a mobile rail + a desktop CSS-columns
+// masonry, which scrolled inconsistently.
 interface Story {
   quote: string;
   name: string;
@@ -60,13 +63,14 @@ export default function ManifestationStories() {
           </h2>
         </div>
 
-        {/* Mobile: horizontal scroll rail (stacked, these six quotes were a very
-            long scroll). Desktop: staggered masonry via CSS columns. */}
-        <div className="mt-14 flex snap-x snap-mandatory gap-5 overflow-x-auto hide-scrollbar -mx-6 px-6 pb-2 sm:mx-0 sm:block sm:columns-2 sm:gap-6 sm:overflow-visible sm:px-0 lg:columns-3 sm:[&>*]:mb-6">
+        {/* One horizontal swipe rail at every size, aligned to the section
+            gutter, with the shared swipe indicator beneath. */}
+        <div className="mt-14">
+        <ScrollRail ariaLabel="Manifestation stories" className="items-stretch gap-5 pb-2 sm:gap-6">
           {stories.map((story) => (
             <figure
               key={story.name}
-              className="flex w-[78%] flex-shrink-0 snap-start flex-col break-inside-avoid rounded-2xl border border-champagne-gold/30 bg-sand/40 p-6 transition-all duration-500 ease-out hover:border-champagne-gold/50 hover:bg-sand/70 sm:w-auto sm:p-8"
+              className="flex w-[80%] shrink-0 snap-start flex-col rounded-2xl border border-champagne-gold/30 bg-sand/40 p-6 transition-all duration-500 ease-out hover:border-champagne-gold/50 hover:bg-sand/70 sm:w-[calc((100%-1.5rem)/2)] sm:p-8 lg:w-[calc((100%-2*1.5rem)/3)]"
             >
               <span
                 aria-hidden="true"
@@ -83,6 +87,7 @@ export default function ManifestationStories() {
               </figcaption>
             </figure>
           ))}
+        </ScrollRail>
         </div>
       </div>
     </section>

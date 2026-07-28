@@ -52,7 +52,7 @@ export default function EnergyGuideChat() {
           // Canned reply — the same words come back no matter what is typed. It used
           // to recommend a "Raw Pyrite Cluster", a product OJARA has never sold. Keep
           // it to what is true of every piece and hand the shopper somewhere real.
-          text: "Thank you for writing in. Every OJARA piece is a natural gemstone bracelet — Citrine for abundance, Black Tourmaline for protection, Carnelian for courage, Lapis Lazuli for clarity. Browse the collection, or write to us at hello@ojara.in and a guide will help you choose.",
+          text: "Thank you for writing in. Every OJARA piece is a natural gemstone bracelet — Citrine for abundance, Black Tourmaline for protection, Carnelian for courage, Lapis Lazuli for clarity. Browse the collection, or write to us at ojara.jewel@gmail.com and a guide will help you choose.",
         },
       ]);
       setIsTyping(false);

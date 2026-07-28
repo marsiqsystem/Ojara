@@ -40,7 +40,7 @@ export default function Hero() {
 
         <div className="mt-10 flex flex-col items-center gap-4 sm:mt-12 sm:flex-row sm:gap-5">
           <Link
-            href="#collection"
+            href="/collection"
             prefetch
             className="cursor-pointer inline-flex items-center justify-center rounded-full border border-champagne-gold bg-champagne-gold px-8 py-3.5 text-xs font-normal uppercase tracking-[0.25em] text-midnight-navy transition-all duration-150 ease-out hover:bg-transparent hover:text-champagne-gold active:scale-95 sm:px-10 sm:text-sm"
           >

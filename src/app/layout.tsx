@@ -12,6 +12,7 @@ import AuthDrawerMount from "@/components/AuthDrawerMount";
 import EnergyGuideChat from "@/components/EnergyGuideChat";
 import CookieBanner from "@/components/CookieBanner";
 import LenisProvider from "@/components/LenisProvider";
+import ScrollToTop from "@/components/ScrollToTop";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import GoogleTagManager, {
   GoogleTagManagerNoScript,
@@ -119,6 +120,7 @@ export default function RootLayout({
         {/* Every Wix-backed feature (auth, cart, checkout) reads the client from here */}
         <WixClientContextProvider>
           <LenisProvider>
+            <ScrollToTop />
             <AnnouncementBar />
             <Header />
             <main className="flex-1 bg-ivory">{children}</main>

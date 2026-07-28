@@ -42,6 +42,13 @@ export default function TermsPage() {
           ],
         },
         {
+          heading: "Returns & Exchanges",
+          body: [
+            "We do not offer returns or refunds. If your piece isn't the right fit, you may request an exchange within 48 hours of delivery, provided the item is unused and in its original packaging.",
+            "To start an exchange, email ojara.jewel@gmail.com with your order number and a photo within 48 hours of delivery. Requests made after 48 hours cannot be accepted. Damaged or incorrect items are handled separately — see our Shipping & Exchanges page.",
+          ],
+        },
+        {
           heading: "Intellectual Property",
           body: [
             "All content on this site — including text, imagery, logos, and design — is the property of OJARA and protected by applicable intellectual property laws. You may not reproduce or use it without our written permission.",

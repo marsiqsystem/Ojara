@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getCategories } from "@/lib/catalog";
+import ScrollRail from "@/components/ScrollRail";
 
 // Viora-style category strip — horizontal scrollable row with rounded images
 // and labels. Shows all 9 categories (4 intentions + 5 types) so the shopper
@@ -25,7 +26,7 @@ export default async function CategoryStrip() {
             </p>
           </div>
           <Link
-            href="/#collection"
+            href="/collection"
             prefetch
             className="hidden text-sm font-medium tracking-wide text-champagne-gold transition-colors duration-300 hover:text-midnight-navy sm:inline-flex"
           >
@@ -33,8 +34,14 @@ export default async function CategoryStrip() {
           </Link>
         </div>
 
-        {/* Scrollable category row */}
-        <div className="hide-scrollbar -mx-6 flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 sm:gap-6 lg:justify-between lg:gap-4">
+        {/* Category row. On desktop the handful of tiles spread across the full
+            width (justify-between) — the pre-existing look. Once more categories
+            are added and they stop fitting, the flex overflows and it becomes a
+            swipe rail with the indicator, same as it already is on mobile. */}
+        <ScrollRail
+          ariaLabel="Categories"
+          className="gap-5 sm:gap-6 lg:justify-between lg:gap-4"
+        >
           {categories.map((cat) => (
             <Link
               key={cat.slug}
@@ -73,7 +80,7 @@ export default async function CategoryStrip() {
               </span>
             </Link>
           ))}
-        </div>
+        </ScrollRail>
       </div>
     </section>
   );

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { scrollToTop } from "@/lib/scrollLock";
 import {
   useCartStore,
   selectTotalQuantity,
@@ -33,6 +35,7 @@ export default function Header() {
   const openAuth = useCartStore((state) => state.openAuth);
   const hydrated = useCartHydrated();
   const count = hydrated ? totalQuantity : 0;
+  const pathname = usePathname();
 
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -72,6 +75,14 @@ export default function Header() {
             <Link
               href="/"
               prefetch
+              onClick={(e) => {
+                // Already home: the route doesn't change, so tapping the logo
+                // would do nothing. Intercept and glide to the top instead.
+                if (pathname === "/") {
+                  e.preventDefault();
+                  scrollToTop(false);
+                }
+              }}
               className="flex items-center gap-2 sm:gap-3 group cursor-pointer transition-all duration-150 active:scale-95"
             >
               {/* Brand mark — client gem art (bg removed) — beside the wordmark.
