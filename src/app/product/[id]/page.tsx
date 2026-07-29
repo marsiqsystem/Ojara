@@ -12,6 +12,7 @@ import YouMayAlsoLike from "@/components/YouMayAlsoLike";
 import ProductGallery from "@/components/ProductGallery";
 import ShareButton from "@/components/ShareButton";
 import JsonLd from "@/components/seo/JsonLd";
+import ProductViewTracker from "@/components/analytics/ProductViewTracker";
 import { productSchema } from "@/lib/seo";
 import ProductCtas from "@/components/ProductCtas";
 import StickyAddToBag from "@/components/StickyAddToBag";
@@ -134,6 +135,8 @@ export default async function ProductDetailPage({
     <div className="bg-ivory">
       {/* Product structured data for search engines + AI shopping surfaces */}
       <JsonLd id="ld-product" data={productSchema(product)} />
+      {/* Fires the Meta Pixel ViewContent event for this product */}
+      <ProductViewTracker product={product} />
 
       {/* Breadcrumb trail + back control */}
       <nav
