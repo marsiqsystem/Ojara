@@ -1,13 +1,11 @@
 import Image from "next/image";
 import ScrollRail from "@/components/ScrollRail";
 
-const img = (id: string) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=800&q=80`;
-
 // Reel-style gallery: portrait 9:16 cards holding either a looping video or a
-// still. Videos are the intended format — swap a still's entry for
-// `{ type: "video", src: "/reels/xyz.mp4", poster: img(...), alt: "…" }` and it
-// plays inline, muted, looping, no other change needed.
+// still. Videos are the intended format — the entries below point at the
+// compressed clips in public/reels/. To add or swap one, drop a web-optimized
+// MP4 (+ poster JPG) in public/reels/ and add a { type: "video", src, poster,
+// alt } entry; it plays inline, muted, looping, no other change needed.
 //
 // Two layouts share one ReelCard so both stay in sync:
 //   • md+  : a 4-up grid that fills the row edge-to-edge (evenly spread, no
@@ -19,10 +17,10 @@ type Reel =
   | { type: "video"; src: string; poster: string; alt: string };
 
 const reels: Reel[] = [
-  { type: "image", src: img("photo-1658915294986-ecae46200c99"), alt: "A candle and healing crystals on a linen flatlay" },
-  { type: "image", src: img("photo-1618721025639-9affb7d96901"), alt: "Sacred smudge smoke rising in a cleansing ritual" },
-  { type: "image", src: img("photo-1652536160742-9f46c4a1a838"), alt: "A blue evil eye amulet against a pale wall" },
-  { type: "image", src: img("photo-1632980205460-e490e885e848"), alt: "A glowing raw amethyst crystal cluster" },
+  { type: "video", src: "/reels/reel-1.mp4", poster: "/reels/reel-1.jpg", alt: "OJARA gemstone bracelet ritual" },
+  { type: "video", src: "/reels/reel-2.mp4", poster: "/reels/reel-2.jpg", alt: "OJARA gemstone bracelet ritual" },
+  { type: "video", src: "/reels/reel-3.mp4", poster: "/reels/reel-3.jpg", alt: "OJARA gemstone bracelet ritual" },
+  { type: "video", src: "/reels/reel-4.mp4", poster: "/reels/reel-4.jpg", alt: "OJARA gemstone bracelet ritual" },
 ];
 
 function ReelCard({ reel, className = "" }: { reel: Reel; className?: string }) {
