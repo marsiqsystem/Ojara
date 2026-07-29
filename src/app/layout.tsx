@@ -17,6 +17,9 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import GoogleTagManager, {
   GoogleTagManagerNoScript,
 } from "@/components/analytics/GoogleTagManager";
+import MetaPixel, {
+  MetaPixelNoScript,
+} from "@/components/analytics/MetaPixel";
 import JsonLd from "@/components/seo/JsonLd";
 import {
   SITE_URL,
@@ -117,6 +120,9 @@ export default function RootLayout({
         {/* GTM noscript fallback — must be first in <body> per GTM's install guide */}
         <GoogleTagManagerNoScript />
         <GoogleTagManager />
+        {/* Meta (Facebook) Pixel — base install + PageView */}
+        <MetaPixelNoScript />
+        <MetaPixel />
         {/* Every Wix-backed feature (auth, cart, checkout) reads the client from here */}
         <WixClientContextProvider>
           <LenisProvider>
