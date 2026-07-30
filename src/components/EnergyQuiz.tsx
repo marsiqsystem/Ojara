@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { getProductById, type Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
+import { trackEvent } from "@/lib/analytics/capi";
 import AddToCartButton from "@/components/AddToCartButton";
 
 type Intention = "Wealth" | "Protection" | "Vitality" | "Focus";
@@ -59,6 +60,23 @@ export default function EnergyQuiz({
   const chooseIntention = (value: Intention) => {
     setIntention(value);
     setStep(2);
+    // Meta `Lead` — the shopper told us their intention and got a matched piece.
+    // A qualified interest signal, distinct from an actual add-to-cart/purchase.
+    const matched = getProductById(MATCHES[value]);
+    trackEvent("Lead", {
+      customData: {
+        content_name: `Find Your Bracelet — ${value}`,
+        content_category: value,
+        ...(matched
+          ? {
+              currency: "INR",
+              value: matched.price,
+              content_ids: [matched.id],
+              content_type: "product",
+            }
+          : {}),
+      },
+    });
   };
 
   const match: Product | undefined = intention

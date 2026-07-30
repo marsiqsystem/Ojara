@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useCartStore } from "@/lib/store/useCartStore";
@@ -37,6 +37,17 @@ type PaymentMethod = "PREPAID" | "COD";
 // a discount for a method nobody can choose would just be a broken promise.
 // ---------------------------------------------------------------------------
 const PREPAID_ENABLED = false;
+
+// ---------------------------------------------------------------------------
+// SACRED UPSELL ("Complete Your Chakra") KILL SWITCH — off while it's unfinished.
+//
+// The whole SacredUpsellFlow (checkout step 2) is hidden from shoppers while
+// false: checkout runs Contact -> Delivery & Payment with no bundle step, and
+// the step counter reads "of 2". Nothing was deleted — the component, pricing,
+// and the Wix bundled-order path all still typecheck. Flip to `true` to bring
+// the chakra bundle step back once it's complete and the Wix path is tested.
+// ---------------------------------------------------------------------------
+const UPSELL_ENABLED = false;
 
 // ISO 3166-2 subdivision codes — Wix requires the CODE, not free text.
 const IN_STATES: { code: string; name: string }[] = [
@@ -119,6 +130,12 @@ export default function CheckoutModal() {
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState("");
 
+  // Fire-once guards for the funnel-step Meta events, so re-rendering or stepping
+  // back and forth doesn't emit duplicate CompleteRegistration / AddPaymentInfo.
+  // Reset in completeOrder() so a second order in the same session tracks again.
+  const registrationTracked = useRef(false);
+  const paymentInfoTracked = useRef(false);
+
   const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
 
   // Normalised cart lines — the seam. Today from the local store; when the Wix
@@ -176,7 +193,8 @@ export default function CheckoutModal() {
   );
 
   const upsellSuggestions = useMemo(
-    () => pickUpsellProducts(primaryProduct, catalog, cartIds),
+    () =>
+      UPSELL_ENABLED ? pickUpsellProducts(primaryProduct, catalog, cartIds) : [],
     [primaryProduct, catalog, cartIds],
   );
 
@@ -197,7 +215,8 @@ export default function CheckoutModal() {
   // Catalogue for the upsell step. Fetched once the modal opens rather than at
   // mount, so a shopper who never checks out never pays for the request.
   useEffect(() => {
-    if (!open || catalog.length) return;
+    // No upsell step → no need to load the catalogue for suggestions.
+    if (!UPSELL_ENABLED || !open || catalog.length) return;
     let cancelled = false;
     fetch("/api/products")
       .then((r) => (r.ok ? r.json() : []))
@@ -212,15 +231,48 @@ export default function CheckoutModal() {
     };
   }, [open, catalog.length]);
 
+  // Entering the delivery & payment step — fire Meta AddPaymentInfo once. Both
+  // paths into step 3 (skip-upsell and the upsell's Continue) funnel through here.
+  const enterPaymentStep = () => {
+    if (!paymentInfoTracked.current) {
+      paymentInfoTracked.current = true;
+      trackEvent("AddPaymentInfo", {
+        customData: {
+          currency: "INR",
+          value: totals.total,
+          num_items: lines.reduce((n, l) => n + l.quantity, 0),
+          content_ids: lines.map((l) => l.id),
+          content_type: "product",
+        },
+        userData: {
+          email: email.trim() || undefined,
+        },
+      });
+    }
+    setStep(3);
+  };
+
   const goToStep2 = () => {
     if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
       setError("Please enter a valid email address.");
       return;
     }
     setError("");
+    // Meta CompleteRegistration — the shopper committed a valid email to checkout.
+    if (!registrationTracked.current) {
+      registrationTracked.current = true;
+      trackEvent("CompleteRegistration", {
+        customData: { currency: "INR", value: totals.total, status: true },
+        userData: { email: email.trim() || undefined },
+      });
+    }
     // Nothing worth offering → don't stand a dead step between the shopper and
     // the delivery form.
-    setStep(upsellSuggestions.length ? 2 : 3);
+    if (upsellSuggestions.length) {
+      setStep(2);
+    } else {
+      enterPaymentStep();
+    }
   };
 
   const validateDelivery = (): string => {
@@ -384,6 +436,9 @@ export default function CheckoutModal() {
     setError("");
     setAppliedCoupon("");
     setUpsell({ items: [], discount: 0 });
+    // Re-arm the funnel-step guards so a subsequent order tracks fresh.
+    registrationTracked.current = false;
+    paymentInfoTracked.current = false;
     if (WIX_ENABLED) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (wixClient as any).currentCart
@@ -523,7 +578,9 @@ export default function CheckoutModal() {
               Checkout
             </h2>
             <p className="mt-1 text-[0.65rem] uppercase tracking-[0.2em] text-midnight-navy/50">
-              Step {step} of 3 ·{" "}
+              {/* With the upsell disabled, step 3 is really the 2nd of 2 steps. */}
+              Step {UPSELL_ENABLED ? step : step === 3 ? 2 : step} of{" "}
+              {UPSELL_ENABLED ? 3 : 2} ·{" "}
               {step === 1
                 ? "Contact"
                 : step === 2
@@ -583,7 +640,7 @@ export default function CheckoutModal() {
               catalog={catalog}
               cartIds={cartIds}
               onChange={setUpsell}
-              onContinue={() => setStep(3)}
+              onContinue={enterPaymentStep}
             />
           ) : (
             <div className="space-y-5">

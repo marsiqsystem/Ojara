@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import { useCartStore } from "@/lib/store/useCartStore";
+import { trackEvent } from "@/lib/analytics/capi";
 
 /**
  * Mobile-only checkout bar, modelled on Viora's pinned product bar: a dark
@@ -23,6 +24,17 @@ export default function StickyAddToBag({ product }: { product: Product }) {
     if (!alreadyInCart) {
       addItem(product);
     }
+    // Buy Now goes straight to checkout → a real InitiateCheckout.
+    trackEvent("InitiateCheckout", {
+      customData: {
+        currency: "INR",
+        value: product.price,
+        num_items: 1,
+        content_ids: [product.id],
+        content_name: product.name,
+        content_type: "product",
+      },
+    });
     toast.success("✦ Item secured! Proceeding to checkout...", {
       description: product.name,
       style: { background: "#10b981", color: "#ffffff", border: "none" },

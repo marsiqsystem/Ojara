@@ -304,7 +304,23 @@ export default function CartDrawer() {
                 type="button"
                 role="switch"
                 aria-checked={giftWrap}
-                onClick={() => setGiftWrap(!giftWrap)}
+                onClick={() => {
+                  const next = !giftWrap;
+                  setGiftWrap(next);
+                  // Meta `CustomizeProduct` — opting into luxury gift wrap + note.
+                  // Only on enable, so toggling off doesn't emit a spurious event.
+                  if (next) {
+                    trackEvent("CustomizeProduct", {
+                      customData: {
+                        currency: "INR",
+                        value: GIFT_WRAP_FEE,
+                        content_name: "Luxury Gift Wrap & Note",
+                        content_ids: cartItems.map((i) => i.product.id),
+                        content_type: "product",
+                      },
+                    });
+                  }
+                }}
                 className="flex w-full cursor-pointer items-center justify-between gap-4 text-left transition-all duration-150 active:scale-[0.99]"
               >
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-midnight-navy/85">

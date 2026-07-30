@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
 import AddToCartButton from "@/components/AddToCartButton";
 import { useCartStore } from "@/lib/store/useCartStore";
+import { trackEvent } from "@/lib/analytics/capi";
 
 export default function ProductCtas({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);
@@ -41,6 +42,18 @@ export default function ProductCtas({ product }: { product: Product }) {
       addItem(product);
     }
     updateQuantity(product.id, qty);
+
+    // Buy Now jumps straight into checkout, so it's a genuine InitiateCheckout.
+    trackEvent("InitiateCheckout", {
+      customData: {
+        currency: "INR",
+        value: product.price * qty,
+        num_items: qty,
+        content_ids: [product.id],
+        content_name: product.name,
+        content_type: "product",
+      },
+    });
 
     toast.success("✦ Item secured! Proceeding to checkout...", {
       description: product.name,

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { HONEYPOT_FIELD } from "@/lib/apiGuard";
+import { trackEvent } from "@/lib/analytics/capi";
 
 const titles = ["Mr", "Ms", "Mrs", "Mx", "Dr"] as const;
 
@@ -40,6 +41,14 @@ export default function ContactForm() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Something went wrong.");
+      // Meta `Contact` — a support/enquiry message. Names hashed server-side by CAPI.
+      trackEvent("Contact", {
+        userData: {
+          email: email.trim() || undefined,
+          firstName: firstName.trim() || undefined,
+          lastName: lastName.trim() || undefined,
+        },
+      });
       setSubmitted(true);
       toast.success("✦ Message sent. We'll be in touch shortly.");
     } catch (err) {

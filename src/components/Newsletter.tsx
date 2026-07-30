@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { HONEYPOT_FIELD } from "@/lib/apiGuard";
+import { trackEvent } from "@/lib/analytics/capi";
 
 export default function Newsletter() {
   const [email, setEmail] = useState("");
@@ -22,6 +23,12 @@ export default function Newsletter() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Something went wrong.");
+      // Meta `Subscribe` — a newsletter opt-in. Pass the email so CAPI hashes it
+      // for match quality (the browser Pixel never sees it in plain text).
+      trackEvent("Subscribe", {
+        customData: { content_name: "Inner Circle Newsletter" },
+        userData: { email: email.trim() || undefined },
+      });
       setEmail("");
       setSubmitted(true);
       toast.success("✦ Welcome to the Inner Circle. Your journey begins.");

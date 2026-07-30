@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { formatPrice } from "@/lib/format";
+import { trackEvent } from "@/lib/analytics/capi";
 import type { Product } from "@/lib/catalog";
 
 // Trending searches deep-link to the most relevant piece, shown when the field
@@ -84,6 +85,26 @@ export default function SearchOverlay({
   }, [query, products]);
 
   const trimmed = query.trim();
+
+  // Fire the Meta `Search` event once the query settles (debounced 800ms) rather
+  // than on every keystroke, and only for queries of 2+ characters. Carries the
+  // ids of what matched so Meta can attribute searches to catalogue items.
+  useEffect(() => {
+    if (!open) return;
+    const q = trimmed;
+    if (q.length < 2) return;
+    const id = window.setTimeout(() => {
+      const hits = products.filter((p) => matches(p, q.toLowerCase()));
+      trackEvent("Search", {
+        customData: {
+          search_string: q,
+          content_ids: hits.slice(0, 6).map((p) => p.id),
+          content_type: "product",
+        },
+      });
+    }, 800);
+    return () => window.clearTimeout(id);
+  }, [open, trimmed, products]);
 
   return (
     <div
