@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import {
@@ -10,7 +10,8 @@ import {
 } from "@/lib/store/useCartStore";
 import { formatPrice } from "@/lib/format";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
-import { evaluateCoupon, PRIMARY_COUPON, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
+import { PRIMARY_COUPON, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
+import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import { trackEvent } from "@/lib/analytics/capi";
 
 export default function CartDrawer() {
@@ -35,18 +36,39 @@ export default function CartDrawer() {
   const setGiftNote = useCartStore((s) => s.setGiftNote);
   const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
 
-  // Coupon — validated against the pricing mirror, then stored so checkout + Wix
-  // pick it up. Wix stays authoritative at checkout; this is the preview.
+  // Coupon — validated LIVE against Wix's engine (with the local mirror as a
+  // fallback if Wix is unreachable). The applied code lives on the store so
+  // checkout + Wix pick it up; the ₹ amount is kept in sync by useLiveCoupon.
   const appliedCoupon = useCartStore((s) => s.appliedCoupon);
-  const setAppliedCoupon = useCartStore((s) => s.setAppliedCoupon);
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [promoError, setPromoError] = useState("");
 
-  const coupon = hydrated
-    ? evaluateCoupon(appliedCoupon, totalPrice)
-    : { discount: 0, error: "" };
-  const couponDiscount = appliedCoupon ? coupon.discount : 0;
+  // The priced lines the coupon applies to (cart contents only — no upsell here).
+  // Keyed off the raw store value + hydration flag so the memo deps stay stable.
+  const couponLines = useMemo<CouponLine[]>(
+    () =>
+      (hydrated ? cartItemsRaw : []).map((ci) => ({
+        id: ci.product.id,
+        name: ci.product.name,
+        price: ci.product.price,
+        quantity: ci.quantity,
+        wixCatalogItemId: ci.product.wixCatalogItemId,
+      })),
+    [hydrated, cartItemsRaw],
+  );
+
+  const {
+    discount: couponDiscount,
+    apply: applyCoupon,
+    remove: removeCoupon,
+  } = useLiveCoupon(couponLines, undefined, (reason) =>
+    toast(
+      reason === "empty" || reason === "no-priced-lines"
+        ? "Coupon removed — your bag changed."
+        : "That coupon is no longer valid for this order.",
+    ),
+  );
   const displayTotal = Math.max(0, totalPrice + giftWrapFee - couponDiscount);
 
   // Coupon unlock nudge — "Add ₹X more to save 10% with OJAS10". Flips to a
@@ -55,23 +77,22 @@ export default function CartDrawer() {
   const couponRemaining = Math.max(0, PRIMARY_COUPON.minimum - totalPrice);
   const couponUnlocked = totalPrice >= PRIMARY_COUPON.minimum;
 
-  const applyPromo = (e: React.FormEvent) => {
+  const applyPromo = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = promoCode.trim();
     if (!code) return;
-    const { discount, error } = evaluateCoupon(code, totalPrice);
-    if (discount > 0) {
-      setAppliedCoupon(code.toUpperCase());
+    const { ok, error } = await applyCoupon(code);
+    if (ok) {
       setPromoError("");
       setPromoCode("");
       toast.success("✦ Coupon applied.");
     } else {
-      setPromoError(error);
+      setPromoError(error || "That code isn’t valid.");
     }
   };
 
   const removePromo = () => {
-    setAppliedCoupon("");
+    removeCoupon();
     setPromoError("");
   };
 

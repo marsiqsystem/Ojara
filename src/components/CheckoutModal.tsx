@@ -9,10 +9,10 @@ import { useWixClient } from "@/hooks/useWixClient";
 import { formatPrice } from "@/lib/format";
 import {
   computeTotals,
-  evaluateCoupon,
   PREPAID_DISCOUNT,
   GIFT_WRAP_FEE,
 } from "@/lib/commerce/pricing";
+import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import { WIX_ENABLED, BRAND_NAME } from "@/lib/commerce/config";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { trackEvent } from "@/lib/analytics/capi";
@@ -162,17 +162,46 @@ export default function CheckoutModal() {
     [cartItems, upsell.items],
   );
 
+  // Live coupon — validated against Wix's engine (mirror fallback if unreachable).
+  // `couponDiscount` recomputes as the cart/upsell changes, so a % code stays
+  // correct on the final subtotal. `email` lets Wix enforce single-use-per-buyer.
+  const couponLines = useMemo<CouponLine[]>(
+    () =>
+      lines.map((l) => ({
+        id: l.id,
+        name: l.name,
+        price: l.price,
+        quantity: l.quantity,
+        wixCatalogItemId: l.wixCatalogItemId,
+      })),
+    [lines],
+  );
+  const {
+    discount: couponDiscount,
+    pending: couponPending,
+    apply: applyCouponLive,
+    remove: removeCouponLive,
+  } = useLiveCoupon(couponLines, email.trim() || undefined, (reason) =>
+    toast(
+      reason === "empty" || reason === "no-priced-lines"
+        ? "Coupon removed — your bag changed."
+        : "That coupon is no longer valid for this order.",
+    ),
+  );
+
   const isPrepaid = paymentMethod === "PREPAID";
   const totals = useMemo(
     () =>
       computeTotals({
         lines,
         isPrepaid,
-        appliedCouponCode: appliedCoupon || undefined,
+        // The hook already resolved the authoritative ₹ (Wix or mirror fallback);
+        // feed it straight in rather than letting computeTotals re-derive it.
+        wixReportedDiscount: couponDiscount,
         giftWrapFee,
         bundleDiscount: upsell.discount,
       }),
-    [lines, isPrepaid, appliedCoupon, giftWrapFee, upsell.discount],
+    [lines, isPrepaid, couponDiscount, giftWrapFee, upsell.discount],
   );
 
   // Primary item = the highest-value thing in the cart. That's what the ritual
@@ -287,20 +316,19 @@ export default function CheckoutModal() {
     return "";
   };
 
-  const handleApplyCoupon = () => {
-    const { discount, error: cErr } = evaluateCoupon(couponInput, totals.subtotal);
-    if (discount > 0) {
-      setAppliedCoupon(couponInput.trim().toUpperCase());
+  const handleApplyCoupon = async () => {
+    const { ok, error: cErr } = await applyCouponLive(couponInput);
+    if (ok) {
       setCouponError("");
       setCouponInput("");
       toast.success("✦ Coupon applied.");
     } else {
-      setCouponError(cErr);
+      setCouponError(cErr || "That code isn’t valid.");
     }
   };
 
   const handleRemoveCoupon = () => {
-    setAppliedCoupon("");
+    removeCouponLive();
     setCouponError("");
   };
 
@@ -768,14 +796,18 @@ export default function CheckoutModal() {
             <button
               type="button"
               onClick={handlePayment}
-              disabled={processing}
+              // Also blocked while a coupon is being (re)validated, so the amount
+              // shown and charged is never a stale pre-Wix number.
+              disabled={processing || couponPending}
               className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-champagne-gold px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] text-midnight-navy shadow-lg transition-all hover:bg-champagne-gold/85 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {processing
                 ? "Processing…"
-                : paymentMethod === "PREPAID"
-                  ? `Pay ${formatPrice(totals.total)} securely ⚡`
-                  : `Place order · ${formatPrice(totals.total)}`}
+                : couponPending
+                  ? "Checking coupon…"
+                  : paymentMethod === "PREPAID"
+                    ? `Pay ${formatPrice(totals.total)} securely ⚡`
+                    : `Place order · ${formatPrice(totals.total)}`}
             </button>
             <p className="mt-2 text-center text-[0.6rem] uppercase tracking-wider text-midnight-navy/50">
               🔒 Secure checkout · {isPrepaid ? "Razorpay encrypted" : "Pay on delivery"}

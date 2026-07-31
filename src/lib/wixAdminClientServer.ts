@@ -1,7 +1,13 @@
 import "server-only";
 
 import { ApiKeyStrategy, createClient } from "@wix/sdk";
-import { checkout, orders, orderTransactions, draftOrders } from "@wix/ecom";
+import {
+  checkout,
+  orders,
+  orderTransactions,
+  draftOrders,
+  totalsCalculator,
+} from "@wix/ecom";
 import { contacts, labels } from "@wix/crm";
 
 // Privileged client: can read and write ANYONE's data. The "server-only" import
@@ -20,7 +26,15 @@ export const wixAdminClientServer = () => {
   }
 
   return createClient({
-    modules: { checkout, orders, orderTransactions, draftOrders, contacts, labels },
+    modules: {
+      checkout,
+      orders,
+      orderTransactions,
+      draftOrders,
+      totalsCalculator,
+      contacts,
+      labels,
+    },
     auth: ApiKeyStrategy({
       apiKey,
       ...(siteId ? { siteId } : { accountId: accountId! }),

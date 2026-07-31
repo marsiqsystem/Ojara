@@ -8,9 +8,11 @@
 //   • prepaid −₹50    — flat online-payment discount. Client-side, STACKS on top
 //                       of any coupon, and is NOT a Wix coupon (Wix can't model a
 //                       stacking flat discount — §8 reconciles it on the order).
-//   • coupon          — validated by Wix's engine when live; the tiers below are a
-//                       MIRROR so the UI can show "add ₹X to unlock" and so the
-//                       Razorpay charge still lines up if Wix reports no amount.
+//   • coupon          — validated LIVE by Wix's engine via /api/coupon (the
+//                       useLiveCoupon hook). The tiers below are now a FALLBACK
+//                       only: they power the "add ₹X to unlock" nudge and keep the
+//                       two legacy codes working if Wix is ever unreachable. Codes
+//                       the owner creates in Wix work WITHOUT being added here.
 //   • display optics  — shipping ₹99 + processing ₹50 are SHOWN then struck off,
 //                       purely to make "FREE shipping / no fees" legible. They are
 //                       folded into `displaySubtotal` and must NEVER be sent to
@@ -18,9 +20,10 @@
 //   • total           — max(0, subtotal − couponDiscount − prepaidDiscount).
 //                       THIS is what Razorpay charges.
 //
-// ⚠️ DRIFT: if you change a coupon in the Wix dashboard, update the matching tier
-// here in the same commit, or the UI will promise a discount the backend won't
-// honour (or vice-versa).
+// NOTE: since coupons are now validated live against Wix (/api/coupon), you no
+// longer have to mirror every dashboard coupon here. Keep a tier only if you want
+// it to drive the cart "unlock" nudge, or as an offline fallback for a headline
+// code. Wix remains the authority on validity, expiry, minimums and per-buyer use.
 // ============================================================================
 
 /** Flat "pay online" discount. Stacks on any coupon. Not a Wix coupon. */
