@@ -40,6 +40,18 @@ export default function ProductCtas({ product }: { product: Product }) {
     const alreadyInCart = cartItems.some((item) => item.product.id === product.id);
     if (!alreadyInCart) {
       addItem(product);
+      // Buy Now still puts the item in the cart, so it's a genuine AddToCart —
+      // fire it (only when the item actually enters the cart) so the Meta funnel
+      // counts these, not just clicks on the standalone "Add to Cart" button.
+      trackEvent("AddToCart", {
+        customData: {
+          currency: "INR",
+          value: product.price * qty,
+          content_ids: [product.id],
+          content_name: product.name,
+          content_type: "product",
+        },
+      });
     }
     updateQuantity(product.id, qty);
 
