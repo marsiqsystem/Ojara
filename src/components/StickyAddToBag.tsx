@@ -6,6 +6,7 @@ import type { Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
+import { contentId, toContents } from "@/lib/analytics/content";
 
 /**
  * Mobile-only checkout bar, modelled on Viora's pinned product bar: a dark
@@ -30,23 +31,16 @@ export default function StickyAddToBag({ product }: { product: Product }) {
         customData: {
           currency: "INR",
           value: product.price,
-          content_ids: [product.id],
+          content_ids: [contentId(product)],
+          contents: toContents([product]),
+          num_items: 1,
           content_name: product.name,
           content_type: "product",
         },
       });
     }
-    // Buy Now goes straight to checkout → a real InitiateCheckout.
-    trackEvent("InitiateCheckout", {
-      customData: {
-        currency: "INR",
-        value: product.price,
-        num_items: 1,
-        content_ids: [product.id],
-        content_name: product.name,
-        content_type: "product",
-      },
-    });
+    // NOTE: InitiateCheckout is NOT fired here — CheckoutModal owns it (one IC
+    // per checkout opened, whichever button opened it).
     toast.success("✦ Item secured! Proceeding to checkout...", {
       description: product.name,
       style: { background: "#10b981", color: "#ffffff", border: "none" },

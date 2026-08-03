@@ -16,11 +16,18 @@
 // Everything here is fire-and-forget and wrapped so a tracking failure can never
 // break an actual user action (add to cart, checkout, etc.).
 
+import { getExternalId, getFbc, getFbp } from "@/lib/analytics/identity";
+
 export type TrackUserData = {
   email?: string;
   phone?: string;
   firstName?: string;
   lastName?: string;
+  // Address fields — worth sending on Purchase, where we actually have them.
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
 };
 
 export type TrackOptions = {
@@ -40,12 +47,44 @@ type TrackingWindow = Window & {
 const genEventId = () =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-// Read a cookie by name (used for Meta's _fbp / _fbc first-party cookies).
-const readCookie = (name: string): string | undefined => {
-  if (typeof document === "undefined") return undefined;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : undefined;
-};
+/**
+ * Run `fn` once `fbq` exists. The base snippet loads with `afterInteractive`, so
+ * an event fired from a mount effect (ViewContent, PageView) can beat it by a
+ * few hundred milliseconds on a cold load — those events used to be dropped on
+ * the floor. Once the stub exists it queues calls itself, so a short poll is all
+ * that's needed. Gives up after ~5s (pixel blocked, offline, etc.).
+ */
+export function whenFbqReady(fn: (fbq: (...args: unknown[]) => void) => void) {
+  if (typeof window === "undefined") return;
+  const w = window as TrackingWindow;
+  if (typeof w.fbq === "function") return fn(w.fbq);
+
+  let tries = 0;
+  const id = window.setInterval(() => {
+    if (typeof w.fbq === "function") {
+      window.clearInterval(id);
+      try {
+        fn(w.fbq);
+      } catch {
+        // ignore — never block the user action
+      }
+    } else if (++tries > 50) {
+      window.clearInterval(id);
+    }
+  }, 100);
+}
+
+/**
+ * Identifiers to hand to a server route that will send a CAPI event on our
+ * behalf (see /api/checkout's Purchase). Cookies and localStorage are
+ * browser-only, so the server cannot derive these itself.
+ */
+export const trackingContext = () => ({
+  externalId: getExternalId(),
+  fbp: getFbp(),
+  fbc: getFbc(),
+  eventSourceUrl: typeof window !== "undefined" ? window.location.href : undefined,
+});
 
 /**
  * Track a conversion event across GTM (client) and Meta CAPI (server).
@@ -66,9 +105,9 @@ export function trackEvent(
     // (capital ID) is the option key Meta reads to de-duplicate against CAPI.
     // All events we send (PageView, ViewContent, AddToCart, InitiateCheckout,
     // Purchase) are Meta standard events, so `track` (not `trackCustom`) is right.
-    if (typeof w.fbq === "function") {
-      w.fbq("track", eventName, options.customData || {}, { eventID: eventId });
-    }
+    whenFbqReady((fbq) =>
+      fbq("track", eventName, options.customData || {}, { eventID: eventId }),
+    );
   } catch {
     // ignore — never block the user action
   }
@@ -96,8 +135,11 @@ export function trackEvent(
       actionSource: "website",
       userData: {
         ...options.userData,
-        fbp: readCookie("_fbp"),
-        fbc: readCookie("_fbc"),
+        // Match-quality identifiers. `externalId` is present for practically
+        // every visitor, which is what makes anonymous browsing attributable.
+        externalId: getExternalId(),
+        fbp: getFbp(),
+        fbc: getFbc(),
       },
       customData: options.customData || {},
     };

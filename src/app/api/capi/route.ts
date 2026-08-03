@@ -1,113 +1,77 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { clientIp, isRateLimited, isSameOrigin } from "@/lib/apiGuard";
+import {
+  CAPI_ENABLED,
+  requestContext,
+  sendMetaEvent,
+  type MetaUserData,
+} from "@/lib/analytics/meta";
 
 // ============================================================================
-// Meta Conversions API (server-side pixel).
+// Meta Conversions API (server-side pixel) — browser-originated events.
 //
-// The access token NEVER touches the browser — the frontend calls this route
-// (see src/lib/analytics/capi.ts) and we forward a hashed, server-signed event
-// to Meta's Graph API. Pair each event with the browser Pixel (fired via GTM)
-// using the SAME event_id so Meta de-duplicates them.
+// The access token NEVER touches the browser: the frontend calls this route
+// (see src/lib/analytics/capi.ts) and lib/analytics/meta.ts forwards a hashed,
+// server-signed event to Meta's Graph API. Each event is paired with the
+// browser Pixel fire under the SAME event_id, so Meta de-duplicates them.
 //
 // Env (see .env): META_PIXEL_ID, META_CAPI_ACCESS_TOKEN, optional
 // META_TEST_EVENT_CODE (shows events in Meta's Test Events tab while wiring up).
 // If either required var is missing the route is a safe no-op, so the frontend
 // can call it in any environment without erroring.
+//
+// This route is public and hits a paid third-party API, so it carries the same
+// abuse protection as the mail routes — a scraper replaying it could otherwise
+// poison the pixel with fake conversions. The rate limit is far looser than the
+// forms' though: one genuine shopper legitimately fires a dozen-plus events.
 // ============================================================================
 
-const PIXEL_ID = process.env.META_PIXEL_ID;
-const ACCESS_TOKEN = process.env.META_CAPI_ACCESS_TOKEN;
-const TEST_EVENT_CODE = process.env.META_TEST_EVENT_CODE;
-const API_VERSION = "v21.0";
-
-// Meta wants user identifiers SHA-256 hashed, lower-cased and trimmed first.
-const sha256 = (value: string) =>
-  crypto.createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
-
-const hashed = (value?: string) =>
-  value && value.trim() ? [sha256(value)] : undefined;
+const RATE_LIMIT_MAX = 200;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
 type CapiRequestBody = {
   eventName?: string;
   eventId?: string;
   eventSourceUrl?: string;
   actionSource?: string;
-  userData?: {
-    email?: string;
-    phone?: string;
-    firstName?: string;
-    lastName?: string;
-    fbp?: string;
-    fbc?: string;
-  };
+  userData?: MetaUserData;
   // Non-PII: value, currency, content_ids, contents, num_items, etc.
   customData?: Record<string, unknown>;
 };
 
 export async function POST(req: Request) {
   // No keys yet → succeed silently so callers never see an error.
-  if (!PIXEL_ID || !ACCESS_TOKEN) {
+  if (!CAPI_ENABLED) {
+    return NextResponse.json({ ok: false, skipped: true }, { status: 200 });
+  }
+
+  // Only our own pages may send events. A browser fetch from the site always
+  // carries a matching Origin; curl/replay scripts generally do not.
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ ok: false, skipped: true }, { status: 200 });
+  }
+
+  if (isRateLimited(`capi:${clientIp(req)}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS)) {
     return NextResponse.json({ ok: false, skipped: true }, { status: 200 });
   }
 
   const body = (await req.json().catch(() => ({}))) as CapiRequestBody;
-  const { eventName, eventId, eventSourceUrl, actionSource, userData = {}, customData = {} } =
+  const { eventName, eventId, eventSourceUrl, actionSource, userData, customData } =
     body;
 
   if (!eventName) {
     return NextResponse.json({ error: "eventName is required." }, { status: 400 });
   }
 
-  const clientIp =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    undefined;
-  const userAgent = req.headers.get("user-agent") || undefined;
+  const result = await sendMetaEvent({
+    eventName,
+    eventId,
+    eventSourceUrl,
+    actionSource,
+    userData: { ...userData, ...requestContext(req) },
+    customData,
+  });
 
-  const user_data = {
-    em: hashed(userData.email),
-    ph: hashed(userData.phone?.replace(/\D/g, "")),
-    fn: hashed(userData.firstName),
-    ln: hashed(userData.lastName),
-    client_ip_address: clientIp,
-    client_user_agent: userAgent,
-    fbp: userData.fbp,
-    fbc: userData.fbc,
-  };
-
-  const payload = {
-    data: [
-      {
-        event_name: eventName,
-        event_time: Math.floor(Date.now() / 1000),
-        event_id: eventId,
-        event_source_url: eventSourceUrl,
-        action_source: actionSource || "website",
-        user_data,
-        custom_data: customData,
-      },
-    ],
-    ...(TEST_EVENT_CODE ? { test_event_code: TEST_EVENT_CODE } : {}),
-  };
-
-  try {
-    const res = await fetch(
-      `https://graph.facebook.com/${API_VERSION}/${PIXEL_ID}/events?access_token=${ACCESS_TOKEN}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-    );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      console.error("Meta CAPI rejected event:", eventName, data);
-      // 200 so a tracking failure never surfaces as a broken user action.
-      return NextResponse.json({ ok: false, error: data }, { status: 200 });
-    }
-    return NextResponse.json({ ok: true, data });
-  } catch (err) {
-    console.error("Meta CAPI request failed:", err);
-    return NextResponse.json({ ok: false, error: "request_failed" }, { status: 200 });
-  }
+  // Always 200: a tracking failure must never surface as a broken user action.
+  return NextResponse.json(result, { status: 200 });
 }

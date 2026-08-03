@@ -6,6 +6,7 @@ import type { Product } from "@/lib/mockData";
 import AddToCartButton from "@/components/AddToCartButton";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
+import { contentId, toContents } from "@/lib/analytics/content";
 
 export default function ProductCtas({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);
@@ -47,7 +48,9 @@ export default function ProductCtas({ product }: { product: Product }) {
         customData: {
           currency: "INR",
           value: product.price * qty,
-          content_ids: [product.id],
+          content_ids: [contentId(product)],
+          contents: toContents([{ ...product, quantity: qty }]),
+          num_items: qty,
           content_name: product.name,
           content_type: "product",
         },
@@ -55,17 +58,9 @@ export default function ProductCtas({ product }: { product: Product }) {
     }
     updateQuantity(product.id, qty);
 
-    // Buy Now jumps straight into checkout, so it's a genuine InitiateCheckout.
-    trackEvent("InitiateCheckout", {
-      customData: {
-        currency: "INR",
-        value: product.price * qty,
-        num_items: qty,
-        content_ids: [product.id],
-        content_name: product.name,
-        content_type: "product",
-      },
-    });
+    // NOTE: InitiateCheckout is NOT fired here. It has exactly one source —
+    // CheckoutModal, when the modal actually opens — so the Meta funnel counts
+    // one IC per checkout regardless of which button got the shopper there.
 
     toast.success("✦ Item secured! Proceeding to checkout...", {
       description: product.name,

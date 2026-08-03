@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
+import { contentId, toContents } from "@/lib/analytics/content";
 
 export default function AddToCartButton({
   product,
@@ -31,7 +32,9 @@ export default function AddToCartButton({
       customData: {
         currency: "INR",
         value: product.price,
-        content_ids: [product.id],
+        content_ids: [contentId(product)],
+        contents: toContents([product]),
+        num_items: 1,
         content_name: product.name,
         content_type: "product",
       },

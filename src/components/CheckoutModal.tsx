@@ -15,7 +15,8 @@ import {
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import { WIX_ENABLED, BRAND_NAME } from "@/lib/commerce/config";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
-import { trackEvent } from "@/lib/analytics/capi";
+import { trackEvent, trackingContext } from "@/lib/analytics/capi";
+import { contentIds, toContents } from "@/lib/analytics/content";
 import SacredUpsellFlow, {
   type SacredUpsellSelection,
 } from "@/components/SacredUpsellFlow";
@@ -131,9 +132,15 @@ export default function CheckoutModal() {
   const [couponError, setCouponError] = useState("");
 
   // Fire-once guards for the funnel-step Meta events, so re-rendering or stepping
-  // back and forth doesn't emit duplicate CompleteRegistration / AddPaymentInfo.
-  // Reset in completeOrder() so a second order in the same session tracks again.
-  const registrationTracked = useRef(false);
+  // back and forth doesn't emit duplicates. Reset in completeOrder() so a second
+  // order in the same session tracks again.
+  //
+  // CompleteRegistration used to fire here too, on a valid email. It was removed:
+  // OJARA has no registration, so it was a duplicate of InitiateCheckout under a
+  // misleading name, and it made four Meta events fire for one Buy Now click —
+  // which is why AddToCart, InitiateCheckout, AddPaymentInfo and
+  // CompleteRegistration all read exactly 6 in Events Manager.
+  const checkoutTracked = useRef(false);
   const paymentInfoTracked = useRef(false);
 
   const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
@@ -260,24 +267,40 @@ export default function CheckoutModal() {
     };
   }, [open, catalog.length]);
 
-  // Entering the delivery & payment step — fire Meta AddPaymentInfo once. Both
-  // paths into step 3 (skip-upsell and the upsell's Continue) funnel through here.
-  const enterPaymentStep = () => {
-    if (!paymentInfoTracked.current) {
-      paymentInfoTracked.current = true;
-      trackEvent("AddPaymentInfo", {
-        customData: {
-          currency: "INR",
-          value: totals.total,
-          num_items: lines.reduce((n, l) => n + l.quantity, 0),
-          content_ids: lines.map((l) => l.id),
-          content_type: "product",
-        },
-        userData: {
-          email: email.trim() || undefined,
-        },
-      });
+  // InitiateCheckout — fired once, here, the moment the checkout actually opens.
+  // Every entry point (cart drawer "Checkout", desktop Buy Now, mobile sticky Buy
+  // Now) routes through openCheckout(), so this is the single place that can see
+  // all of them, and it reads the real cart totals rather than one product's.
+  useEffect(() => {
+    if (!open) {
+      checkoutTracked.current = false;
+      return;
     }
+    if (checkoutTracked.current || !lines.length) return;
+    checkoutTracked.current = true;
+
+    trackEvent("InitiateCheckout", {
+      customData: {
+        currency: "INR",
+        value: totals.total,
+        num_items: lines.reduce((n, l) => n + l.quantity, 0),
+        content_ids: contentIds(lines),
+        contents: toContents(lines),
+        content_type: "product",
+      },
+    });
+    // `lines`/`totals` are read, not tracked: the guard above makes this fire at
+    // most once per open, and re-running as the cart changes is a no-op.
+  }, [open, lines, totals.total]);
+
+  // Entering the delivery & payment step. Both paths into step 3 (skip-upsell and
+  // the upsell's Continue) funnel through here.
+  //
+  // AddPaymentInfo is NOT fired here any more — merely landing on the form is the
+  // same shopper state InitiateCheckout already reports. It now fires from
+  // handlePayment(), once the delivery details validate and the order is actually
+  // submitted, which is a genuinely distinct funnel step.
+  const enterPaymentStep = () => {
     setStep(3);
   };
 
@@ -287,14 +310,6 @@ export default function CheckoutModal() {
       return;
     }
     setError("");
-    // Meta CompleteRegistration — the shopper committed a valid email to checkout.
-    if (!registrationTracked.current) {
-      registrationTracked.current = true;
-      trackEvent("CompleteRegistration", {
-        customData: { currency: "INR", value: totals.total, status: true },
-        userData: { email: email.trim() || undefined },
-      });
-    }
     // Nothing worth offering → don't stand a dead step between the shopper and
     // the delivery form.
     if (upsellSuggestions.length) {
@@ -430,6 +445,17 @@ export default function CheckoutModal() {
         bundleDiscount: payload.bundleDiscount,
         giftWrap: payload.giftWrap,
         giftNote: payload.giftNote,
+        // Lets the server fire its own Meta Purchase the moment the order
+        // exists, so an ad-blocked or closed browser still reports the
+        // conversion. It reuses event_id `purchase-<orderId>`, the same id the
+        // browser Purchase above uses, so Meta counts ONE conversion.
+        tracking: {
+          ...trackingContext(),
+          contentIds: contentIds(lines),
+          contents: toContents(lines),
+          numItems: lines.reduce((n, l) => n + l.quantity, 0),
+          value: totals.total,
+        },
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -441,20 +467,30 @@ export default function CheckoutModal() {
   const completeOrder = (orderId: string) => {
     // Fire Purchase BEFORE clearCart wipes the totals. eventId = orderId so the
     // browser Pixel (via GTM) and the server CAPI event de-duplicate.
+    const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
     trackEvent("Purchase", {
       eventId: `purchase-${orderId}`,
       customData: {
         currency: "INR",
         value: totals.total,
-        content_ids: lines.map((l) => l.id),
+        content_ids: contentIds(lines),
+        contents: toContents(lines),
         content_type: "product",
         num_items: lines.reduce((n, l) => n + l.quantity, 0),
         order_id: orderId,
       },
+      // Purchase is the one event where we hold the full customer record — send
+      // all of it. Every extra field raises Event Match Quality, and /api/capi
+      // hashes them before they leave our server.
       userData: {
         email: email.trim() || undefined,
         phone: mobile.replace(/\D/g, "") || undefined,
-        firstName: fullName.trim().split(/\s+/)[0] || undefined,
+        firstName: nameParts[0] || undefined,
+        lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined,
+        city: city.trim() || undefined,
+        state: stateCode || undefined,
+        zip: pincode.trim() || undefined,
+        country: "IN",
       },
     });
     clearCart();
@@ -465,7 +501,7 @@ export default function CheckoutModal() {
     setAppliedCoupon("");
     setUpsell({ items: [], discount: 0 });
     // Re-arm the funnel-step guards so a subsequent order tracks fresh.
-    registrationTracked.current = false;
+    checkoutTracked.current = false;
     paymentInfoTracked.current = false;
     if (WIX_ENABLED) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -563,6 +599,32 @@ export default function CheckoutModal() {
 
     setError("");
     setProcessing(true);
+
+    // AddPaymentInfo — the shopper has a complete, valid delivery address and has
+    // committed to a payment method. A real step, unlike "reached step 3".
+    if (!paymentInfoTracked.current) {
+      paymentInfoTracked.current = true;
+      trackEvent("AddPaymentInfo", {
+        customData: {
+          currency: "INR",
+          value: totals.total,
+          num_items: lines.reduce((n, l) => n + l.quantity, 0),
+          content_ids: contentIds(lines),
+          contents: toContents(lines),
+          content_type: "product",
+          payment_method: paymentMethod,
+        },
+        userData: {
+          email: email.trim() || undefined,
+          phone: mobile.replace(/\D/g, "") || undefined,
+          firstName: fullName.trim().split(/\s+/)[0] || undefined,
+          city: city.trim() || undefined,
+          state: stateCode || undefined,
+          zip: pincode.trim() || undefined,
+          country: "IN",
+        },
+      });
+    }
 
     try {
       if (paymentMethod === "PREPAID") {

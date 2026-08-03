@@ -5,6 +5,7 @@ import {
   sendOrderConfirmationEmail,
   type OrderEmailParams,
 } from "@/lib/orderEmail";
+import { CAPI_ENABLED, requestContext, sendMetaEvent } from "@/lib/analytics/meta";
 
 // ============================================================================
 // Checkout orchestrator (bundle §8) — the heart of the order flow.
@@ -42,6 +43,19 @@ type CheckoutAddressPayload = {
 // 30% of three upsell pieces; at today's catalogue that is well under ₹2,000.
 // A generous cap still makes a tampered payload harmless.
 const BUNDLE_DISCOUNT_CAP = 5000;
+
+// Browser-only identifiers the client hands us so the server-side Meta Purchase
+// can match as well as the browser one (see lib/analytics/capi.ts).
+type CheckoutTrackingPayload = {
+  externalId?: string;
+  fbp?: string;
+  fbc?: string;
+  eventSourceUrl?: string;
+  contentIds?: string[];
+  contents?: { id: string; quantity: number; item_price: number }[];
+  numItems?: number;
+  value?: number;
+};
 
 const normalizeText = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
@@ -160,6 +174,61 @@ export async function POST(req: Request) {
 
     const checkoutId = normalizeText(body?.checkoutId);
 
+    // ------------------------------------------------- Meta Purchase (server)
+    // The browser also fires Purchase, but ad blockers, a crashed tab or a
+    // shopper closing the page mid-redirect kill it — and Purchase is the one
+    // event the ad account is actually optimised against. This copy leaves from
+    // the server, where none of that applies.
+    //
+    // `event_id` is `purchase-<orderId>`, byte-identical to the browser's, which
+    // is how Meta collapses the two into ONE conversion rather than counting the
+    // order twice. Runs in `after()` so it can never slow down (or fail) the
+    // response the shopper is waiting on.
+    const tracking = (body?.tracking || {}) as CheckoutTrackingPayload;
+    const trackPurchase = (orderId: string, value: number) => {
+      if (!CAPI_ENABLED) return;
+      const nameParts = fullName.split(/\s+/).filter(Boolean);
+      after(async () => {
+        try {
+          await sendMetaEvent({
+            eventName: "Purchase",
+            eventId: `purchase-${orderId}`,
+            eventSourceUrl: tracking.eventSourceUrl,
+            userData: {
+              email,
+              phone,
+              firstName: nameParts[0] || undefined,
+              lastName:
+                nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined,
+              city,
+              state,
+              zip: postalCode,
+              country: "IN",
+              externalId: tracking.externalId,
+              fbp: tracking.fbp,
+              fbc: tracking.fbc,
+              ...requestContext(req),
+            },
+            customData: {
+              currency: "INR",
+              value,
+              content_type: "product",
+              order_id: orderId,
+              ...(tracking.contentIds?.length
+                ? { content_ids: tracking.contentIds }
+                : {}),
+              ...(tracking.contents?.length ? { contents: tracking.contents } : {}),
+              ...(tracking.numItems ? { num_items: tracking.numItems } : {}),
+            },
+          });
+        } catch (e) {
+          // The order is already placed — a tracking failure is not an order
+          // failure and must never be treated as one.
+          console.error("Server-side Meta Purchase failed (order is safe):", e);
+        }
+      });
+    };
+
     // ------------------------------------------------------------------ MOCK
     // No Wix admin key (or no checkoutId): synthesise the order and email from the
     // client-supplied cart. This is what runs pre-keys.
@@ -191,6 +260,8 @@ export async function POST(req: Request) {
         address: { line1: addressLine1, city, state, postalCode },
         phone,
       }).catch((e) => console.error("Mock order email failed:", e));
+
+      trackPurchase(orderId, Number(amount) || tracking.value || 0);
 
       return NextResponse.json({ orderId, orderNumber, mock: true });
     }
@@ -526,6 +597,17 @@ export async function POST(req: Request) {
     } catch (emailErr) {
       console.error("Order confirmation email step failed:", emailErr);
     }
+
+    // Prefer the total Wix actually settled on; fall back to what the browser
+    // quoted so a Purchase is never reported with value 0.
+    trackPurchase(
+      String(orderId),
+      Number.isFinite(finalTotal) && finalTotal > 0
+        ? finalTotal
+        : Number.isFinite(wixOrderTotal) && wixOrderTotal > 0
+          ? wixOrderTotal
+          : tracking.value || 0,
+    );
 
     return NextResponse.json({
       checkoutId,

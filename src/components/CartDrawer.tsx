@@ -99,15 +99,8 @@ export default function CartDrawer() {
   // Hand off to the real checkout modal (COD + Razorpay → Wix order + email).
   const handleCheckout = () => {
     if (cartItems.length === 0) return;
-    trackEvent("InitiateCheckout", {
-      customData: {
-        currency: "INR",
-        value: displayTotal,
-        num_items: cartItems.reduce((n, i) => n + i.quantity, 0),
-        content_ids: cartItems.map((i) => i.product.id),
-        content_type: "product",
-      },
-    });
+    // InitiateCheckout is fired by CheckoutModal when it opens — one IC per
+    // checkout, from one place, with the totals the modal itself computed.
     openCheckout();
   };
 

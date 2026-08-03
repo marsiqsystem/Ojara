@@ -20,6 +20,7 @@ import GoogleTagManager, {
 import MetaPixel, {
   MetaPixelNoScript,
 } from "@/components/analytics/MetaPixel";
+import PageViewTracker from "@/components/analytics/PageViewTracker";
 import JsonLd from "@/components/seo/JsonLd";
 import {
   SITE_URL,
@@ -120,9 +121,11 @@ export default function RootLayout({
         {/* GTM noscript fallback — must be first in <body> per GTM's install guide */}
         <GoogleTagManagerNoScript />
         <GoogleTagManager />
-        {/* Meta (Facebook) Pixel — base install + PageView */}
+        {/* Meta (Facebook) Pixel — base install, then PageView on every route
+            change (the base snippet only runs on hard loads). */}
         <MetaPixelNoScript />
         <MetaPixel />
+        <PageViewTracker />
         {/* Every Wix-backed feature (auth, cart, checkout) reads the client from here */}
         <WixClientContextProvider>
           <LenisProvider>

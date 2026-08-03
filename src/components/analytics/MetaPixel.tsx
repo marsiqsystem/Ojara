@@ -2,9 +2,12 @@ import Script from "next/script";
 
 // Meta (Facebook) Pixel base install.
 //
-// This fires the standard PageView on load. Additional events (ViewContent,
-// AddToCart, InitiateCheckout, Purchase) can be sent later with `fbq('track', …)`
-// from client components once conversions need tracking.
+// This ONLY initialises the pixel. It deliberately does NOT fire PageView: the
+// base snippet runs once per hard page load, so on an App Router site every
+// client-side navigation went untracked and PageView came out lower than
+// ViewContent. PageView is fired from PageViewTracker instead, which sees route
+// changes too. Other events (ViewContent, AddToCart, …) come from
+// lib/analytics/capi.ts.
 //
 // The pixel id defaults to NEXT_PUBLIC_META_PIXEL_ID and falls back to the
 // production id below so the tag ships even if the env var isn't set. Pass an
@@ -44,8 +47,7 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '${id}');
-fbq('track', 'PageView');`}
+fbq('init', '${id}');`}
     </Script>
   );
 }
