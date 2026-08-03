@@ -16,7 +16,7 @@ import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import { WIX_ENABLED, BRAND_NAME } from "@/lib/commerce/config";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { trackEvent, trackingContext } from "@/lib/analytics/capi";
-import { contentIds, toContents } from "@/lib/analytics/content";
+import { contentIds, toContents, toGa4Items } from "@/lib/analytics/content";
 import SacredUpsellFlow, {
   type SacredUpsellSelection,
 } from "@/components/SacredUpsellFlow";
@@ -288,6 +288,7 @@ export default function CheckoutModal() {
         contents: toContents(lines),
         content_type: "product",
       },
+      items: toGa4Items(lines),
     });
     // `lines`/`totals` are read, not tracked: the guard above makes this fire at
     // most once per open, and re-running as the cart changes is a no-op.
@@ -492,6 +493,8 @@ export default function CheckoutModal() {
         zip: pincode.trim() || undefined,
         country: "IN",
       },
+      // GA4 `purchase` — `order_id` above becomes its `transaction_id`.
+      items: toGa4Items(lines),
     });
     clearCart();
     // Reset for next time (handler, not an effect — React Compiler safe).

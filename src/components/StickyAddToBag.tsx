@@ -6,7 +6,7 @@ import type { Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
-import { contentId, toContents } from "@/lib/analytics/content";
+import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
 
 /**
  * Mobile-only checkout bar, modelled on Viora's pinned product bar: a dark
@@ -37,6 +37,7 @@ export default function StickyAddToBag({ product }: { product: Product }) {
           content_name: product.name,
           content_type: "product",
         },
+        items: toGa4Items([product]),
       });
     }
     // NOTE: InitiateCheckout is NOT fired here — CheckoutModal owns it (one IC

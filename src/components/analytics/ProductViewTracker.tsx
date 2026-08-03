@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Product } from "@/lib/mockData";
 import { trackEvent } from "@/lib/analytics/capi";
-import { contentId, toContents } from "@/lib/analytics/content";
+import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
 
 /**
  * Fires the Meta standard `ViewContent` event once when a product page mounts.
@@ -38,6 +38,7 @@ export default function ProductViewTracker({ product }: { product: Product }) {
         content_name: name,
         content_type: "product",
       },
+      items: toGa4Items([item]),
     });
   }, [id, price, name, wixCatalogItemId]);
 

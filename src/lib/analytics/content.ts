@@ -34,3 +34,26 @@ export const toContents = (lines: ContentLine[]) =>
     quantity: l.quantity ?? 1,
     item_price: l.price,
   }));
+
+/** GA4's `ecommerce.items` entry — a different shape from Meta's `contents`. */
+export type Ga4Item = {
+  item_id: string;
+  item_name: string;
+  price: number;
+  quantity: number;
+};
+
+/**
+ * GA4 wants `items: [{ item_id, item_name, price, quantity }]` — same facts as
+ * Meta's `contents`, different key names, plus the product name. Built from the
+ * same call-site data so the two platforms can never disagree about an order.
+ */
+export const toGa4Items = (
+  lines: (ContentLine & { name: string })[],
+): Ga4Item[] =>
+  lines.map((l) => ({
+    item_id: contentId(l),
+    item_name: l.name,
+    price: l.price,
+    quantity: l.quantity ?? 1,
+  }));

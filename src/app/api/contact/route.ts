@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import nodemailer from "nodemailer";
 import { isValidEmail } from "@/lib/validateEmail";
 import {
@@ -10,7 +10,11 @@ import {
 import { SUPPORT_EMAIL, BRAND_NAME } from "@/lib/commerce/config";
 import { brandMarkHtml, logoAttachments } from "@/lib/emailBrand";
 
-// Contact / enquiry form → emails our support inbox, replyTo the customer. (§11)
+import { upsertWixContact } from "@/lib/wixContacts";
+
+// Contact / enquiry form → emails our support inbox, replyTo the customer (§11),
+// and files the enquirer in Wix CRM under "Website Enquiry" so the dashboard's
+// "Form submissions" stat reflects reality and the lead isn't trapped in a inbox.
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -101,6 +105,20 @@ export async function POST(req: Request) {
         </div>
       `,
       attachments: logoAttachments(),
+    });
+
+    // CRM contact AFTER the response — the enquiry is already safely in the
+    // support inbox, so a Wix failure must not read as a failed submission.
+    after(async () => {
+      const result = await upsertWixContact({
+        email: String(email),
+        firstName: String(firstName).trim(),
+        lastName: String(lastName).trim(),
+        source: "contact-form",
+      });
+      if (!result.ok && !result.skipped) {
+        console.error("Contact form: Wix contact not created for", email);
+      }
     });
 
     return NextResponse.json({ ok: true });

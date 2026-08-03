@@ -10,6 +10,13 @@
 //   3. POSTs the same event to /api/capi so the server-side Meta Conversions API
 //      fires it too — better match quality and resilient to ad-blockers.
 //
+// It then pushes a FOURTH thing that is not about Meta at all: a GA4-shaped
+// ecommerce event. GA4 records 3.5K users but zero key events, because the only
+// dataLayer pushes it ever saw were Meta-shaped (`event: "ViewContent"`, flat
+// params) and GA4 speaks `event: "view_item"` with a nested `ecommerce` object.
+// The two pushes are emitted side by side rather than one being converted into
+// the other, so the Meta path is byte-for-byte what it always was.
+//
 // The browser Pixel uses `eventID` and CAPI uses `event_id`; both carry the same
 // value, which is how Meta collapses the duplicates into one conversion.
 //
@@ -17,6 +24,7 @@
 // break an actual user action (add to cart, checkout, etc.).
 
 import { getExternalId, getFbc, getFbp } from "@/lib/analytics/identity";
+import type { Ga4Item } from "@/lib/analytics/content";
 
 export type TrackUserData = {
   email?: string;
@@ -36,6 +44,22 @@ export type TrackOptions = {
   userData?: TrackUserData;
   /** Provide to force a specific id; otherwise one is generated. */
   eventId?: string;
+  /**
+   * Line items for the GA4 `ecommerce` push. Omit and no GA4 event is emitted —
+   * GA4 ecommerce reports are useless without items, so a half-populated event
+   * is worse than none.
+   */
+  items?: Ga4Item[];
+};
+
+// Meta event name → GA4 event name. Only the four commerce events the plan puts
+// tags behind in GTM are mapped: emitting GA4 events nothing listens for would
+// just be noise in the dataLayer.
+const GA4_EVENT_NAMES: Record<string, string> = {
+  ViewContent: "view_item",
+  AddToCart: "add_to_cart",
+  InitiateCheckout: "begin_checkout",
+  Purchase: "purchase",
 };
 
 type TrackingWindow = Window & {
@@ -121,6 +145,34 @@ export function trackEvent(
       eventId,
       ...options.customData,
     });
+  } catch {
+    // ignore — never block the user action
+  }
+
+  try {
+    // 2b. GA4 ecommerce. A SEPARATE push in GA4's own vocabulary, so GA4 finally
+    // sees commerce instead of bare pageviews. Nothing consumes it until the
+    // matching GTM triggers + tags exist, and it cannot disturb the Meta push
+    // above, which is emitted unchanged either way.
+    const ga4Event = GA4_EVENT_NAMES[eventName];
+    if (ga4Event && options.items?.length) {
+      const custom = options.customData || {};
+      w.dataLayer = w.dataLayer || [];
+      // GA4's documented reset: without it, `items` from the previous ecommerce
+      // event leak into this one, because dataLayer merges rather than replaces.
+      w.dataLayer.push({ ecommerce: null });
+      w.dataLayer.push({
+        event: ga4Event,
+        ecommerce: {
+          currency: (custom.currency as string) || "INR",
+          value: custom.value,
+          // GA4 de-duplicates purchases on transaction_id, exactly as Meta does
+          // on event_id — so a refresh of the success page can't double-count.
+          ...(custom.order_id ? { transaction_id: custom.order_id } : {}),
+          items: options.items,
+        },
+      });
+    }
   } catch {
     // ignore — never block the user action
   }

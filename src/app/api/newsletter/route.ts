@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import nodemailer from "nodemailer";
 import { isValidEmail, normalizeEmail } from "@/lib/validateEmail";
 import {
@@ -10,10 +10,13 @@ import {
 import { SUPPORT_EMAIL, BRAND_NAME } from "@/lib/commerce/config";
 import { brandMarkHtml, logoAttachments } from "@/lib/emailBrand";
 
+import { upsertWixContact } from "@/lib/wixContacts";
+
 // Newsletter sign-up. Net-new (not in the Viora bundle) but built on the same
 // abuse-guard + nodemailer foundation as the contact route: notifies our support
-// inbox so the list can be maintained. When Wix is live this is where a Wix CRM
-// contact-create call would additionally slot in (Phase 2).
+// inbox so the list can be maintained, AND creates a real Wix CRM contact
+// labelled "Inner Circle" — without which the Wix dashboard's "New email
+// subscribers" stat stays permanently 0 and there is no list to actually mail.
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -69,6 +72,17 @@ export async function POST(req: Request) {
         </div>
       </div>`,
       attachments: logoAttachments(),
+    });
+
+    // CRM contact AFTER the response: the subscriber is already captured in the
+    // notification email, so a Wix outage must not make a successful sign-up
+    // look broken to the visitor. `after` (not a floating promise) keeps the
+    // work alive past the response on serverless.
+    after(async () => {
+      const result = await upsertWixContact({ email, source: "newsletter" });
+      if (!result.ok && !result.skipped) {
+        console.error("Newsletter: Wix contact not created for", email);
+      }
     });
 
     return NextResponse.json({ ok: true });

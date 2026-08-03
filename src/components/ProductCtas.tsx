@@ -6,7 +6,7 @@ import type { Product } from "@/lib/mockData";
 import AddToCartButton from "@/components/AddToCartButton";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
-import { contentId, toContents } from "@/lib/analytics/content";
+import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
 
 export default function ProductCtas({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);
@@ -54,6 +54,7 @@ export default function ProductCtas({ product }: { product: Product }) {
           content_name: product.name,
           content_type: "product",
         },
+        items: toGa4Items([{ ...product, quantity: qty }]),
       });
     }
     updateQuantity(product.id, qty);
