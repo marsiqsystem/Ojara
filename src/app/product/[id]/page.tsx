@@ -13,7 +13,7 @@ import ProductGallery from "@/components/ProductGallery";
 import ShareButton from "@/components/ShareButton";
 import JsonLd from "@/components/seo/JsonLd";
 import ProductViewTracker from "@/components/analytics/ProductViewTracker";
-import { productSchema } from "@/lib/seo";
+import { productSchema, breadcrumbSchema } from "@/lib/seo";
 import ProductCtas from "@/components/ProductCtas";
 import StickyAddToBag from "@/components/StickyAddToBag";
 import BackButton from "@/components/BackButton";
@@ -131,10 +131,21 @@ export default async function ProductDetailPage({
   // Breadcrumb up into the category this piece was most likely found through.
   const primaryCategory = await getCategoryBySlug(product.intentions[0]);
 
+  // Structured breadcrumb mirroring the visible trail below (Home / Shop / …).
+  const breadcrumbCrumbs = [
+    { name: "Home", url: "/" },
+    { name: "Shop", url: "/#collection" },
+    ...(primaryCategory
+      ? [{ name: primaryCategory.label, url: `/category/${primaryCategory.slug}` }]
+      : []),
+    { name: product.name, url: `/product/${id}` },
+  ];
+
   return (
     <div className="bg-ivory">
       {/* Product structured data for search engines + AI shopping surfaces */}
       <JsonLd id="ld-product" data={productSchema(product)} />
+      <JsonLd id="ld-breadcrumb" data={breadcrumbSchema(breadcrumbCrumbs)} />
       {/* Fires the Meta Pixel ViewContent event for this product */}
       <ProductViewTracker product={product} />
 

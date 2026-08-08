@@ -10,25 +10,19 @@ import CartDrawer from "@/components/CartDrawer";
 import CheckoutModal from "@/components/CheckoutModal";
 import AuthDrawerMount from "@/components/AuthDrawerMount";
 import EnergyGuideChat from "@/components/EnergyGuideChat";
-import CookieBanner from "@/components/CookieBanner";
+import ConsentManager from "@/components/ConsentManager";
 import LenisProvider from "@/components/LenisProvider";
 import ScrollToTop from "@/components/ScrollToTop";
 import MobileBottomNav from "@/components/MobileBottomNav";
-import GoogleTagManager, {
-  GoogleTagManagerNoScript,
-} from "@/components/analytics/GoogleTagManager";
-import MetaPixel, {
-  MetaPixelNoScript,
-} from "@/components/analytics/MetaPixel";
-import PageViewTracker from "@/components/analytics/PageViewTracker";
+import { GoogleTagManagerNoScript } from "@/components/analytics/GoogleTagManager";
+import { MetaPixelNoScript } from "@/components/analytics/MetaPixel";
 import JsonLd from "@/components/seo/JsonLd";
 import {
   SITE_URL,
   SITE_NAME,
   SITE_DESCRIPTION,
   DEFAULT_OG_IMAGE,
-  organizationSchema,
-  websiteSchema,
+  siteGraph,
 } from "@/lib/seo";
 
 const cinzel = Cinzel({
@@ -75,8 +69,10 @@ export const metadata: Metadata = {
     "lapis lazuli bracelet",
     "healing crystals India",
   ],
-  // Home page canonical; every other route sets its own (Module 6).
-  alternates: { canonical: "/" },
+  // NO canonical here. A root `canonical:"/"` is inherited by every child route
+  // that doesn't override it and de-indexes the whole site (a bug we hit on the
+  // sibling build). Each page — including the homepage (src/app/page.tsx) — sets
+  // its OWN self-canonical instead.
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
@@ -113,19 +109,19 @@ export default function RootLayout({
       className={`${cinzel.variable} ${montserrat.variable} h-full antialiased`}
     >
       <head>
-        {/* Site-wide structured data for search engines + AI crawlers. */}
-        <JsonLd id="ld-organization" data={organizationSchema()} />
-        <JsonLd id="ld-website" data={websiteSchema()} />
+        {/* Site-wide structured data for search engines + AI crawlers —
+            Organization + WebSite in one cross-linked @graph. */}
+        <JsonLd id="ld-graph" data={siteGraph()} />
       </head>
       <body className="min-h-full flex flex-col">
         {/* GTM noscript fallback — must be first in <body> per GTM's install guide */}
         <GoogleTagManagerNoScript />
-        <GoogleTagManager />
-        {/* Meta (Facebook) Pixel — base install, then PageView on every route
-            change (the base snippet only runs on hard loads). */}
         <MetaPixelNoScript />
-        <MetaPixel />
-        <PageViewTracker />
+        {/* Consent-gated trackers: mounts the GTM container (GA4 + Clarity), the
+            Meta Pixel, and the route-change PageViewTracker unless the visitor has
+            declined. Opt-out model — see ConsentManager. Replaces the old always-on
+            CookieBanner while preserving the Meta PageView funnel fix. */}
+        <ConsentManager />
         {/* Every Wix-backed feature (auth, cart, checkout) reads the client from here */}
         <WixClientContextProvider>
           <LenisProvider>
@@ -139,7 +135,6 @@ export default function RootLayout({
             {/* Mounted once here — never per-header/nav (see AuthDrawerMount). */}
             <AuthDrawerMount />
             <EnergyGuideChat />
-            <CookieBanner />
             <MobileBottomNav />
             <Toaster
               position="top-center"

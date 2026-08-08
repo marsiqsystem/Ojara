@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { SUPPORT_EMAIL } from "@/lib/commerce/config";
 import BackButton from "@/components/BackButton";
 import FaqAccordion, { type FaqItem } from "@/components/FaqAccordion";
+import JsonLd from "@/components/seo/JsonLd";
+import { faqSchema } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -51,6 +53,9 @@ const faqs: FaqItem[] = [
 export default function FaqPage() {
   return (
     <div className="bg-ivory">
+      {/* FAQPage structured data — the Q&As below are the visible source, so the
+          schema and the page content always match (Google requires this). */}
+      <JsonLd id="ld-faq" data={faqSchema(faqs)} />
       <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
         <BackButton fallbackHref="/" />
 
