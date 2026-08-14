@@ -54,10 +54,7 @@ export interface CouponTier {
 // this mirror only drives the "add ₹X to unlock" nudge + the pre-apply preview.
 //
 // OJAS10   — created in Wix on 2026-07-18: 10% off, minimum order subtotal ₹1499.
-// AKSHAT30 — created in Wix on 2026-07-27: 30% off, all products, no minimum,
-//            valid Jul 27 – Aug 10 2026. Wix enforces the date window; this mirror
-//            does not, so it may preview the discount after Aug 10 (Wix will then
-//            reject it at apply-time). Remove this tier once the code expires.
+// (AKSHAT30 — a Jul 27–Aug 10 2026 30%-off code — was removed after it expired.)
 export const COUPON_TIERS: CouponTier[] = [
   {
     code: "OJAS10",
@@ -65,13 +62,6 @@ export const COUPON_TIERS: CouponTier[] = [
     minimum: 1499,
     value: 0.1,
     label: "10% off orders over ₹1499",
-  },
-  {
-    code: "AKSHAT30",
-    type: "PERCENT",
-    minimum: 0,
-    value: 0.3,
-    label: "30% off any order",
   },
 ];
 

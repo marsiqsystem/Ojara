@@ -4,38 +4,45 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
 import AddToCartButton from "@/components/AddToCartButton";
+import BuyNowConfirmModal, {
+  type AbandonedCartItem,
+} from "@/components/BuyNowConfirmModal";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
 import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
 
 export default function ProductCtas({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);
+  const removeItem = useCartStore((state) => state.removeItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
-  const openCart = useCartStore((state) => state.openCart);
   const openCheckout = useCartStore((state) => state.openCheckout);
   const cartItems = useCartStore((state) => state.cartItems);
   const isOutOfStock = product.stockCount === 0;
 
   const [qty, setQty] = useState(1);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [abandonedItems, setAbandonedItems] = useState<AbandonedCartItem[]>([]);
   // Cap the selector at what's on hand, never below 1. Stock is managed in Wix;
   // when Wix marks an item out of stock, stockCount arrives as 0 and the
   // out-of-stock branch below takes over.
   const maxQty = Math.max(1, product.stockCount || 1);
 
-  const handleBuyNow = () => {
-    // Check if there are other items in the cart
-    const hasOtherItems = cartItems.some((item) => item.product.id !== product.id);
+  // The cart lines that are a DIFFERENT product than the one being bought now.
+  // These are the "abandoned" items the shopper must decide about.
+  const collectAbandonedItems = (): AbandonedCartItem[] =>
+    cartItems
+      .filter((item) => item.product.id !== product.id)
+      .map((item) => ({
+        id: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        quantity: item.quantity,
+        image: item.product.image,
+      }));
 
-    if (hasOtherItems) {
-      const proceed = window.confirm(
-        "✦ You already have items in your cart from a previous session.\n\nClick 'OK' to combine them and proceed to checkout, or 'Cancel' to review your cart."
-      );
-      if (!proceed) {
-        openCart(); // Show the cart drawer
-        return;
-      }
-    }
-
+  // The actual buy-now: add the current item (if new), set its quantity, and
+  // open checkout. Unchanged behaviour — the modal only gates *when* this runs.
+  const runBuyNow = () => {
     // Add the current item to the cart if not already present, then set the
     // chosen quantity (addItem only ever bumps by one).
     const alreadyInCart = cartItems.some((item) => item.product.id === product.id);
@@ -73,6 +80,28 @@ export default function ProductCtas({ product }: { product: Product }) {
     });
 
     openCheckout(); // Open checkout directly
+  };
+
+  const handleBuyNow = () => {
+    // If other products are sitting in the cart, ask before dragging them into
+    // this order (they'd otherwise be charged too). Otherwise buy straight away.
+    const others = collectAbandonedItems();
+    if (others.length > 0) {
+      setAbandonedItems(others);
+      setConfirmOpen(true);
+      return;
+    }
+    runBuyNow();
+  };
+
+  const handleConfirmDecision = (decision: "yes" | "no") => {
+    // "no" → drop the other products from the cart so only this item is charged.
+    // "yes" → keep them; runBuyNow just adds the current item alongside.
+    if (decision === "no") {
+      abandonedItems.forEach((item) => removeItem(item.id));
+    }
+    runBuyNow();
+    setConfirmOpen(false);
   };
 
   // AddToCartButton has already called addItem() by the time this fires; we only
@@ -150,6 +179,14 @@ export default function ProductCtas({ product }: { product: Product }) {
           Buy Now ⚡
         </button>
       </div>
+
+      <BuyNowConfirmModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        abandonedItems={abandonedItems}
+        currentProductPrice={product.price * qty}
+        onDecision={handleConfirmDecision}
+      />
     </div>
   );
 }

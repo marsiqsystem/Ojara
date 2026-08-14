@@ -1,9 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
+import BuyNowConfirmModal, {
+  type AbandonedCartItem,
+} from "@/components/BuyNowConfirmModal";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
 import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
@@ -16,11 +20,28 @@ import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
  */
 export default function StickyAddToBag({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);
+  const removeItem = useCartStore((state) => state.removeItem);
   const openCheckout = useCartStore((state) => state.openCheckout);
   const cartItems = useCartStore((state) => state.cartItems);
   const isOutOfStock = product.stockCount === 0;
 
-  const handleBuyNow = () => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [abandonedItems, setAbandonedItems] = useState<AbandonedCartItem[]>([]);
+
+  // Cart lines that are a DIFFERENT product than the one being bought now.
+  const collectAbandonedItems = (): AbandonedCartItem[] =>
+    cartItems
+      .filter((item) => item.product.id !== product.id)
+      .map((item) => ({
+        id: item.product.id,
+        name: item.product.name,
+        price: item.product.price,
+        quantity: item.quantity,
+        image: item.product.image,
+      }));
+
+  // The actual buy-now (qty is always 1 from the sticky bar).
+  const runBuyNow = () => {
     const alreadyInCart = cartItems.some((item) => item.product.id === product.id);
     if (!alreadyInCart) {
       addItem(product);
@@ -49,7 +70,28 @@ export default function StickyAddToBag({ product }: { product: Product }) {
     openCheckout();
   };
 
+  const handleBuyNow = () => {
+    if (isOutOfStock) return;
+    // Other products in the cart? Ask before dragging them into this order.
+    const others = collectAbandonedItems();
+    if (others.length > 0) {
+      setAbandonedItems(others);
+      setConfirmOpen(true);
+      return;
+    }
+    runBuyNow();
+  };
+
+  const handleConfirmDecision = (decision: "yes" | "no") => {
+    if (decision === "no") {
+      abandonedItems.forEach((item) => removeItem(item.id));
+    }
+    runBuyNow();
+    setConfirmOpen(false);
+  };
+
   return (
+    <>
     <div
       className="fixed inset-x-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-40 px-3 md:hidden"
     >
@@ -91,5 +133,14 @@ export default function StickyAddToBag({ product }: { product: Product }) {
         </button>
       </div>
     </div>
+
+    <BuyNowConfirmModal
+      open={confirmOpen}
+      onClose={() => setConfirmOpen(false)}
+      abandonedItems={abandonedItems}
+      currentProductPrice={product.price}
+      onDecision={handleConfirmDecision}
+    />
+    </>
   );
 }
