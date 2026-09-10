@@ -26,18 +26,25 @@ import type { Product } from "@/lib/mockData";
 type PaymentMethod = "PREPAID" | "COD";
 
 // ---------------------------------------------------------------------------
-// PREPAID KILL SWITCH — off while we're COD-only.
+// PREPAID SWITCH — self-gating on whether a Razorpay key is present in the env.
 //
-// TODO(owner): flip to `true` to bring prepaid back. Nothing below was deleted:
-// the Razorpay order -> widget -> verify-signature -> discount-reconciliation
-// path is intact and still typechecks, so restoring is this one line (plus the
-// RAZORPAY_* keys in .env.local, which RAZORPAY_ENABLED already gates server-side).
+// This is deliberately tied to NEXT_PUBLIC_RAZORPAY_KEY_ID (the one Razorpay
+// value the browser is allowed to see) rather than a hardcoded boolean, so the
+// site can NEVER advertise "Pay Online" in an environment that has no keys:
+//   • locally (.env.local has the test keys)   -> prepaid ON  (for testing)
+//   • on Vercel BEFORE the owner adds the keys  -> prepaid OFF (COD only, safe)
+//   • the moment the owner adds the LIVE keys   -> prepaid ON, no code change
 //
-// While false: the "Pay Online" option renders disabled as "Coming soon", COD is
-// the only selectable method, and the −₹50 prepaid incentive is hidden — quoting
-// a discount for a method nobody can choose would just be a broken promise.
+// This matters because these are TEST keys today and live activation is still
+// under review: shipping a hardcoded `true` would show real customers a "Pay
+// Online" button that test-mode Razorpay rejects. Keep only LIVE keys on Vercel.
+//
+// The whole prepaid path (Razorpay order -> widget -> verify-signature ->
+// discount reconciliation) is intact; this flag only decides whether it's shown.
+// While OFF: "Pay Online" renders disabled as "Coming soon", COD is the only
+// selectable method, and the −₹50 prepaid incentive is hidden.
 // ---------------------------------------------------------------------------
-const PREPAID_ENABLED = false;
+const PREPAID_ENABLED = !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
 // ---------------------------------------------------------------------------
 // SACRED UPSELL ("Complete Your Chakra") KILL SWITCH — off while it's unfinished.
