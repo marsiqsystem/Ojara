@@ -20,9 +20,9 @@ export default function Home() {
   return (
     <>
       <Hero />
+      <CategoryStrip />
       <ProductGrid />
       <BrandStory />
-      <CategoryStrip />
       <GiftingSection />
       <ValueProps />
       <LifestyleGallery />
