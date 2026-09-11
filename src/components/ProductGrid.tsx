@@ -28,7 +28,7 @@ function CollectionRail({
   return (
     <div className="mt-14 first:mt-0">
       <div className="mb-8 text-center">
-        <h3 className="text-2xl text-midnight-navy sm:text-3xl">{heading}</h3>
+        <h2 className="text-2xl text-midnight-navy sm:text-3xl">{heading}</h2>
         <p className="mx-auto mt-3 max-w-md text-warm-grey">{tagline}</p>
       </div>
 
@@ -57,16 +57,6 @@ export default async function ProductGrid() {
       className="scroll-mt-24 border-y border-champagne-gold/20 bg-ivory px-6 py-16 sm:py-24"
     >
       <div className="mx-auto max-w-6xl">
-        <div className="mb-14 text-center">
-          <h2 className="text-3xl text-midnight-navy sm:text-4xl">
-            The Collection
-          </h2>
-          <p className="mx-auto mt-4 max-w-md text-warm-grey">
-            Sacred objects and curated sets, each cleansed and charged with
-            intention.
-          </p>
-        </div>
-
         {/* Two labelled rails — rings first, then bracelets — each swiped
             sideways rather than scrolled down, same pattern as before. */}
         <CollectionRail
