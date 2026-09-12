@@ -3,18 +3,21 @@ import Image from "next/image";
 export default function BrandStory() {
   return (
     <section className="border-y border-champagne-gold/30 bg-midnight-navy text-ivory">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 items-stretch gap-0 lg:grid-cols-2">
-        {/* Crystal image — kept to roughly half its old height so the section no
-            longer fills the whole viewport (owner call, 2026-09-12). */}
-        <div className="relative min-h-[15rem] lg:min-h-[22rem]">
-          <Image
-            src="https://images.unsplash.com/photo-1651841607023-9bc357ea63a2?auto=format&fit=crop&w=1000&q=80"
-            alt="A crystal point beside a candle on a quiet altar"
-            fill
-            priority
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover"
-          />
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-0 lg:grid-cols-2">
+        {/* Crystal image — a clean 1:1 crop, centered and contained, so the photo
+            reads as composed instead of chopped by a tall stretched column, and
+            the section stays short (owner call, 2026-09-12). */}
+        <div className="flex items-center justify-center p-6 sm:p-10 lg:p-12">
+          <div className="relative aspect-square w-full max-w-[20rem] overflow-hidden rounded-2xl sm:max-w-sm lg:max-w-md">
+            <Image
+              src="https://images.unsplash.com/photo-1651841607023-9bc357ea63a2?auto=format&fit=crop&w=1000&q=80"
+              alt="A crystal point beside a candle on a quiet altar"
+              fill
+              priority
+              sizes="(max-width: 1024px) 90vw, 28rem"
+              className="object-cover"
+            />
+          </div>
         </div>
 
         {/* Editorial copy */}

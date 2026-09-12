@@ -34,48 +34,55 @@ export default async function CategoryStrip() {
           </Link>
         </div>
 
-        {/* Category row. On desktop the handful of tiles spread across the full
-            width (justify-between) — the pre-existing look. Once more categories
-            are added and they stop fitting, the flex overflows and it becomes a
-            swipe rail with the indicator, same as it already is on mobile. */}
+        {/* Category row. Below lg it's a start-aligned swipe rail (with the
+            dash indicator once it overflows); from lg up the handful of tiles
+            sit evenly CENTERED rather than stretched to the container edges,
+            which read as vague, unevenly-spaced floaters (owner call
+            2026-09-12). */}
         <ScrollRail
           ariaLabel="Categories"
-          className="gap-5 sm:gap-6 lg:justify-between lg:gap-4"
+          className="gap-6 sm:gap-8 lg:justify-center lg:gap-12"
         >
           {categories.map((cat) => (
             <Link
               key={cat.slug}
               href={`/category/${cat.slug}`}
               prefetch
-              className="group flex w-20 flex-shrink-0 snap-start flex-col items-center gap-3 sm:w-24"
+              className="group flex w-24 flex-shrink-0 snap-start flex-col items-center gap-3.5 sm:w-28"
             >
-              {/* Rounded image */}
-              <div className="relative h-20 w-20 overflow-hidden rounded-2xl bg-sand ring-2 ring-transparent transition-all duration-300 group-hover:ring-champagne-gold group-hover:shadow-lg group-hover:shadow-champagne-gold/15 sm:h-24 sm:w-24">
+              {/* Framed tile — a defined border, a soft ivory→sand ground and a
+                  gentle shadow give each photo a real edge, so the product
+                  stills (many of which have their own pale backgrounds) sit
+                  inside a tile instead of floating as loose cut-outs. */}
+              <div className="relative h-24 w-24 overflow-hidden rounded-3xl border border-champagne-gold/25 bg-gradient-to-b from-white to-sand/50 p-1.5 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:border-champagne-gold/60 group-hover:shadow-lg group-hover:shadow-champagne-gold/20 sm:h-28 sm:w-28">
                 {cat.image ? (
-                  <Image
-                    // cat.image may be a bare Unsplash photo id, a local path, or
-                    // an absolute url (Wix CDN / an Unsplash fallback). Only the
-                    // bare id needs img() — wrapping an absolute url produced
-                    // https://images.unsplash.com/https://... and broke every tile.
-                    src={
-                      cat.image.startsWith("http") || cat.image.startsWith("/")
-                        ? cat.image
-                        : img(cat.image)
-                    }
-                    alt={cat.label}
-                    fill
-                    sizes="96px"
-                    className="object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
+                  <div className="relative h-full w-full overflow-hidden rounded-[1.15rem]">
+                    <Image
+                      // cat.image may be a bare Unsplash photo id, a local path, or
+                      // an absolute url (Wix CDN / an Unsplash fallback). Only the
+                      // bare id needs img() — wrapping an absolute url produced
+                      // https://images.unsplash.com/https://... and broke every tile.
+                      src={
+                        cat.image.startsWith("http") || cat.image.startsWith("/")
+                          ? cat.image
+                          : img(cat.image)
+                      }
+                      alt={cat.label}
+                      fill
+                      sizes="112px"
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  </div>
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-2xl text-champagne-gold">
+                  <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] text-2xl text-champagne-gold">
                     ✦
                   </div>
                 )}
               </div>
 
-              {/* Label */}
-              <span className="text-center text-[0.65rem] font-medium leading-tight tracking-wide text-midnight-navy/80 transition-colors duration-300 group-hover:text-midnight-navy sm:text-xs">
+              {/* Label — reserves two lines' height so one- and two-word labels
+                  line up along the top edge across the whole row. */}
+              <span className="flex min-h-[2.1rem] items-start justify-center text-center text-xs font-medium leading-tight tracking-wide text-midnight-navy/85 transition-colors duration-300 group-hover:text-champagne-gold sm:text-[0.8rem]">
                 {cat.label}
               </span>
             </Link>
