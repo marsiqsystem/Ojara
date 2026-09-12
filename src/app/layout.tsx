@@ -11,7 +11,6 @@ import CheckoutModal from "@/components/CheckoutModal";
 import AuthDrawerMount from "@/components/AuthDrawerMount";
 import EnergyGuideChat from "@/components/EnergyGuideChat";
 import ConsentManager from "@/components/ConsentManager";
-import LenisProvider from "@/components/LenisProvider";
 import ScrollToTop from "@/components/ScrollToTop";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { GoogleTagManagerNoScript } from "@/components/analytics/GoogleTagManager";
@@ -124,30 +123,28 @@ export default function RootLayout({
         <ConsentManager />
         {/* Every Wix-backed feature (auth, cart, checkout) reads the client from here */}
         <WixClientContextProvider>
-          <LenisProvider>
-            <ScrollToTop />
-            <AnnouncementBar />
-            <Header />
-            <main className="flex-1 bg-ivory">{children}</main>
-            <Footer />
-            <CartDrawer />
-            <CheckoutModal />
-            {/* Mounted once here — never per-header/nav (see AuthDrawerMount). */}
-            <AuthDrawerMount />
-            <EnergyGuideChat />
-            <MobileBottomNav />
-            <Toaster
-              position="top-center"
-              toastOptions={{
-                style: {
-                  background: "#071a47",
-                  color: "#f7f3eb",
-                  border: "1px solid rgba(214, 175, 122, 0.4)",
-                  borderRadius: "9999px",
-                },
-              }}
-            />
-          </LenisProvider>
+          <ScrollToTop />
+          <AnnouncementBar />
+          <Header />
+          <main className="flex-1 bg-ivory">{children}</main>
+          <Footer />
+          <CartDrawer />
+          <CheckoutModal />
+          {/* Mounted once here — never per-header/nav (see AuthDrawerMount). */}
+          <AuthDrawerMount />
+          <EnergyGuideChat />
+          <MobileBottomNav />
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: "#071a47",
+                color: "#f7f3eb",
+                border: "1px solid rgba(214, 175, 122, 0.4)",
+                borderRadius: "9999px",
+              },
+            }}
+          />
         </WixClientContextProvider>
       </body>
     </html>

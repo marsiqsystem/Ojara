@@ -97,23 +97,6 @@ h6 {
   font-family: var(--font-heading), serif;
 }
 
-/* Lenis Base Styles */
-html.lenis, html.lenis body {
-  height: auto;
-}
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-.lenis.lenis-smooth [data-lenis-prevent] {
-  overscroll-behavior: contain;
-}
-.lenis.lenis-stopped {
-  overflow: hidden;
-}
-.lenis.lenis-smooth iframe {
-  pointer-events: none;
-}
-
 /* Accordion fix */
 summary::-webkit-details-marker {
   display: none;
