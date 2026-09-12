@@ -182,10 +182,11 @@ export default async function ProductDetailPage({
       {/* Fires the Meta Pixel ViewContent event for this product */}
       <ProductViewTracker product={product} />
 
-      {/* Breadcrumb trail + back control */}
+      {/* Breadcrumb trail + back control. Widened in step with the hero row below
+          (max-w-7xl on desktop) so the trail keeps aligning with the gallery. */}
       <nav
         aria-label="Breadcrumb"
-        className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-3 sm:py-4"
+        className="mx-auto flex max-w-6xl lg:max-w-7xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-3 sm:py-4"
       >
         <BackButton fallbackHref="/#collection" className="shrink-0" />
         <span aria-hidden="true" className="hidden text-champagne-gold/50 sm:inline">
@@ -238,13 +239,16 @@ export default async function ProductDetailPage({
         </ol>
       </nav>
 
-      {/* Split-screen: sticky image left, scrolling details right */}
-      <div className="mx-auto flex max-w-6xl flex-col px-6 pb-24 lg:flex-row lg:items-start lg:gap-16 gap-8">
+      {/* Split-screen: sticky image left, scrolling details right. On desktop the
+          row is widened (max-w-7xl) and the gap opened up so the image shifts into
+          the empty left gutter and the buy column on the right has room to breathe
+          (owner call 2026-09-12, desktop only — mobile is unchanged). */}
+      <div className="mx-auto flex max-w-6xl lg:max-w-7xl flex-col px-6 pb-24 lg:flex-row lg:items-start lg:gap-20 gap-8">
 
         {/* LEFT — sticky gallery.
             Mobile: full-bleed escape via left-1/2 -translate-x-1/2 w-screen.
             Desktop: pins to viewport while the right column scrolls past. */}
-        <div className="w-full relative left-1/2 -translate-x-1/2 w-screen overflow-hidden lg:left-auto lg:translate-x-0 lg:w-[55%] lg:overflow-visible lg:sticky lg:top-28 lg:self-start lg:h-fit">
+        <div className="w-full relative left-1/2 -translate-x-1/2 w-screen overflow-hidden lg:left-auto lg:translate-x-0 lg:w-[52%] lg:overflow-visible lg:sticky lg:top-28 lg:self-start lg:h-fit">
           {/* Every image the product actually has (4 per product from Wix), not a
               padded placeholder set. `images` is optional on Product, so mock-mode
               products fall back to their single image. */}
@@ -255,7 +259,7 @@ export default async function ProductDetailPage({
         </div>
 
         {/* RIGHT — the tall column that scrolls past the pinned image */}
-        <div className="w-full lg:w-[45%] flex flex-col">
+        <div className="w-full lg:w-[48%] flex flex-col">
           {/* Eyebrow row — the intention as a badge (the reference PDPs lead with
               a "Best Seller" pill; ours leads with what the piece is FOR) plus the
               share control. */}
