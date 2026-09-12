@@ -19,7 +19,7 @@ export default async function CompleteYourRitual({
 
   return (
     <section className="border-t border-champagne-gold/30 bg-sand px-6 py-16 sm:py-20">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="mb-10 text-center sm:mb-12">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
             Pair It With

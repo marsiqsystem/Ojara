@@ -54,7 +54,7 @@ function ReelCard({ reel, className = "" }: { reel: Reel; className?: string }) 
 export default function LifestyleGallery() {
   return (
     <section className="border-y border-champagne-gold/20 bg-ivory px-6 py-20 sm:py-24">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center sm:mb-14">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
             The Ritual

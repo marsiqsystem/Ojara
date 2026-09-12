@@ -21,7 +21,7 @@ export default async function YouMayAlsoLike({ currentId }: { currentId: string 
 
   return (
     <section className="border-t border-champagne-gold/30 bg-ivory px-6 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="mb-10 text-center sm:mb-14">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
             Keep Exploring

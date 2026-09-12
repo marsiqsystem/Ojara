@@ -14,7 +14,7 @@ export default function IntentionNav() {
       aria-label="Shop by intention"
       className="border-b border-champagne-gold/20 bg-ivory"
     >
-      <div className="mx-auto max-w-6xl px-6 py-5">
+      <div className="mx-auto max-w-7xl px-6 py-5">
         <p className="mb-4 text-center text-[0.65rem] uppercase tracking-[0.4em] text-champagne-gold sm:text-xs">
           Shop By Intention
         </p>

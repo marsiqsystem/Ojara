@@ -186,7 +186,7 @@ export default async function ProductDetailPage({
           (max-w-7xl on desktop) so the trail keeps aligning with the gallery. */}
       <nav
         aria-label="Breadcrumb"
-        className="mx-auto flex max-w-6xl lg:max-w-7xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-3 sm:py-4"
+        className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-3 sm:py-4"
       >
         <BackButton fallbackHref="/#collection" className="shrink-0" />
         <span aria-hidden="true" className="hidden text-champagne-gold/50 sm:inline">
@@ -243,7 +243,7 @@ export default async function ProductDetailPage({
           row is widened (max-w-7xl) and the gap opened up so the image shifts into
           the empty left gutter and the buy column on the right has room to breathe
           (owner call 2026-09-12, desktop only — mobile is unchanged). */}
-      <div className="mx-auto flex max-w-6xl lg:max-w-7xl flex-col px-6 pb-24 lg:flex-row lg:items-start lg:gap-20 gap-8">
+      <div className="mx-auto flex max-w-7xl flex-col px-6 pb-24 lg:flex-row lg:items-start lg:gap-20 gap-8">
 
         {/* LEFT — sticky gallery.
             Mobile: full-bleed escape via left-1/2 -translate-x-1/2 w-screen.

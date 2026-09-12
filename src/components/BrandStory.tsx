@@ -3,7 +3,7 @@ import Image from "next/image";
 export default function BrandStory() {
   return (
     <section className="border-y border-champagne-gold/30 bg-midnight-navy text-ivory">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-0 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-0 lg:grid-cols-2">
         {/* Crystal image — a clean 1:1 crop, centered and contained, so the photo
             reads as composed instead of chopped by a tall stretched column, and
             the section stays short (owner call, 2026-09-12). */}

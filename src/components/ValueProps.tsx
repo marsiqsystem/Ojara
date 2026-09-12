@@ -61,7 +61,7 @@ export default function ValueProps() {
       {/* Mobile: a compact horizontal scroll rail — stacked vertically these three
           cards turned into a very long scroll. Desktop: the framed 3-up grid with
           hairline dividers (gap-px over a gold background). */}
-      <div className="mx-auto flex max-w-6xl snap-x snap-mandatory gap-4 overflow-x-auto hide-scrollbar -mx-6 px-6 sm:mx-auto sm:grid sm:grid-cols-3 sm:gap-px sm:overflow-hidden sm:rounded-2xl sm:border sm:border-champagne-gold/30 sm:bg-champagne-gold/30 sm:px-0">
+      <div className="mx-auto flex max-w-7xl snap-x snap-mandatory gap-4 overflow-x-auto hide-scrollbar -mx-6 px-6 sm:mx-auto sm:grid sm:grid-cols-3 sm:gap-px sm:overflow-hidden sm:rounded-2xl sm:border sm:border-champagne-gold/30 sm:bg-champagne-gold/30 sm:px-0">
         {values.map((value) => (
           <div
             key={value.title}

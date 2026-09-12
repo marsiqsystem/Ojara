@@ -63,7 +63,7 @@ export default async function CategoryPage({
       {/* Breadcrumb trail + back control */}
       <nav
         aria-label="Breadcrumb"
-        className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-6 sm:py-8"
+        className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-6 sm:py-8"
       >
         <BackButton fallbackHref="/#collection" className="shrink-0" />
         <span aria-hidden="true" className="hidden text-champagne-gold/50 sm:inline">
@@ -122,7 +122,7 @@ export default async function CategoryPage({
             ? "Other intentions"
             : "Other collections"
         }
-        className="mx-auto max-w-6xl px-6 pb-14"
+        className="mx-auto max-w-7xl px-6 pb-14"
       >
         <ul className="hide-scrollbar -mx-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 sm:justify-center">
           {siblings.map((sibling) => {
@@ -149,7 +149,7 @@ export default async function CategoryPage({
       )}
 
       {/* Products */}
-      <section className="mx-auto max-w-6xl px-6 pb-24">
+      <section className="mx-auto max-w-7xl px-6 pb-24">
         {categoryProducts.length > 0 ? (
           <>
             <p className="mb-8 text-center text-xs uppercase tracking-[0.25em] text-midnight-navy/50">

@@ -57,7 +57,7 @@ const InstagramIcon = () => (
 export default function SocialProofGrid() {
   return (
     <section className="border-y border-champagne-gold/30 bg-ivory px-6 py-20 sm:py-24">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="mb-12 text-center sm:mb-14">
           <a
             href={INSTAGRAM_URL}

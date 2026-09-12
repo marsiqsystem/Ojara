@@ -20,7 +20,7 @@ const INSTAGRAM_URL = "https://www.instagram.com/ojara.india";
 export default function ContactPage() {
   return (
     <div className="bg-ivory">
-      <div className="mx-auto max-w-6xl px-6 pt-6">
+      <div className="mx-auto max-w-7xl px-6 pt-6">
         <BackButton fallbackHref="/" />
       </div>
 
@@ -38,7 +38,7 @@ export default function ContactPage() {
         </p>
       </section>
 
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-14 px-6 py-16 lg:grid-cols-2 lg:gap-20 lg:py-24">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-14 px-6 py-16 lg:grid-cols-2 lg:gap-20 lg:py-24">
         {/* LEFT — the form */}
         <div>
           <h2 className="font-heading text-3xl text-midnight-navy">

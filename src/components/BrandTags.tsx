@@ -74,7 +74,7 @@ export default function BrandTags() {
     <section className="border-y border-champagne-gold/30 bg-ivory px-6 py-10 sm:py-12">
       {/* Mobile: a compact horizontal scroll rail (owner's standing rule — rails,
           not vertical stacks). Desktop: an even 4-up row with hairline dividers. */}
-      <div className="mx-auto flex max-w-6xl snap-x snap-mandatory gap-4 overflow-x-auto hide-scrollbar -mx-6 px-6 sm:mx-auto sm:grid sm:grid-cols-4 sm:gap-px sm:overflow-hidden sm:rounded-2xl sm:border sm:border-champagne-gold/25 sm:bg-champagne-gold/25 sm:px-0">
+      <div className="mx-auto flex max-w-7xl snap-x snap-mandatory gap-4 overflow-x-auto hide-scrollbar -mx-6 px-6 sm:mx-auto sm:grid sm:grid-cols-4 sm:gap-px sm:overflow-hidden sm:rounded-2xl sm:border sm:border-champagne-gold/25 sm:bg-champagne-gold/25 sm:px-0">
         {tags.map((tag) => (
           <div
             key={tag.title}

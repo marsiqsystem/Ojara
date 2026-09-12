@@ -70,7 +70,7 @@ const columns: FooterColumn[] = [
 export default function Footer() {
   return (
     <footer className="mt-auto border-t border-champagne-gold/30 bg-midnight-navy text-champagne-gold">
-      <div className="mx-auto max-w-6xl px-6 py-16">
+      <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:justify-between lg:gap-16">
           <div className="max-w-xs">
             {/* Brand mark — client gem art (bg removed) — beside the wordmark */}

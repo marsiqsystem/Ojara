@@ -83,7 +83,7 @@ export default function OurStoryPage() {
         </div>
         {/* Back control, over the hero */}
         <div className="absolute left-0 top-0 z-10 w-full px-6 pt-6">
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-7xl">
             <BackButton fallbackHref="/" tone="light" />
           </div>
         </div>
@@ -102,7 +102,7 @@ export default function OurStoryPage() {
       </section>
 
       {/* Alternating image / text blocks */}
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-7xl px-6">
         {blocks.map((block, index) => {
           const reversed = index % 2 === 1;
           return (

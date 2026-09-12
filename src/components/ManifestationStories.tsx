@@ -53,7 +53,7 @@ const stories: Story[] = [
 export default function ManifestationStories() {
   return (
     <section id="stories" className="scroll-mt-24 border-y border-champagne-gold/30 bg-ivory px-6 py-20 sm:py-28">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <div className="text-center">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
             Manifestation Stories

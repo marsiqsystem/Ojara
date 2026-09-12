@@ -30,7 +30,7 @@ export default async function CollectionPage() {
       {/* Breadcrumb + back control */}
       <nav
         aria-label="Breadcrumb"
-        className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-6 sm:py-8"
+        className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-6 sm:py-8"
       >
         <BackButton fallbackHref="/" className="shrink-0" />
         <span aria-hidden="true" className="hidden text-champagne-gold/50 sm:inline">
@@ -70,7 +70,7 @@ export default async function CollectionPage() {
       </header>
 
       {/* Products */}
-      <section className="mx-auto max-w-6xl px-6 pb-24">
+      <section className="mx-auto max-w-7xl px-6 pb-24">
         {products.length > 0 ? (
           <>
             <p className="mb-8 text-center text-xs uppercase tracking-[0.25em] text-midnight-navy/50">

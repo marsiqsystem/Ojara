@@ -71,7 +71,7 @@ export default async function ProductGrid({
       id={anchorId}
       className="scroll-mt-24 border-y border-champagne-gold/20 bg-ivory px-6 py-16 sm:py-24"
     >
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         {showBracelets && (
           <CollectionRail
             heading="Bracelets of Intention"
