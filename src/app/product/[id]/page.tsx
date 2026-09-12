@@ -76,6 +76,39 @@ const trustBadges = [
   },
 ];
 
+// Short, truthful assurances shown high in the hero, in the slot the reference
+// PDPs fill with a star rating. OJARA has no published reviews yet and won't
+// invent a number (see ProductReviews) — so this states real guarantees the
+// brand already makes on every piece.
+const heroAssurances = [
+  {
+    label: "Lab-Certified",
+    icon: (
+      <svg {...iconProps} width={16} height={16}>
+        <path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3Z" />
+        <path d="m9 11.5 2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
+    label: "Cleansed & Energized",
+    icon: (
+      <svg {...iconProps} width={16} height={16}>
+        <path d="M12 2.5 13.8 8l5.7.2-4.5 3.5 1.6 5.5-4.6-3.2-4.6 3.2 1.6-5.5L4.5 8.2 10.2 8Z" />
+      </svg>
+    ),
+  },
+  {
+    label: "100% Natural Stone",
+    icon: (
+      <svg {...iconProps} width={16} height={16}>
+        <path d="M6 3h12l3 6-9 12L3 9l3-6Z" />
+        <path d="M3 9h18M9 3l3 18M15 3l-3 18" />
+      </svg>
+    ),
+  },
+];
+
 // Prerender a static page for each mock product.
 export function generateStaticParams() {
   return products.map((product) => ({ id: product.id }));
@@ -223,22 +256,45 @@ export default async function ProductDetailPage({
 
         {/* RIGHT — the tall column that scrolls past the pinned image */}
         <div className="w-full lg:w-[45%] flex flex-col">
+          {/* Eyebrow row — the intention as a badge (the reference PDPs lead with
+              a "Best Seller" pill; ours leads with what the piece is FOR) plus the
+              share control. */}
           <div className="flex items-start justify-between gap-4">
-            <h1 className="text-4xl text-midnight-navy sm:text-5xl">
-              {product.name}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-champagne-gold/15 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold">
+                ✦ {product.intention}
+              </span>
               {product.isBundle && (
-                <span className="ml-3 inline-block rounded-full bg-champagne-gold/20 px-3 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-champagne-gold align-middle">
-                  ✦ Curated Harmony Set
+                <span className="inline-block rounded-full border border-champagne-gold/40 px-3 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-champagne-gold">
+                  Curated Harmony Set
                 </span>
               )}
-            </h1>
-            <ShareButton productName={product.name} className="mt-1 shrink-0" />
+            </div>
+            <ShareButton productName={product.name} className="mt-0.5 shrink-0" />
+          </div>
+
+          <h1 className="mt-4 text-4xl leading-[1.1] text-midnight-navy sm:text-5xl">
+            {product.name}
+          </h1>
+
+          {/* Assurance row — truthful guarantees in the slot the references give a
+              star rating. See heroAssurances (no reviews yet, no invented number). */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {heroAssurances.map((a) => (
+              <span
+                key={a.label}
+                className="inline-flex items-center gap-1.5 text-[0.7rem] font-medium tracking-wide text-midnight-navy/70 sm:text-xs"
+              >
+                <span className="text-champagne-gold">{a.icon}</span>
+                {a.label}
+              </span>
+            ))}
           </div>
 
           {/* Price highlight — golden price on the normal ivory ground (owner call
-              2026-07-17: no navy chip). Extra top margin gives it room to breathe
-              below the name instead of sitting glued to it. */}
-          <div className="mt-7 flex flex-wrap items-baseline gap-x-3 gap-y-2 sm:mt-8">
+              2026-07-17: no navy chip). Now shows the rupee saving alongside the %,
+              the way the reference PDPs frame the discount ("You Save ₹X (Y%)"). */}
+          <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-2 sm:mt-7">
             <span className="text-3xl font-semibold tracking-tight text-champagne-gold sm:text-4xl">
               {formatPrice(product.price)}
             </span>
@@ -249,7 +305,8 @@ export default async function ProductDetailPage({
             )}
             {product.originalPrice && (
               <span className="rounded-md bg-emerald-100 px-2.5 py-1.5 text-sm font-bold text-emerald-700">
-                Save {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
+                Save {formatPrice(product.originalPrice - product.price)} (
+                {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%)
               </span>
             )}
           </div>
@@ -315,24 +372,35 @@ export default async function ProductDetailPage({
             </p>
           </div>
 
-          {/* The reason to buy, scannable in five seconds. Moved below the buy zone
-              so it informs without crowding the price/CTA. */}
-          <ul className="mt-8 space-y-3">
-            {product.benefits.map((benefit) => (
-              <li
-                key={benefit}
-                className="flex items-start gap-3 text-sm leading-6 text-midnight-navy/85"
-              >
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 flex-shrink-0 text-champagne-gold"
-                >
-                  ✦
-                </span>
-                <span>{benefit}</span>
-              </li>
-            ))}
-          </ul>
+          {/* The reason to buy, scannable in five seconds — titled and set on
+              check marks, the "Why [product]?" block the reference PDPs use. Moved
+              below the buy zone so it informs without crowding the price/CTA. */}
+          {product.benefits.length > 0 && (
+            <div className="mt-8 rounded-2xl border border-champagne-gold/25 bg-sand/25 p-6">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-champagne-gold">
+                Why this piece
+              </h2>
+              <ul className="mt-4 space-y-3">
+                {product.benefits.map((benefit) => (
+                  <li
+                    key={benefit}
+                    className="flex items-start gap-3 text-sm leading-6 text-midnight-navy/85"
+                  >
+                    <svg
+                      {...iconProps}
+                      width={17}
+                      height={17}
+                      className="mt-0.5 flex-shrink-0 text-champagne-gold"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="m8.5 12 2.3 2.3L15.5 9.5" />
+                    </svg>
+                    <span>{benefit}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Intention — reinforces the brand story */}
           <div className="mt-8 rounded-2xl border border-champagne-gold/30 bg-sand/50 p-6">
