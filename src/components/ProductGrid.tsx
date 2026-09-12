@@ -46,31 +46,48 @@ function CollectionRail({
   );
 }
 
-export default async function ProductGrid() {
+// The homepage now interleaves other sections between the two rails (bracelets
+// sit high, after the reel; rings sit lower, after the brand story), so each
+// rail renders as its own section. `variant` picks which one — "both" keeps the
+// original stacked layout for any other caller.
+export default async function ProductGrid({
+  variant = "both",
+}: {
+  variant?: "rings" | "bracelets" | "both";
+}) {
   const products = await getAllProducts();
   const rings = products.filter(isRing);
   const bracelets = products.filter((p) => !isRing(p));
 
+  const showRings = variant === "rings" || variant === "both";
+  const showBracelets = variant === "bracelets" || variant === "both";
+
+  // The /#collection anchor (BackButton fallback, footer link) should land on
+  // whichever rail appears first in the flow — bracelets when it's shown alone.
+  const anchorId = showBracelets ? "collection" : "rings";
+
   return (
     <section
-      id="collection"
+      id={anchorId}
       className="scroll-mt-24 border-y border-champagne-gold/20 bg-ivory px-6 py-16 sm:py-24"
     >
       <div className="mx-auto max-w-6xl">
-        {/* Two labelled rails — rings first, then bracelets — each swiped
-            sideways rather than scrolled down, same pattern as before. */}
-        <CollectionRail
-          heading="Rings of Intention"
-          tagline="Gemstone rings, cleansed and charged — carry your intention on your hand."
-          products={rings}
-          ariaLabel="Rings of Intention"
-        />
-        <CollectionRail
-          heading="Bracelets of Intention"
-          tagline="Natural stone bracelets, worn in the old tradition of intention."
-          products={bracelets}
-          ariaLabel="Bracelets of Intention"
-        />
+        {showBracelets && (
+          <CollectionRail
+            heading="Bracelets of Intention"
+            tagline="Natural stone bracelets, worn in the old tradition of intention."
+            products={bracelets}
+            ariaLabel="Bracelets of Intention"
+          />
+        )}
+        {showRings && (
+          <CollectionRail
+            heading="Rings of Intention"
+            tagline="Gemstone rings, cleansed and charged — carry your intention on your hand."
+            products={rings}
+            ariaLabel="Rings of Intention"
+          />
+        )}
       </div>
     </section>
   );

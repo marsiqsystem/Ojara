@@ -4,8 +4,9 @@ export default function BrandStory() {
   return (
     <section className="border-y border-champagne-gold/30 bg-midnight-navy text-ivory">
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-stretch gap-0 lg:grid-cols-2">
-        {/* Tall crystal image */}
-        <div className="relative min-h-[28rem] lg:min-h-[42rem]">
+        {/* Crystal image — kept to roughly half its old height so the section no
+            longer fills the whole viewport (owner call, 2026-09-12). */}
+        <div className="relative min-h-[15rem] lg:min-h-[22rem]">
           <Image
             src="https://images.unsplash.com/photo-1651841607023-9bc357ea63a2?auto=format&fit=crop&w=1000&q=80"
             alt="A crystal point beside a candle on a quiet altar"
@@ -17,7 +18,7 @@ export default function BrandStory() {
         </div>
 
         {/* Editorial copy */}
-        <div className="flex flex-col justify-center px-6 py-16 sm:px-14 sm:py-20 lg:px-20">
+        <div className="flex flex-col justify-center px-6 py-10 sm:px-14 sm:py-12 lg:px-20">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
             Our Philosophy
           </span>
@@ -26,13 +27,13 @@ export default function BrandStory() {
               "The Essence of Ojas" and claimed therapeutic magnets stimulate blood
               circulation and balance the body's magnetic field — the brand sells
               gemstone bracelets and makes no such claim. */}
-          <h2 className="mt-8 font-heading text-4xl uppercase leading-[1.35] tracking-[0.15em] sm:text-5xl sm:tracking-[0.2em]">
+          <h2 className="mt-5 font-heading text-3xl uppercase leading-[1.3] tracking-[0.15em] sm:text-4xl sm:tracking-[0.2em]">
             More Than
             <br />
             An Accessory
           </h2>
 
-          <div className="mt-10 space-y-6 text-base leading-8 text-ivory/90">
+          <div className="mt-6 space-y-4 text-base leading-7 text-ivory/90">
             <p>
               Our jewellery is designed to become more than an accessory. It
               becomes a personal ritual — a quiet reminder of your goals, a symbol
@@ -49,7 +50,7 @@ export default function BrandStory() {
             </p>
           </div>
 
-          <p className="mt-12 font-heading text-lg uppercase tracking-[0.35em] text-champagne-gold">
+          <p className="mt-8 font-heading text-lg uppercase tracking-[0.35em] text-champagne-gold">
             Wear Your Intention
           </p>
         </div>
