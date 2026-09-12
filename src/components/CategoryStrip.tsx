@@ -43,7 +43,7 @@ export default async function CategoryStrip() {
             the piece (owner call, 2026-09-12). */}
         <ScrollRail
           ariaLabel="Categories"
-          className="gap-7 sm:gap-9 lg:justify-center lg:gap-12"
+          className="gap-8 sm:gap-12 lg:justify-center lg:gap-20 xl:gap-24"
         >
           {categories.map((cat) => (
             <Link
