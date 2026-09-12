@@ -34,47 +34,46 @@ export default async function CategoryStrip() {
           </Link>
         </div>
 
-        {/* Category row. Below lg it's a start-aligned swipe rail (with the
-            dash indicator once it overflows); from lg up the handful of tiles
-            sit evenly CENTERED rather than stretched to the container edges,
-            which read as vague, unevenly-spaced floaters (owner call
-            2026-09-12). */}
+        {/* Category row. Below lg it's a start-aligned swipe rail (with the dash
+            indicator once it overflows); from lg up the tiles sit CENTERED as a
+            tight group rather than stretched across the full width, which read
+            as vague floaters. Circular medallions with a gold ring give every
+            photo a strong, consistent edge and crop the loose product stills
+            (with their own pale backgrounds and baked-in labels) down to just
+            the piece (owner call, 2026-09-12). */}
         <ScrollRail
           ariaLabel="Categories"
-          className="gap-6 sm:gap-8 lg:justify-center lg:gap-12"
+          className="gap-7 sm:gap-9 lg:justify-center lg:gap-12"
         >
           {categories.map((cat) => (
             <Link
               key={cat.slug}
               href={`/category/${cat.slug}`}
               prefetch
-              className="group flex w-24 flex-shrink-0 snap-start flex-col items-center gap-3.5 sm:w-28"
+              className="group flex w-24 flex-shrink-0 snap-start flex-col items-center gap-4 sm:w-28"
             >
-              {/* Framed tile — a defined border, a soft ivory→sand ground and a
-                  gentle shadow give each photo a real edge, so the product
-                  stills (many of which have their own pale backgrounds) sit
-                  inside a tile instead of floating as loose cut-outs. */}
-              <div className="relative h-24 w-24 overflow-hidden rounded-3xl border border-champagne-gold/25 bg-gradient-to-b from-white to-sand/50 p-1.5 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:border-champagne-gold/60 group-hover:shadow-lg group-hover:shadow-champagne-gold/20 sm:h-28 sm:w-28">
+              {/* Circular medallion — solid sand ground, a gold ring, and a soft
+                  drop shadow read as a deliberate, premium tile. Hover lifts it
+                  and thickens the ring. */}
+              <div className="relative h-24 w-24 overflow-hidden rounded-full bg-sand shadow-md shadow-midnight-navy/10 ring-1 ring-champagne-gold/45 transition-all duration-300 ease-out group-hover:-translate-y-1.5 group-hover:shadow-lg group-hover:shadow-champagne-gold/25 group-hover:ring-2 group-hover:ring-champagne-gold sm:h-28 sm:w-28">
                 {cat.image ? (
-                  <div className="relative h-full w-full overflow-hidden rounded-[1.15rem]">
-                    <Image
-                      // cat.image may be a bare Unsplash photo id, a local path, or
-                      // an absolute url (Wix CDN / an Unsplash fallback). Only the
-                      // bare id needs img() — wrapping an absolute url produced
-                      // https://images.unsplash.com/https://... and broke every tile.
-                      src={
-                        cat.image.startsWith("http") || cat.image.startsWith("/")
-                          ? cat.image
-                          : img(cat.image)
-                      }
-                      alt={cat.label}
-                      fill
-                      sizes="112px"
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  </div>
+                  <Image
+                    // cat.image may be a bare Unsplash photo id, a local path, or
+                    // an absolute url (Wix CDN / an Unsplash fallback). Only the
+                    // bare id needs img() — wrapping an absolute url produced
+                    // https://images.unsplash.com/https://... and broke every tile.
+                    src={
+                      cat.image.startsWith("http") || cat.image.startsWith("/")
+                        ? cat.image
+                        : img(cat.image)
+                    }
+                    alt={cat.label}
+                    fill
+                    sizes="112px"
+                    className="object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center rounded-[1.15rem] text-2xl text-champagne-gold">
+                  <div className="flex h-full w-full items-center justify-center text-2xl text-champagne-gold">
                     ✦
                   </div>
                 )}
@@ -82,7 +81,7 @@ export default async function CategoryStrip() {
 
               {/* Label — reserves two lines' height so one- and two-word labels
                   line up along the top edge across the whole row. */}
-              <span className="flex min-h-[2.1rem] items-start justify-center text-center text-xs font-medium leading-tight tracking-wide text-midnight-navy/85 transition-colors duration-300 group-hover:text-champagne-gold sm:text-[0.8rem]">
+              <span className="flex min-h-[2rem] items-start justify-center text-center text-[0.7rem] font-medium uppercase leading-snug tracking-[0.12em] text-midnight-navy/80 transition-colors duration-300 group-hover:text-champagne-gold sm:text-xs">
                 {cat.label}
               </span>
             </Link>
