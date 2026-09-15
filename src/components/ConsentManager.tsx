@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import GoogleTagManager from "@/components/analytics/GoogleTagManager";
+import MicrosoftClarity from "@/components/analytics/MicrosoftClarity";
 import MetaPixel from "@/components/analytics/MetaPixel";
 import PageViewTracker from "@/components/analytics/PageViewTracker";
 
@@ -84,7 +85,12 @@ export default function ConsentManager() {
     <>
       {/* Trackers — gated by consent. `decided` is null on the server and until
           the effect resolves, so no tag ships without a decision in place. */}
-      {decided?.analytics && <GoogleTagManager />}
+      {decided?.analytics && (
+        <>
+          <GoogleTagManager />
+          <MicrosoftClarity />
+        </>
+      )}
       {decided?.marketing && (
         <>
           <MetaPixel />
