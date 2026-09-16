@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useId } from "react";
 import type { Product } from "@/lib/mockData";
 import { useCartStore, useCartHydrated } from "@/lib/store/useCartStore";
 import { formatPrice } from "@/lib/format";
@@ -13,25 +14,35 @@ import AddToCartButton from "@/components/AddToCartButton";
  * bag, where the shopper sees the new total and the offer it unlocked. Pieces
  * already in the bag say so instead of offering a second add.
  */
-export default function PairItWith({ items }: { items: Product[] }) {
+export default function PairItWith({
+  items,
+  title = "Complete your ritual",
+  subtitle = "Pieces worn with this one — and a step closer to your next offer.",
+  className = "mt-8",
+}: {
+  items: Product[];
+  title?: string;
+  subtitle?: string;
+  className?: string;
+}) {
   const hydrated = useCartHydrated();
   const cartItems = useCartStore((s) => s.cartItems);
   const openCart = useCartStore((s) => s.openCart);
+  // The product page and the bag can both show a row at once — ids must differ.
+  const titleId = useId();
 
   if (items.length === 0) return null;
   const inBag = new Set(hydrated ? cartItems.map((ci) => ci.product.id) : []);
 
   return (
-    <section aria-labelledby="pair-it-with-title" className="mt-8">
+    <section aria-labelledby={titleId} data-pair-rail className={className}>
       <h2
-        id="pair-it-with-title"
+        id={titleId}
         className="text-xs font-semibold uppercase tracking-[0.25em] text-midnight-navy"
       >
-        Complete your ritual
+        {title}
       </h2>
-      <p className="mt-1 text-xs text-midnight-navy/60">
-        Pieces worn with this one — and a step closer to your next offer.
-      </p>
+      {subtitle && <p className="mt-1 text-xs text-midnight-navy/60">{subtitle}</p>}
 
       <div className="-mx-6 mt-3 flex snap-x scroll-px-6 gap-3 overflow-x-auto px-6 pb-1 hide-scrollbar lg:mx-0 lg:scroll-px-0 lg:px-0">
         {items.map((item) => {

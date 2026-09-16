@@ -31,6 +31,8 @@ interface CartState {
   // — duplicate ids (#ojara-email/#ojara-password) and two aria-modal dialogs,
   // which broke label->input focus and made the form look untypeable.
   isAuthOpen: boolean;
+  // The piece most recently added, so the bag can mark it "Just added". Not persisted.
+  lastAddedId: string;
   // Coupon + gift-wrap live on the store so they survive the cart → checkout
   // hand-off (the checkout modal reads them) and a page refresh.
   appliedCoupon: string;
@@ -101,6 +103,7 @@ export const useCartStore = create<CartState>()(
       isCartOpen: false,
       isCheckoutOpen: false,
       isAuthOpen: false,
+      lastAddedId: "",
       appliedCoupon: "",
       shopperChoseCoupon: false,
       unavailableTierCodes: [],
@@ -125,7 +128,7 @@ export const useCartStore = create<CartState>()(
           }
 
           syncWixCart(nextItems);
-          return { cartItems: nextItems };
+          return { cartItems: nextItems, lastAddedId: product.id };
         }),
 
       removeItem: (productId) =>

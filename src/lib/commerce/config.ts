@@ -50,6 +50,12 @@ export const RAZORPAY_ENABLED = !!(
 // ---------------------------------------------------------------------------
 export const PREPAID_ENABLED = !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
+/**
+ * "Only N left" shows at or below this many units. Wix tracks real stock, so the
+ * count is honest; above this it would just read as a normal stock level.
+ */
+export const LOW_STOCK_THRESHOLD = 3;
+
 // ---------------------------------------------------------------------------
 // WhatsApp — TODO(owner): the business number, digits only with country code
 // (e.g. "919876543210"). Empty hides every WhatsApp button on the site, so none

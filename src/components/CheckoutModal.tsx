@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -8,33 +9,144 @@ import { useCartStore } from "@/lib/store/useCartStore";
 import { useWixClient } from "@/hooks/useWixClient";
 import { formatPrice } from "@/lib/format";
 import {
+  FREE_GIFT_WRAP_MINIMUM,
+  GIFT_WRAP_FEE,
+  PREPAID_DISCOUNT,
   cartSubtotal,
   computeTotals,
   giftWrapFeeFor,
   isTierCode,
-  PREPAID_DISCOUNT,
+  tierPercent,
 } from "@/lib/commerce/pricing";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import {
-  WIX_ENABLED,
   BRAND_NAME,
+  LOW_STOCK_THRESHOLD,
   PREPAID_ENABLED,
-  UPSELL_ENABLED,
+  WIX_ENABLED,
 } from "@/lib/commerce/config";
 import { useCouponAutoRemoveHandler } from "@/lib/commerce/useAutoTierCoupon";
-import TierProgress from "@/components/TierProgress";
+import { useUpsellSuggestions } from "@/lib/commerce/useUpsellSuggestions";
 import { IN_STATES, stateName as nameOfState } from "@/lib/commerce/indiaStates";
+import { deliveryWindowLabel } from "@/lib/deliveryEstimate";
+import { suggestEmail } from "@/lib/emailSuggest";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { trackEvent, trackingContext } from "@/lib/analytics/capi";
 import { contentIds, toContents, toGa4Items } from "@/lib/analytics/content";
-import SacredUpsellFlow, {
-  type SacredUpsellSelection,
-} from "@/components/SacredUpsellFlow";
-import { pickUpsellProducts } from "@/lib/commerce/bundle";
-import type { Product } from "@/lib/mockData";
+import TierProgress from "@/components/TierProgress";
+import GiftWrapOption from "@/components/GiftWrapOption";
+import AddToCartButton from "@/components/AddToCartButton";
+
+// ============================================================================
+// Checkout — one page, rebuilt on the Viora pattern.
+//
+// It used to be two steps (email first, then everything else) with 14px inputs,
+// no pincode lookup and a single "place order". Now: phone first (COD and the
+// courier run on it), pincode fills city + state and shows the delivery date,
+// email last with a typo check; details are remembered on this device; each
+// payment method shows what it costs; COD asks for a small commitment; the
+// ladder, an unlocking piece and gift wrap sit next to the real total; the pay
+// bar is always in reach; and leaving gets one honest reminder of what's lost.
+//
+// The order path itself (Wix checkout → /api/checkout, Razorpay verify, Meta +
+// GA4 events) is unchanged. The Sacred Bundle step (SacredUpsellFlow) was a
+// separate checkout STEP and is not wired into the one-page layout; it was
+// already switched off (UPSELL_ENABLED). Revive it as an inline section if the
+// chakra bundle comes back.
+// ============================================================================
 
 type PaymentMethod = "PREPAID" | "COD";
+type Field = "phone" | "pincode" | "fullName" | "address" | "city" | "state" | "email" | "codConfirm";
 
+// Top-to-bottom order of the form, for scrolling to the first error.
+const FIELD_ORDER: Field[] = ["phone", "pincode", "fullName", "address", "city", "state", "email", "codConfirm"];
+
+// ---- Remembered details (this device only) ---------------------------------
+const DETAILS_KEY = "ojara_checkout_details_v1";
+
+type SavedDetails = {
+  phone: string;
+  pincode: string;
+  fullName: string;
+  address: string;
+  landmark: string;
+  city: string;
+  state: string;
+  email: string;
+};
+
+const readSavedDetails = (): Partial<SavedDetails> => {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(DETAILS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+};
+
+// ---- Field helpers ----------------------------------------------------------
+
+// Pasted numbers often carry +91, 0091 or a leading 0. Strip those prefixes only
+// at the lengths they produce; anything else keeps its first 10 digits.
+const normalizeIndianMobile = (raw: string) => {
+  let digits = raw.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+  else if (digits.length === 14 && digits.startsWith("0091")) digits = digits.slice(4);
+  else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
+  return digits.slice(0, 10);
+};
+
+const isValidMobile = (phone: string) => /^[6-9]\d{9}$/.test(phone);
+const isValidPincode = (pin: string) => /^[1-9]\d{5}$/.test(pin);
+const isValidEmail = (email: string) => /^\S+@\S+\.\S+$/.test(email);
+
+type FormValues = {
+  phone: string;
+  pincode: string;
+  fullName: string;
+  address: string;
+  city: string;
+  state: string;
+  email: string;
+  paymentMethod: PaymentMethod;
+  codCommitted: boolean;
+};
+
+const validateFields = (v: FormValues): Partial<Record<Field, string>> => {
+  const errors: Partial<Record<Field, string>> = {};
+  if (!isValidMobile(v.phone)) errors.phone = "Enter a valid 10-digit mobile number.";
+  if (!isValidPincode(v.pincode)) errors.pincode = "Enter a valid 6-digit pincode.";
+  if (!v.fullName.trim()) errors.fullName = "Enter your full name.";
+  if (v.address.trim().length < 5) errors.address = "Enter your house number and street.";
+  if (!v.city.trim()) errors.city = "Enter your city.";
+  if (!v.state) errors.state = "Select your state.";
+  if (!isValidEmail(v.email.trim())) errors.email = "Enter a valid email for your order confirmation.";
+  if (v.paymentMethod === "COD" && !v.codCommitted) {
+    errors.codConfirm = "Please confirm you'll be available to pay on delivery.";
+  }
+  return errors;
+};
+
+// 16px text on inputs — anything smaller makes iOS Safari zoom the page on focus.
+const inputClass = (hasError: boolean) =>
+  `w-full rounded-lg border bg-white px-4 py-3 text-base text-midnight-navy placeholder:text-midnight-navy/40 outline-none focus:ring-2 ${
+    hasError
+      ? "border-red-400 focus:border-red-500 focus:ring-red-200"
+      : "border-midnight-navy/25 focus:border-midnight-navy focus:ring-midnight-navy/15"
+  }`;
+
+const FieldError = ({ message }: { message?: string }) =>
+  message ? (
+    <p role="alert" className="mt-1 text-xs text-red-600">
+      {message}
+    </p>
+  ) : null;
+
+const LockIcon = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
 
 // Razorpay ships no npm checkout SDK — inject the script on demand.
 const loadRazorpayScript = (): Promise<boolean> =>
@@ -50,6 +162,8 @@ const loadRazorpayScript = (): Promise<boolean> =>
     document.body.appendChild(script);
   });
 
+type PincodeLookup = { pin: string; status: "found" | "notFound" };
+
 export default function CheckoutModal() {
   const router = useRouter();
   const wixClient = useWixClient();
@@ -57,74 +171,67 @@ export default function CheckoutModal() {
   const clearCart = useCartStore((s) => s.clearCart);
   const open = useCartStore((s) => s.isCheckoutOpen);
   const onClose = useCartStore((s) => s.closeCheckout);
-  // Coupon + gift-wrap come from the cart (set in the drawer); the checkout is a
-  // read-through so the shopper sees the same numbers they saw in the cart.
+  // Coupon + gift-wrap come from the cart store, so the shopper sees the same
+  // numbers they saw in the bag.
   const appliedCoupon = useCartStore((s) => s.appliedCoupon);
   const setAppliedCoupon = useCartStore((s) => s.setAppliedCoupon);
+  const shopperChoseCoupon = useCartStore((s) => s.shopperChoseCoupon);
+  const setShopperChoseCoupon = useCartStore((s) => s.setShopperChoseCoupon);
   const giftWrap = useCartStore((s) => s.giftWrap);
   const giftNote = useCartStore((s) => s.giftNote);
 
-  // 1 contact → 2 sacred bundle upsell → 3 delivery & payment. The upsell is
-  // skipped outright when there's nothing relevant left to offer.
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [upsell, setUpsell] = useState<SacredUpsellSelection>({
-    items: [],
-    discount: 0,
-  });
-  const [catalog, setCatalog] = useState<Product[]>([]);
-  const [email, setEmail] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [address, setAddress] = useState("");
-  const [addressLine2, setAddressLine2] = useState("");
-  const [pincode, setPincode] = useState("");
-  const [city, setCity] = useState("");
-  const [stateCode, setStateCode] = useState("");
-  // COD by default: pre-keys it completes the full mock order + email flow. The
-  // prepaid −₹50 optics show the moment the shopper switches to "Pay Online".
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
+  // Details — phone first, email last. A returning shopper on this device gets
+  // back what they typed last time (lazy init: read once, no effect needed).
+  const [saved] = useState(readSavedDetails);
+  const [phone, setPhone] = useState(saved.phone || "");
+  const [pincode, setPincode] = useState(saved.pincode || "");
+  const [fullName, setFullName] = useState(saved.fullName || "");
+  const [address, setAddress] = useState(saved.address || "");
+  const [landmark, setLandmark] = useState(saved.landmark || "");
+  const [city, setCity] = useState(saved.city || "");
+  const [stateCode, setStateCode] = useState(saved.state || "");
+  const [email, setEmail] = useState(saved.email || "");
+  const [rememberDetails, setRememberDetails] = useState(true);
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  const fieldRefs = useRef<Partial<Record<Field, HTMLInputElement | HTMLSelectElement | null>>>({});
+
+  // Pincode → city/state via /api/pincode. The status is keyed to the pin it was
+  // looked up for, so a changed pin reads as "loading" without a sync setState.
+  const [lookup, setLookup] = useState<PincodeLookup | null>(null);
+  const autoFilledArea = useRef({ city: "", state: "" });
+
+  // Pay online leads when it's live (fewer COD refusals); COD otherwise.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PREPAID_ENABLED ? "PREPAID" : "COD");
+  // COD commitment: a small, explicit promise to be home and pay — cuts refusals.
+  const [codCommitted, setCodCommitted] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
-
-  // Coupon — the applied code lives on the cart store; only the input box and its
-  // error are local to this modal.
+  const [showCouponInput, setShowCouponInput] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState("");
+  // "Don't miss out" prompt, at most once per time the checkout is opened.
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+  const exitPromptShown = useRef(false);
 
-  // Fire-once guards for the funnel-step Meta events, so re-rendering or stepping
-  // back and forth doesn't emit duplicates. Reset in completeOrder() so a second
-  // order in the same session tracks again.
-  //
-  // CompleteRegistration used to fire here too, on a valid email. It was removed:
-  // OJARA has no registration, so it was a duplicate of InitiateCheckout under a
-  // misleading name, and it made four Meta events fire for one Buy Now click —
-  // which is why AddToCart, InitiateCheckout, AddPaymentInfo and
-  // CompleteRegistration all read exactly 6 in Events Manager.
+  // Fire-once guards for the funnel-step Meta events. Reset in completeOrder()
+  // so a second order in the same session tracks again.
   const checkoutTracked = useRef(false);
   const paymentInfoTracked = useRef(false);
 
-  // Normalised cart lines — the seam. Today from the local store; when the Wix
-  // cart takes over (Phase 2) this maps the Wix lineItems to the same shape.
-  // Bundle picks ride alongside the cart as ordinary lines, so they are priced,
-  // emailed, and pushed to the Wix cart by exactly the same code path. Their
-  // discount travels separately as `bundleDiscount` — see lib/commerce/bundle.ts.
+  // Normalised cart lines — what's priced, emailed and pushed to the Wix cart.
   const lines = useMemo(
     () =>
-      [
-        ...cartItems.map((ci) => ({
-          product: ci.product,
-          quantity: ci.quantity,
-        })),
-        ...upsell.items.map((product) => ({ product, quantity: 1 })),
-      ].map(({ product, quantity }) => ({
+      cartItems.map(({ product, quantity }) => ({
         id: product.id,
         name: product.name,
         price: product.price,
+        originalPrice: product.originalPrice,
+        stockCount: product.stockCount,
         quantity,
         image: product.image,
         wixCatalogItemId: product.wixCatalogItemId,
       })),
-    [cartItems, upsell.items],
+    [cartItems],
   );
 
   // Products subtotal — what the ladder minimums and free gift wrap key off.
@@ -132,9 +239,8 @@ export default function CheckoutModal() {
   // Free at the top ladder step; /api/checkout re-checks against Wix's subtotal.
   const giftWrapFee = giftWrapFeeFor(giftWrap, productsSubtotal);
 
-  // Live coupon — validated against Wix's engine (mirror fallback if unreachable).
-  // `couponDiscount` recomputes as the cart/upsell changes, so a % code stays
-  // correct on the final subtotal. `email` lets Wix enforce single-use-per-buyer.
+  // Live coupon — validated against Wix's engine. `email` lets Wix enforce
+  // single-use-per-buyer.
   const couponLines = useMemo<CouponLine[]>(
     () =>
       lines.map((l) => ({
@@ -151,91 +257,100 @@ export default function CheckoutModal() {
     pending: couponPending,
     apply: applyCouponLive,
     remove: removeCouponLive,
-  } = useLiveCoupon(
-    couponLines,
-    email.trim() || undefined,
-    useCouponAutoRemoveHandler(toast),
-  );
-  const setShopperChoseCoupon = useCartStore((s) => s.setShopperChoseCoupon);
+  } = useLiveCoupon(couponLines, email.trim() || undefined, useCouponAutoRemoveHandler(toast));
 
   const isPrepaid = paymentMethod === "PREPAID";
-  const totals = useMemo(
-    () =>
-      computeTotals({
-        lines,
-        isPrepaid,
-        // The hook already resolved the authoritative ₹ (Wix or mirror fallback);
-        // feed it straight in rather than letting computeTotals re-derive it.
-        wixReportedDiscount: couponDiscount,
-        giftWrapFee,
-        bundleDiscount: upsell.discount,
-      }),
-    [lines, isPrepaid, couponDiscount, giftWrapFee, upsell.discount],
-  );
+  const totalsFor = (prepaid: boolean) =>
+    computeTotals({ lines, isPrepaid: prepaid, wixReportedDiscount: couponDiscount, giftWrapFee });
+  const totals = totalsFor(isPrepaid);
+  const prepaidTotal = totalsFor(true).total;
+  const codTotal = totalsFor(false).total;
 
-  // Primary item = the highest-value thing in the cart. That's what the ritual
-  // is built around, so it's what the suggestions are matched against.
-  const primaryProduct = useMemo(
-    () =>
-      cartItems.reduce<Product | undefined>(
-        (best, ci) =>
-          !best || ci.product.price > best.price ? ci.product : best,
-        undefined,
-      ),
-    [cartItems],
+  // Only real savings: the Wix markdown, the offer, the pay-online discount.
+  const mrpSavings = lines.reduce(
+    (sum, l) => sum + Math.max(0, (l.originalPrice ?? l.price) - l.price) * l.quantity,
+    0,
   );
+  const totalSavings = mrpSavings + totals.couponDiscount + totals.prepaidDiscount;
+  // What the same bag costs at full price — the anchor beside the real total.
+  const mrpTotal = lines.reduce((sum, l) => sum + (l.originalPrice ?? l.price) * l.quantity, 0) + giftWrapFee;
+  const itemCount = lines.reduce((n, l) => n + l.quantity, 0);
+  const lowStockLine = lines.find((l) => l.stockCount > 0 && l.stockCount <= LOW_STOCK_THRESHOLD);
+  const firstName = fullName.trim().split(/\s+/)[0] || "";
+  const emailSuggestion = suggestEmail(email);
+  const pincodeStatus: "idle" | "loading" | "found" | "notFound" = !isValidPincode(pincode)
+    ? "idle"
+    : lookup?.pin === pincode
+      ? lookup.status
+      : "loading";
+  const detailsComplete =
+    Object.keys(
+      validateFields({ phone, pincode, fullName, address, city, state: stateCode, email, paymentMethod, codCommitted }),
+    ).length === 0;
 
-  const cartIds = useMemo(
-    () => cartItems.map((ci) => ci.product.id),
-    [cartItems],
-  );
+  // The one piece that best closes the gap to the next ladder step.
+  const unlockSuggestion = useUpsellSuggestions({
+    subtotal: productsSubtotal,
+    bag: cartItems.map((ci) => ci.product),
+    limit: 1,
+  }).find((s) => s.unlocksTier);
 
-  const upsellSuggestions = useMemo(
-    () =>
-      UPSELL_ENABLED ? pickUpsellProducts(primaryProduct, catalog, cartIds) : [],
-    [primaryProduct, catalog, cartIds],
-  );
-
-  // Lock scroll (Lenis-aware) while open, and close on Escape.
+  // Lock scroll (Lenis-aware) while open.
   useEffect(() => {
     if (!open) return;
     lockScroll();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      unlockScroll();
-    };
-  }, [open, onClose]);
+    return () => unlockScroll();
+  }, [open]);
 
-  // Catalogue for the upsell step. Fetched once the modal opens rather than at
-  // mount, so a shopper who never checks out never pays for the request.
+  // Remember details on this device as they're typed. Unticking forgets them.
   useEffect(() => {
-    // No upsell step → no need to load the catalogue for suggestions.
-    if (!UPSELL_ENABLED || !open || catalog.length) return;
+    if (!open) return;
+    try {
+      const details: SavedDetails = { phone, pincode, fullName, address, landmark, city, state: stateCode, email };
+      if (!rememberDetails) window.localStorage.removeItem(DETAILS_KEY);
+      else if (Object.values(details).some(Boolean)) {
+        window.localStorage.setItem(DETAILS_KEY, JSON.stringify(details));
+      }
+    } catch {
+      // Storage blocked (private mode) — the form still works, it just won't remember.
+    }
+  }, [open, rememberDetails, phone, pincode, fullName, address, landmark, city, stateCode, email]);
+
+  // Pincode → city + state (India Post) and the delivery date.
+  useEffect(() => {
+    if (!open || !isValidPincode(pincode) || lookup?.pin === pincode) return;
     let cancelled = false;
-    fetch("/api/products")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: Product[]) => {
-        if (!cancelled && Array.isArray(list)) setCatalog(list);
+    fetch(`/api/pincode?pin=${pincode}`)
+      .then((res) => res.json())
+      .then((info) => {
+        if (cancelled) return;
+        if (!info?.ok) {
+          setLookup({ pin: pincode, status: "notFound" });
+          return;
+        }
+        setLookup({ pin: pincode, status: "found" });
+        // Fill city/state unless the shopper typed their own.
+        const previous = autoFilledArea.current;
+        setCity((prev) => (!prev || prev === previous.city ? info.city : prev));
+        if (info.state) setStateCode((prev) => (!prev || prev === previous.state ? info.state : prev));
+        autoFilledArea.current = { city: info.city, state: info.state || "" };
+        setErrors((e) => ({ ...e, pincode: undefined, city: undefined, state: undefined }));
       })
-      // A failed catalogue load must never block checkout — the upsell step
-      // simply doesn't appear.
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setLookup({ pin: pincode, status: "notFound" });
+      });
     return () => {
       cancelled = true;
     };
-  }, [open, catalog.length]);
+  }, [open, pincode, lookup?.pin]);
 
   // InitiateCheckout — fired once, here, the moment the checkout actually opens.
-  // Every entry point (cart drawer "Checkout", desktop Buy Now, mobile sticky Buy
-  // Now) routes through openCheckout(), so this is the single place that can see
-  // all of them, and it reads the real cart totals rather than one product's.
+  // Every entry point routes through openCheckout(), so this is the single place
+  // that sees all of them, with the real cart totals.
   useEffect(() => {
     if (!open) {
       checkoutTracked.current = false;
+      exitPromptShown.current = false;
       return;
     }
     if (checkoutTracked.current || !lines.length) return;
@@ -245,53 +360,63 @@ export default function CheckoutModal() {
       customData: {
         currency: "INR",
         value: totals.total,
-        num_items: lines.reduce((n, l) => n + l.quantity, 0),
+        num_items: itemCount,
         content_ids: contentIds(lines),
         contents: toContents(lines),
         content_type: "product",
       },
       items: toGa4Items(lines),
     });
-    // `lines`/`totals` are read, not tracked: the guard above makes this fire at
-    // most once per open, and re-running as the cart changes is a no-op.
-  }, [open, lines, totals.total]);
+    // `lines`/`totals` are read, not tracked: the guard makes this fire at most
+    // once per open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, lines]);
 
-  // Entering the delivery & payment step. Both paths into step 3 (skip-upsell and
-  // the upsell's Continue) funnel through here.
-  //
-  // AddPaymentInfo is NOT fired here any more — merely landing on the form is the
-  // same shopper state InitiateCheckout already reports. It now fires from
-  // handlePayment(), once the delivery details validate and the order is actually
-  // submitted, which is a genuinely distinct funnel step.
-  const enterPaymentStep = () => {
-    setStep(3);
-  };
-
-  const goToStep2 = () => {
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
-      setError("Please enter a valid email address.");
+  // Leaving with savings or details in progress gets one honest reminder.
+  const hasProgress = !!(phone || pincode || fullName || address) || totalSavings > 0;
+  const requestClose = () => {
+    if (processing) return;
+    if (!exitPromptShown.current && lines.length > 0 && hasProgress) {
+      exitPromptShown.current = true;
+      setShowExitPrompt(true);
       return;
     }
-    setError("");
-    // Nothing worth offering → don't stand a dead step between the shopper and
-    // the delivery form.
-    if (upsellSuggestions.length) {
-      setStep(2);
-    } else {
-      enterPaymentStep();
-    }
+    onClose();
   };
 
-  const validateDelivery = (): string => {
-    if (!fullName.trim()) return "Please enter your full name.";
-    if (!address.trim()) return "Please enter your address.";
-    if (!pincode.trim() || !/^\d{6}$/.test(pincode.trim()))
-      return "Please enter a valid 6-digit pincode.";
-    if (!city.trim()) return "Please enter your city.";
-    if (!stateCode) return "Please select your state.";
-    if (mobile.replace(/\D/g, "").length !== 10)
-      return "Phone must be exactly 10 digits (remove any country code).";
-    return "";
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") document.getElementById("checkout-close")?.click();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const exitLosses = [
+    totalSavings > 0 ? `${formatPrice(Math.round(totalSavings))} of savings on this order` : "",
+    totals.couponDiscount > 0 && appliedCoupon
+      ? `${appliedCoupon}: ${formatPrice(totals.couponDiscount)} off`
+      : "",
+    giftWrap && productsSubtotal >= FREE_GIFT_WRAP_MINIMUM ? `FREE gift wrap (worth ${formatPrice(GIFT_WRAP_FEE)})` : "",
+    lowStockLine ? `Only ${lowStockLine.stockCount} left of ${lowStockLine.name}` : "",
+    pincodeStatus === "found" ? `Delivery ${deliveryWindowLabel()}` : "",
+  ]
+    .filter(Boolean)
+    .slice(0, 4);
+
+  // Typing into a field clears its error.
+  const updateField = (field: Field, setter: (value: string) => void, value: string) => {
+    setter(value);
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
+  };
+
+  const focusFirstError = (fieldErrors: Partial<Record<Field, string>>) => {
+    const first = FIELD_ORDER.find((f) => fieldErrors[f]);
+    const el = first ? fieldRefs.current[first] : null;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.focus({ preventScroll: true });
   };
 
   const handleApplyCoupon = async () => {
@@ -301,6 +426,7 @@ export default function CheckoutModal() {
     if (ok) {
       setCouponError("");
       setCouponInput("");
+      setShowCouponInput(false);
       toast.success("✦ Coupon applied.");
     } else {
       setCouponError(cErr || "That code isn’t valid.");
@@ -315,36 +441,30 @@ export default function CheckoutModal() {
 
   // Build the item + summary payload the email renderer needs (mock mode) and the
   // Wix email step mirrors (live mode).
-  const buildOrderPayload = () => {
-    const stateName = nameOfState(stateCode);
-    return {
-      items: lines.map((l) => ({
-        name: l.name,
-        quantity: l.quantity,
-        unitPrice: String(l.price),
-        lineTotal: String(l.price * l.quantity),
-        image: l.image,
-      })),
-      summary: {
-        subtotal: String(totals.subtotal),
-        shipping: "0",
-        discount: String(
-          totals.couponDiscount + totals.prepaidDiscount + totals.bundleDiscount,
-        ),
-        giftWrap: giftWrapFee ? String(giftWrapFee) : undefined,
-        total: String(totals.total),
-      },
-      amount: totals.total.toFixed(2),
-      couponCode: appliedCoupon || undefined,
-      bundleDiscount: totals.bundleDiscount || undefined,
-      giftWrap,
-      giftNote: giftWrap ? giftNote.trim() || undefined : undefined,
-      stateName,
-    };
-  };
+  const buildOrderPayload = () => ({
+    items: lines.map((l) => ({
+      name: l.name,
+      quantity: l.quantity,
+      unitPrice: String(l.price),
+      lineTotal: String(l.price * l.quantity),
+      image: l.image,
+    })),
+    summary: {
+      subtotal: String(totals.subtotal),
+      shipping: "0",
+      discount: String(totals.couponDiscount + totals.prepaidDiscount),
+      giftWrap: giftWrapFee ? String(giftWrapFee) : undefined,
+      total: String(totals.total),
+    },
+    amount: totals.total.toFixed(2),
+    couponCode: appliedCoupon || undefined,
+    giftWrap,
+    giftNote: giftWrap ? giftNote.trim() || undefined : undefined,
+    stateName: nameOfState(stateCode),
+  });
 
-  // Turn the cart into an order via /api/checkout. Mock mode sends items+summary;
-  // live mode first materialises a Wix checkout from the current cart.
+  // Turn the cart into an order via /api/checkout. Live mode first materialises
+  // a Wix checkout from the current cart.
   const finalizeOrder = async (
     method: PaymentMethod,
     razorpayPaymentId?: string,
@@ -359,10 +479,7 @@ export default function CheckoutModal() {
       const lineItems = lines
         .filter((l) => l.wixCatalogItemId)
         .map((l) => ({
-          catalogReference: {
-            appId: WIX_STORES_APP_ID,
-            catalogItemId: l.wixCatalogItemId,
-          },
+          catalogReference: { appId: WIX_STORES_APP_ID, catalogItemId: l.wixCatalogItemId },
           quantity: l.quantity,
         }));
       if (lineItems.length) {
@@ -370,8 +487,8 @@ export default function CheckoutModal() {
         await wc.currentCart.addToCurrentCart({ lineItems });
       }
       // Apply the coupon natively so Wix's engine computes the discount and it
-      // shows on the resulting order. Best-effort: if Wix rejects the code, the
-      // order still proceeds (the local mirror already reflected the discount).
+      // shows on the resulting order. Best-effort: if Wix rejects it, the order
+      // still proceeds.
       if (appliedCoupon) {
         try {
           await wc.currentCart.updateCurrentCart({ couponCode: appliedCoupon });
@@ -379,9 +496,7 @@ export default function CheckoutModal() {
           console.error("Wix rejected coupon", appliedCoupon, couponErr);
         }
       }
-      const checkoutResult = await wc.currentCart.createCheckoutFromCurrentCart({
-        channelType: "WEB",
-      });
+      const checkoutResult = await wc.currentCart.createCheckoutFromCurrentCart({ channelType: "WEB" });
       checkoutId = checkoutResult?.checkoutId;
       if (!checkoutId) throw new Error("Wix returned an empty checkoutId.");
     }
@@ -394,32 +509,29 @@ export default function CheckoutModal() {
         details: {
           email: email.trim(),
           fullName: fullName.trim(),
-          phone: mobile.replace(/\D/g, ""),
+          phone,
           addressLine1: address.trim(),
-          addressLine2: addressLine2.trim(),
+          addressLine2: landmark.trim(),
           city: city.trim(),
           state: stateCode,
           postalCode: pincode.trim(),
           paymentMethod: method,
           razorpayPaymentId,
-          razorpayAmount: method === "PREPAID" ? totals.total.toFixed(2) : undefined,
         },
         items: payload.items,
         summary: payload.summary,
         amount: payload.amount,
         couponCode: payload.couponCode,
-        bundleDiscount: payload.bundleDiscount,
         giftWrap: payload.giftWrap,
         giftNote: payload.giftNote,
-        // Lets the server fire its own Meta Purchase the moment the order
-        // exists, so an ad-blocked or closed browser still reports the
-        // conversion. It reuses event_id `purchase-<orderId>`, the same id the
-        // browser Purchase above uses, so Meta counts ONE conversion.
+        // Lets the server fire its own Meta Purchase the moment the order exists.
+        // It reuses event_id `purchase-<orderId>`, the same id the browser
+        // Purchase uses, so Meta counts ONE conversion.
         tracking: {
           ...trackingContext(),
           contentIds: contentIds(lines),
           contents: toContents(lines),
-          numItems: lines.reduce((n, l) => n + l.quantity, 0),
+          numItems: itemCount,
           value: totals.total,
         },
       }),
@@ -431,8 +543,8 @@ export default function CheckoutModal() {
   };
 
   const completeOrder = (orderId: string) => {
-    // Fire Purchase BEFORE clearCart wipes the totals. eventId = orderId so the
-    // browser Pixel (via GTM) and the server CAPI event de-duplicate.
+    // Fire Purchase BEFORE clearCart wipes the totals. eventId matches the server
+    // CAPI event so Meta de-duplicates.
     const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
     trackEvent("Purchase", {
       eventId: `purchase-${orderId}`,
@@ -442,15 +554,14 @@ export default function CheckoutModal() {
         content_ids: contentIds(lines),
         contents: toContents(lines),
         content_type: "product",
-        num_items: lines.reduce((n, l) => n + l.quantity, 0),
+        num_items: itemCount,
         order_id: orderId,
       },
-      // Purchase is the one event where we hold the full customer record — send
-      // all of it. Every extra field raises Event Match Quality, and /api/capi
-      // hashes them before they leave our server.
+      // Purchase is the one event where we hold the full customer record — every
+      // field raises Event Match Quality; /api/capi hashes them server-side.
       userData: {
         email: email.trim() || undefined,
-        phone: mobile.replace(/\D/g, "") || undefined,
+        phone: phone || undefined,
         firstName: nameParts[0] || undefined,
         lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined,
         city: city.trim() || undefined,
@@ -463,19 +574,15 @@ export default function CheckoutModal() {
     });
     clearCart();
     // Reset for next time (handler, not an effect — React Compiler safe).
-    setStep(1);
     setProcessing(false);
     setError("");
     setAppliedCoupon("");
-    setUpsell({ items: [], discount: 0 });
-    // Re-arm the funnel-step guards so a subsequent order tracks fresh.
+    setCodCommitted(false);
     checkoutTracked.current = false;
     paymentInfoTracked.current = false;
     if (WIX_ENABLED) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (wixClient as any).currentCart
-        ?.deleteCurrentCart?.()
-        .catch(() => {});
+      (wixClient as any).currentCart?.deleteCurrentCart?.().catch(() => {});
     }
     onClose();
     router.push(`/success?orderId=${encodeURIComponent(orderId)}`);
@@ -490,7 +597,7 @@ export default function CheckoutModal() {
         amount: totals.total,
         currency: "INR",
         receipt: `order_${Date.now()}`,
-        notes: { email: email.trim(), phone: mobile.replace(/\D/g, "") },
+        notes: { email: email.trim(), phone },
       }),
     });
     const orderData = await orderResponse.json().catch(() => ({}));
@@ -512,11 +619,7 @@ export default function CheckoutModal() {
       order_id: orderData.order_id,
       name: BRAND_NAME,
       description: "Order payment",
-      prefill: {
-        name: fullName.trim(),
-        email: email.trim(),
-        contact: mobile.replace(/\D/g, ""),
-      },
+      prefill: { name: fullName.trim(), email: email.trim(), contact: phone },
       notes: { address: address.trim() },
       theme: { color: "#071a47" },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -535,10 +638,7 @@ export default function CheckoutModal() {
           if (!verifyResponse.ok || !verifyData?.verified) {
             throw new Error("Payment verification failed.");
           }
-          const { orderId } = await finalizeOrder(
-            "PREPAID",
-            response.razorpay_payment_id,
-          );
+          const { orderId } = await finalizeOrder("PREPAID", response.razorpay_payment_id);
           completeOrder(orderId);
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Unknown error";
@@ -561,22 +661,35 @@ export default function CheckoutModal() {
   };
 
   const handlePayment = async () => {
-    const validationError = validateDelivery();
-    if (validationError) return setError(validationError);
     if (!lines.length) return setError("Your bag is empty.");
+    const fieldErrors = validateFields({
+      phone,
+      pincode,
+      fullName,
+      address,
+      city,
+      state: stateCode,
+      email,
+      paymentMethod,
+      codCommitted,
+    });
+    if (Object.keys(fieldErrors).length) {
+      setErrors(fieldErrors);
+      focusFirstError(fieldErrors);
+      return;
+    }
 
     setError("");
     setProcessing(true);
 
-    // AddPaymentInfo — the shopper has a complete, valid delivery address and has
-    // committed to a payment method. A real step, unlike "reached step 3".
+    // AddPaymentInfo — a complete, valid address and a chosen payment method.
     if (!paymentInfoTracked.current) {
       paymentInfoTracked.current = true;
       trackEvent("AddPaymentInfo", {
         customData: {
           currency: "INR",
           value: totals.total,
-          num_items: lines.reduce((n, l) => n + l.quantity, 0),
+          num_items: itemCount,
           content_ids: contentIds(lines),
           contents: toContents(lines),
           content_type: "product",
@@ -584,8 +697,8 @@ export default function CheckoutModal() {
         },
         userData: {
           email: email.trim() || undefined,
-          phone: mobile.replace(/\D/g, "") || undefined,
-          firstName: fullName.trim().split(/\s+/)[0] || undefined,
+          phone: phone || undefined,
+          firstName: firstName || undefined,
           city: city.trim() || undefined,
           state: stateCode || undefined,
           zip: pincode.trim() || undefined,
@@ -610,266 +723,607 @@ export default function CheckoutModal() {
 
   if (!open) return null;
 
-  const inputClass =
-    "w-full rounded-md border border-midnight-navy/30 bg-white px-4 py-2.5 text-sm text-midnight-navy placeholder:text-midnight-navy/50 focus:outline-none focus:border-midnight-navy focus:ring-1 focus:ring-midnight-navy";
+  const paymentOptions: { id: PaymentMethod; label: string; badge: string; sub: string; amount: number; disabled: boolean }[] = [
+    {
+      id: "PREPAID",
+      label: "Pay online",
+      badge: PREPAID_ENABLED ? `Save ${formatPrice(PREPAID_DISCOUNT)}` : "Coming soon",
+      sub: "UPI, cards & wallets · secured by Razorpay",
+      amount: prepaidTotal,
+      disabled: !PREPAID_ENABLED,
+    },
+    {
+      id: "COD",
+      label: "Cash on Delivery",
+      badge: "Pay when it arrives",
+      sub: "Pay the courier in cash or UPI",
+      amount: codTotal,
+      disabled: false,
+    },
+  ];
+
+  const labelClass = "text-xs font-medium text-midnight-navy/75";
 
   return createPortal(
     <div className="fixed inset-0 z-[10000] flex items-stretch justify-end">
       {/* Overlay */}
-      <div
-        onClick={() => !processing && onClose()}
-        className="absolute inset-0 bg-midnight-navy/60 backdrop-blur-[2px]"
-        aria-hidden="true"
-      />
+      <div onClick={requestClose} className="absolute inset-0 bg-midnight-navy/60 backdrop-blur-[2px]" aria-hidden="true" />
 
       {/* Panel */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Checkout"
-        className="relative ml-auto flex h-full w-full max-w-lg flex-col bg-ivory shadow-2xl"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-midnight-navy/15 px-6 py-5">
-          <div>
-            <h2 className="font-heading text-xl uppercase tracking-[0.25em] text-midnight-navy font-bold">
-              Checkout
-            </h2>
-            <p className="mt-1 text-[0.65rem] uppercase tracking-[0.2em] text-midnight-navy/50">
-              {/* With the upsell disabled, step 3 is really the 2nd of 2 steps. */}
-              Step {UPSELL_ENABLED ? step : step === 3 ? 2 : step} of{" "}
-              {UPSELL_ENABLED ? 3 : 2} ·{" "}
-              {step === 1
-                ? "Contact"
-                : step === 2
-                  ? "Your Ritual"
-                  : "Delivery & Payment"}
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="Close checkout"
-            onClick={() => !processing && onClose()}
-            className="cursor-pointer rounded-full p-1 text-midnight-navy/70 transition-all hover:text-midnight-navy active:scale-95"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Body */}
-        <div data-lenis-prevent className="flex-1 overflow-y-auto px-6 py-5">
-          {error && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
-              {error}
+      <div role="dialog" aria-modal="true" aria-label="Checkout" className="relative ml-auto flex h-full w-full max-w-lg flex-col bg-ivory shadow-2xl">
+        <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {/* Header — secure, the running total, and how far along they are */}
+          <div className="sticky top-0 z-20 border-b border-midnight-navy/10 bg-ivory">
+            <div className="flex items-center justify-between px-4 py-3">
+              <button
+                id="checkout-close"
+                type="button"
+                onClick={requestClose}
+                aria-label="Close checkout"
+                className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-midnight-navy/60 hover:bg-sand/60"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-midnight-navy">
+                <LockIcon className="h-4 w-4 text-emerald-700" />
+                Secure checkout
+              </p>
+              <span className="min-w-[2.25rem] text-right text-sm font-bold tabular-nums text-midnight-navy">
+                {formatPrice(totals.total)}
+              </span>
             </div>
+            {/* The bag is done, so the shopper is already two-thirds in. */}
+            <ol className="flex items-center justify-center gap-2 pb-2 text-[0.68rem] font-semibold uppercase tracking-wider" aria-label="Checkout progress">
+              <li className="text-emerald-700">✓ Bag</li>
+              <li className="text-midnight-navy/25" aria-hidden="true">—</li>
+              <li className={detailsComplete ? "text-emerald-700" : "text-champagne-gold"}>
+                {detailsComplete ? "✓ Details" : "2 Details"}
+              </li>
+              <li className="text-midnight-navy/25" aria-hidden="true">—</li>
+              <li className={detailsComplete ? "text-champagne-gold" : "text-midnight-navy/40"}>3 Pay</li>
+            </ol>
+          </div>
+
+          <p className="px-5 pt-4 text-center font-heading text-xl text-midnight-navy">
+            {firstName ? `Almost yours, ${firstName} ✨` : "You're one step away from your order"}
+          </p>
+
+          {/* Your order — collapsed to thumbnails; open for the list */}
+          <details className="group mt-3 border-y border-midnight-navy/10">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-3 [&::-webkit-details-marker]:hidden">
+              <span className="flex -space-x-2">
+                {lines.slice(0, 3).map((l) => (
+                  <span key={l.id} className="relative h-9 w-9 overflow-hidden rounded-md border-2 border-ivory bg-sand">
+                    <Image src={l.image} alt="" fill sizes="36px" className="object-cover" />
+                  </span>
+                ))}
+              </span>
+              <span className="flex-1 text-sm text-midnight-navy">
+                Your order · {itemCount} {itemCount === 1 ? "piece" : "pieces"}
+              </span>
+              <span className="text-xs font-semibold text-champagne-gold group-open:hidden">Show</span>
+              <span className="hidden text-xs font-semibold text-champagne-gold group-open:inline">Hide</span>
+            </summary>
+            <ul className="space-y-3 px-5 pb-4">
+              {lines.map((l) => (
+                <li key={l.id} className="flex items-center gap-3">
+                  <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-sand">
+                    <Image src={l.image} alt="" fill sizes="48px" className="object-cover" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-1 block text-sm text-midnight-navy">{l.name}</span>
+                    <span className="text-xs text-midnight-navy/55">Qty {l.quantity}</span>
+                    {l.stockCount > 0 && l.stockCount <= LOW_STOCK_THRESHOLD && (
+                      <span className="ml-2 text-xs font-semibold text-orange-600">Only {l.stockCount} left</span>
+                    )}
+                  </span>
+                  <span className="text-sm font-medium tabular-nums text-midnight-navy">{formatPrice(l.price * l.quantity)}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+
+          {totalSavings > 0 && (
+            <p className="bg-emerald-50 px-5 py-2 text-center text-sm font-semibold text-emerald-800">
+              🎉 You&apos;re saving {formatPrice(Math.round(totalSavings))} on this order
+              {appliedCoupon && isTierCode(appliedCoupon) && !shopperChoseCoupon && totals.couponDiscount > 0 && (
+                <span className="block text-xs font-medium text-emerald-700">{appliedCoupon} applied automatically</span>
+              )}
+            </p>
           )}
 
-          {step === 1 ? (
-            <div className="space-y-4">
-              <label className="block">
-                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-midnight-navy/70">
-                  Email address
-                </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className={`mt-2 ${inputClass}`}
-                  autoFocus
-                />
-              </label>
-              <p className="text-xs leading-6 text-midnight-navy/60">
-                Your order confirmation and updates are sent here.
-              </p>
-              <button
-                type="button"
-                onClick={goToStep2}
-                className="w-full cursor-pointer rounded-full bg-midnight-navy px-6 py-3.5 text-xs font-bold uppercase tracking-[0.2em] text-champagne-gold transition-all hover:bg-midnight-navy/90 active:scale-95"
-              >
-                Continue
-              </button>
-            </div>
-          ) : step === 2 ? (
-            <SacredUpsellFlow
-              primary={primaryProduct}
-              catalog={catalog}
-              cartIds={cartIds}
-              onChange={setUpsell}
-              onContinue={enterPaymentStep}
-            />
-          ) : (
-            <div className="space-y-5">
-              {/* Delivery details */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full name" className={`sm:col-span-2 ${inputClass}`} />
-                <input value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="10-digit mobile" inputMode="numeric" className={inputClass} />
-                <input value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="Pincode" inputMode="numeric" className={inputClass} />
-                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address (house no, street, area)" className={`sm:col-span-2 ${inputClass}`} />
-                <input value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} placeholder="Landmark (optional)" className={`sm:col-span-2 ${inputClass}`} />
-                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className={inputClass} />
-                <select value={stateCode} onChange={(e) => setStateCode(e.target.value)} className={inputClass}>
-                  <option value="">Select state</option>
-                  {IN_STATES.map((s) => (
-                    <option key={s.code} value={s.code}>{s.name}</option>
-                  ))}
-                </select>
+          <div className="space-y-7 p-5">
+            {/* Delivery details — phone first, email last */}
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-midnight-navy">Delivery details</h3>
+
+              <div>
+                <label htmlFor="co-phone" className={labelClass}>Mobile number</label>
+                <div className="mt-1 flex">
+                  <span className="flex items-center rounded-l-lg border border-r-0 border-midnight-navy/25 bg-sand/50 px-3 text-base text-midnight-navy/70">+91</span>
+                  <input
+                    id="co-phone"
+                    ref={(el) => {
+                      fieldRefs.current.phone = el;
+                    }}
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    value={phone}
+                    onChange={(e) => updateField("phone", setPhone, normalizeIndianMobile(e.target.value))}
+                    placeholder="10-digit mobile number"
+                    aria-invalid={!!errors.phone}
+                    className={`${inputClass(!!errors.phone)} rounded-l-none`}
+                  />
+                </div>
+                <FieldError message={errors.phone} />
+                <p className="mt-1 text-[0.7rem] text-midnight-navy/50">For delivery updates from the courier.</p>
               </div>
 
-              {/* Payment method */}
-              <div className="space-y-2">
-                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-midnight-navy/70">Payment method</span>
-                {(["PREPAID", "COD"] as PaymentMethod[]).map((m) => {
-                  const disabled = m === "PREPAID" && !PREPAID_ENABLED;
-                  return (
-                    <label
-                      key={m}
-                      className={`flex items-center justify-between rounded-lg border px-4 py-3 transition-colors ${
-                        disabled
-                          ? "cursor-not-allowed border-midnight-navy/10 bg-midnight-navy/[0.03] opacity-60"
-                          : paymentMethod === m
-                            ? "cursor-pointer border-champagne-gold bg-champagne-gold/10"
-                            : "cursor-pointer border-midnight-navy/20 hover:border-midnight-navy/40"
-                      }`}
+              <div>
+                <label htmlFor="co-pincode" className={labelClass}>Pincode</label>
+                <input
+                  id="co-pincode"
+                  ref={(el) => {
+                    fieldRefs.current.pincode = el;
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="postal-code"
+                  value={pincode}
+                  onChange={(e) => updateField("pincode", setPincode, e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="6-digit pincode"
+                  aria-invalid={!!errors.pincode}
+                  className={`mt-1 ${inputClass(!!errors.pincode)}`}
+                />
+                <FieldError message={errors.pincode} />
+                {pincodeStatus === "loading" && <p className="mt-1 text-xs text-midnight-navy/55">Finding your area…</p>}
+                {pincodeStatus === "found" && (
+                  <p className="mt-1 text-xs font-medium text-emerald-700">🚚 Delivery {deliveryWindowLabel()}</p>
+                )}
+                {pincodeStatus === "notFound" && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    We couldn&apos;t look up this pincode — please check it and enter your city below.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="co-name" className={labelClass}>Full name</label>
+                <input
+                  id="co-name"
+                  ref={(el) => {
+                    fieldRefs.current.fullName = el;
+                  }}
+                  type="text"
+                  autoComplete="name"
+                  maxLength={100}
+                  value={fullName}
+                  onChange={(e) => updateField("fullName", setFullName, e.target.value)}
+                  aria-invalid={!!errors.fullName}
+                  className={`mt-1 ${inputClass(!!errors.fullName)}`}
+                />
+                <FieldError message={errors.fullName} />
+              </div>
+
+              <div>
+                <label htmlFor="co-address" className={labelClass}>House no., building, street</label>
+                <input
+                  id="co-address"
+                  ref={(el) => {
+                    fieldRefs.current.address = el;
+                  }}
+                  type="text"
+                  autoComplete="address-line1"
+                  maxLength={120}
+                  value={address}
+                  onChange={(e) => updateField("address", setAddress, e.target.value)}
+                  aria-invalid={!!errors.address}
+                  className={`mt-1 ${inputClass(!!errors.address)}`}
+                />
+                <FieldError message={errors.address} />
+                <input
+                  type="text"
+                  autoComplete="address-line2"
+                  maxLength={120}
+                  value={landmark}
+                  onChange={(e) => setLandmark(e.target.value)}
+                  placeholder="Area / landmark (optional)"
+                  aria-label="Area or landmark (optional)"
+                  className={`mt-2 ${inputClass(false)}`}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="co-city" className={labelClass}>City</label>
+                  <input
+                    id="co-city"
+                    ref={(el) => {
+                      fieldRefs.current.city = el;
+                    }}
+                    type="text"
+                    autoComplete="address-level2"
+                    maxLength={50}
+                    value={city}
+                    onChange={(e) => updateField("city", setCity, e.target.value)}
+                    aria-invalid={!!errors.city}
+                    className={`mt-1 ${inputClass(!!errors.city)}`}
+                  />
+                  <FieldError message={errors.city} />
+                </div>
+                <div>
+                  <label htmlFor="co-state" className={labelClass}>State</label>
+                  <select
+                    id="co-state"
+                    ref={(el) => {
+                      fieldRefs.current.state = el;
+                    }}
+                    autoComplete="address-level1"
+                    value={stateCode}
+                    onChange={(e) => updateField("state", setStateCode, e.target.value)}
+                    aria-invalid={!!errors.state}
+                    className={`mt-1 ${inputClass(!!errors.state)}`}
+                  >
+                    <option value="">Select</option>
+                    {IN_STATES.map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <FieldError message={errors.state} />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="co-email" className={labelClass}>
+                  Email <span className="font-normal text-midnight-navy/50">(for your order confirmation)</span>
+                </label>
+                <input
+                  id="co-email"
+                  ref={(el) => {
+                    fieldRefs.current.email = el;
+                  }}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => updateField("email", setEmail, e.target.value)}
+                  aria-invalid={!!errors.email}
+                  className={`mt-1 ${inputClass(!!errors.email)}`}
+                />
+                <FieldError message={errors.email} />
+                {emailSuggestion && (
+                  <p className="mt-1 text-xs text-midnight-navy/65">
+                    Did you mean{" "}
+                    <button
+                      type="button"
+                      onClick={() => updateField("email", setEmail, emailSuggestion)}
+                      className="cursor-pointer font-semibold text-champagne-gold underline underline-offset-2"
                     >
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="payment"
-                          disabled={disabled}
-                          checked={paymentMethod === m}
-                          onChange={() => !disabled && setPaymentMethod(m)}
-                          className="accent-midnight-navy"
-                        />
-                        <span className="text-sm font-medium text-midnight-navy">
-                          {m === "PREPAID" ? "Pay Online (UPI / Card)" : "Cash on Delivery"}
+                      {emailSuggestion}
+                    </button>
+                    ?
+                  </p>
+                )}
+              </div>
+
+              <label className="flex items-center gap-2 text-xs text-midnight-navy/65">
+                <input
+                  type="checkbox"
+                  checked={rememberDetails}
+                  onChange={(e) => setRememberDetails(e.target.checked)}
+                  className="h-4 w-4 accent-midnight-navy"
+                />
+                Save these details on this device for next time
+              </label>
+            </section>
+
+            {/* Payment — what each method costs, side by side */}
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-midnight-navy">Payment</h3>
+              {paymentOptions.map((opt) => {
+                const selected = paymentMethod === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => !opt.disabled && setPaymentMethod(opt.id)}
+                    disabled={opt.disabled}
+                    aria-pressed={selected}
+                    className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                      opt.disabled
+                        ? "cursor-not-allowed border-midnight-navy/10 bg-midnight-navy/[0.03] opacity-60"
+                        : selected
+                          ? "cursor-pointer border-champagne-gold bg-champagne-gold/10 ring-2 ring-champagne-gold/30"
+                          : "cursor-pointer border-midnight-navy/20 hover:border-midnight-navy/40"
+                    }`}
+                  >
+                    <span className={`h-4 w-4 flex-shrink-0 rounded-full border-2 ${selected ? "border-midnight-navy bg-midnight-navy" : "border-midnight-navy/30"}`} />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-midnight-navy">{opt.label}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wider ${
+                            opt.id === "PREPAID" && !opt.disabled
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-midnight-navy/10 text-midnight-navy/65"
+                          }`}
+                        >
+                          {opt.badge}
                         </span>
                       </span>
-                      {m === "PREPAID" &&
-                        (PREPAID_ENABLED ? (
-                          <span className="text-xs font-bold text-green-600">Save ₹{PREPAID_DISCOUNT}</span>
-                        ) : (
-                          <span className="rounded-full bg-midnight-navy/10 px-2.5 py-1 text-[0.6rem] font-semibold uppercase tracking-wider text-midnight-navy/60">
-                            Coming soon
-                          </span>
-                        ))}
-                    </label>
-                  );
-                })}
-              </div>
+                      <span className="mt-0.5 block text-xs text-midnight-navy/55">{opt.sub}</span>
+                    </span>
+                    {!opt.disabled && (
+                      <span className="text-base font-bold tabular-nums text-midnight-navy">{formatPrice(opt.amount)}</span>
+                    )}
+                  </button>
+                );
+              })}
 
-              {/* Spend ladder — the code applies itself (useAutoTierCoupon). */}
-              <div className="rounded-lg border border-dashed border-champagne-gold/50 bg-champagne-gold/5 p-3">
+              {!isPrepaid && (
+                <>
+                  {PREPAID_ENABLED && (
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod("PREPAID")}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-left hover:bg-amber-100"
+                    >
+                      <span className="text-lg leading-none" aria-hidden="true">💡</span>
+                      <span className="text-xs font-medium leading-snug text-amber-800">
+                        Pay online for {formatPrice(prepaidTotal)} and save {formatPrice(codTotal - prepaidTotal)}.{" "}
+                        <span className="underline">Switch</span>
+                      </span>
+                    </button>
+                  )}
+                  <label
+                    className={`flex items-start gap-2.5 rounded-lg border p-3 text-xs ${
+                      errors.codConfirm ? "border-red-300 bg-red-50" : "border-midnight-navy/20"
+                    }`}
+                  >
+                    <input
+                      ref={(el) => {
+                        fieldRefs.current.codConfirm = el;
+                      }}
+                      type="checkbox"
+                      checked={codCommitted}
+                      onChange={(e) => {
+                        setCodCommitted(e.target.checked);
+                        if (errors.codConfirm) setErrors((prev) => ({ ...prev, codConfirm: undefined }));
+                      }}
+                      className="mt-0.5 h-4 w-4 accent-midnight-navy"
+                    />
+                    <span className="text-midnight-navy">
+                      I&apos;ll be available to receive this order and pay <b>{formatPrice(codTotal)}</b> on delivery.
+                    </span>
+                  </label>
+                  <FieldError message={errors.codConfirm} />
+                </>
+              )}
+            </section>
+
+            {/* Offers & add-ons */}
+            <section className="space-y-3">
+              <div className="rounded-xl border border-dashed border-champagne-gold/50 bg-champagne-gold/5 p-3">
                 <TierProgress subtotal={productsSubtotal} />
               </div>
 
-              {/* Coupon */}
-              <div className="rounded-lg border border-midnight-navy/15 bg-white/50 p-3">
-                {appliedCoupon ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-green-700">
-                      ✦ {appliedCoupon} applied
-                      {isTierCode(appliedCoupon) && (
-                        <span className="ml-1 font-normal normal-case tracking-normal text-green-700/80">
-                          automatically
-                        </span>
-                      )}
+              {unlockSuggestion?.unlocksTier && (
+                <div className="flex items-center gap-3 rounded-xl border border-champagne-gold/40 bg-white p-2.5">
+                  <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-sand">
+                    <Image src={unlockSuggestion.product.image} alt={unlockSuggestion.product.name} fill sizes="56px" className="object-cover" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[0.68rem] font-bold uppercase tracking-wider text-champagne-gold">
+                      Unlock {tierPercent(unlockSuggestion.unlocksTier)}% OFF
+                      {unlockSuggestion.unlocksTier.perk ? ` + ${unlockSuggestion.unlocksTier.perk}` : ""}
                     </span>
-                    <button type="button" onClick={handleRemoveCoupon} className="cursor-pointer text-xs text-midnight-navy/60 underline underline-offset-2 hover:text-midnight-navy">
-                      Remove
+                    <span className="block truncate text-xs font-medium text-midnight-navy">{unlockSuggestion.product.name}</span>
+                    <span className="text-[0.7rem] text-midnight-navy/60">{formatPrice(unlockSuggestion.product.price)}</span>
+                  </span>
+                  <AddToCartButton
+                    product={unlockSuggestion.product}
+                    ariaLabel={`Add ${unlockSuggestion.product.name} to your order`}
+                    openBag={false}
+                    className="shrink-0 rounded-full bg-midnight-navy px-3 py-2 text-[0.68rem] font-semibold uppercase tracking-wide text-champagne-gold"
+                  >
+                    + Add
+                  </AddToCartButton>
+                </div>
+              )}
+
+              <GiftWrapOption subtotal={productsSubtotal} />
+
+              {appliedCoupon && totals.couponDiscount > 0 ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2">
+                  <p className="min-w-0 truncate text-xs font-semibold text-emerald-800">
+                    ✓ {appliedCoupon} applied
+                    <span className="font-normal text-emerald-700"> · you save {formatPrice(totals.couponDiscount)}</span>
+                  </p>
+                  <button type="button" onClick={handleRemoveCoupon} className="cursor-pointer text-[0.7rem] font-semibold uppercase tracking-wider text-red-600">
+                    Remove
+                  </button>
+                </div>
+              ) : !showCouponInput ? (
+                <button
+                  type="button"
+                  onClick={() => setShowCouponInput(true)}
+                  className="cursor-pointer text-xs font-medium text-midnight-navy/60 underline underline-offset-2 hover:text-midnight-navy"
+                >
+                  Have a different coupon code?
+                </button>
+              ) : (
+                <div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value.toUpperCase());
+                        setCouponError("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleApplyCoupon();
+                        }
+                      }}
+                      placeholder="ENTER CODE"
+                      aria-label="Coupon code"
+                      autoFocus
+                      className={`${inputClass(false)} min-w-0 flex-1 py-2 uppercase tracking-wider`}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={!couponInput.trim() || processing}
+                      className="cursor-pointer rounded-full bg-midnight-navy px-4 text-[0.7rem] font-semibold uppercase tracking-wider text-champagne-gold disabled:opacity-50"
+                    >
+                      Apply
                     </button>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex gap-2">
-                      <input value={couponInput} onChange={(e) => { setCouponInput(e.target.value); setCouponError(""); }} placeholder="Coupon code" className={`flex-1 ${inputClass} uppercase`} />
-                      <button type="button" onClick={handleApplyCoupon} className="flex-shrink-0 cursor-pointer rounded-full bg-midnight-navy px-5 py-2 text-xs font-medium uppercase tracking-wider text-champagne-gold transition-all hover:bg-midnight-navy/90 active:scale-95">
-                        Apply
-                      </button>
-                    </div>
-                    {couponError && <p className="mt-2 text-xs text-red-600">{couponError}</p>}
-                  </>
-                )}
-              </div>
-
-              {/* Totals — the "tigdam" */}
-              <div className="space-y-1.5 rounded-lg bg-sand/30 p-4 text-sm">
-                <Row label="Subtotal" value={formatPrice(totals.subtotal)} />
-                <Row
-                  label="Shipping"
-                  value="FREE"
-                  valueClass="text-green-600 font-bold"
-                />
-                {totals.couponDiscount > 0 && (
-                  <Row label={`${isTierCode(appliedCoupon) ? "Offer" : "Coupon"} (${appliedCoupon})`} value={`− ${formatPrice(totals.couponDiscount)}`} valueClass="text-champagne-gold font-semibold" />
-                )}
-                {totals.prepaidDiscount > 0 && (
-                  <Row label="Online payment discount" value={`− ${formatPrice(totals.prepaidDiscount)}`} valueClass="text-champagne-gold font-semibold" />
-                )}
-                {totals.bundleDiscount > 0 && (
-                  <Row label="✦ Sacred Bundle" value={`− ${formatPrice(totals.bundleDiscount)}`} valueClass="text-champagne-gold font-semibold" />
-                )}
-                {totals.giftWrapFee > 0 ? (
-                  <Row label="Gift wrap & note" value={`+ ${formatPrice(totals.giftWrapFee)}`} />
-                ) : (
-                  giftWrap && (
-                    <Row label="Gift wrap & note" value="FREE" valueClass="text-green-600 font-bold" />
-                  )
-                )}
-                <div className="mt-2 flex items-center justify-between border-t border-midnight-navy/15 pt-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.15em] text-midnight-navy/80">To pay</span>
-                  <span className="text-xl font-bold text-midnight-navy">{formatPrice(totals.total)}</span>
+                  {couponError && <p className="mt-1.5 text-xs text-red-600">{couponError}</p>}
                 </div>
+              )}
+            </section>
+
+            {/* Price breakdown */}
+            <section className="space-y-1.5 rounded-xl bg-sand/40 p-4 text-sm">
+              <div className="flex justify-between text-midnight-navy/75">
+                <span>Subtotal</span>
+                <span className="tabular-nums">{formatPrice(totals.subtotal)}</span>
               </div>
-            </div>
-          )}
+              {totals.couponDiscount > 0 && (
+                <div className="flex justify-between font-medium text-emerald-700">
+                  <span>{isTierCode(appliedCoupon) ? "Offer" : "Coupon"} ({appliedCoupon})</span>
+                  <span className="tabular-nums">− {formatPrice(totals.couponDiscount)}</span>
+                </div>
+              )}
+              {totals.prepaidDiscount > 0 && (
+                <div className="flex justify-between font-medium text-emerald-700">
+                  <span>Pay-online discount</span>
+                  <span className="tabular-nums">− {formatPrice(totals.prepaidDiscount)}</span>
+                </div>
+              )}
+              {giftWrap && (
+                <div className="flex justify-between text-midnight-navy/75">
+                  <span>Gift wrap &amp; note</span>
+                  {totals.giftWrapFee > 0 ? (
+                    <span className="tabular-nums">+ {formatPrice(totals.giftWrapFee)}</span>
+                  ) : (
+                    <span className="font-semibold text-emerald-700">FREE</span>
+                  )}
+                </div>
+              )}
+              <div className="flex justify-between text-midnight-navy/75">
+                <span>Delivery</span>
+                <span className="font-semibold text-emerald-700">FREE</span>
+              </div>
+              <div className="mt-2 flex justify-between border-t border-midnight-navy/15 pt-3 text-base font-bold text-midnight-navy">
+                <span>{isPrepaid ? "Total" : "Total (pay on delivery)"}</span>
+                <span className="tabular-nums">{formatPrice(totals.total)}</span>
+              </div>
+            </section>
+
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          </div>
         </div>
 
-        {/* Sticky footer CTA (delivery step only) */}
-        {step === 3 && (
-          <div className="border-t border-midnight-navy/15 bg-ivory/95 px-6 py-4 backdrop-blur">
+        {/* Sticky pay bar — the total and the one button, always in reach */}
+        <div className="border-t border-midnight-navy/10 bg-ivory px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.06)]">
+          {lowStockLine && (
+            <p className="mb-2 text-center text-[0.7rem] font-semibold text-orange-700">
+              ⚠ Only {lowStockLine.stockCount} left of {lowStockLine.name} — order now to get yours
+            </p>
+          )}
+          <div className="flex items-center gap-4">
+            <div className="shrink-0">
+              {mrpTotal > totals.total + 1 && (
+                <p className="text-[0.7rem] tabular-nums text-midnight-navy/40 line-through">{formatPrice(mrpTotal)}</p>
+              )}
+              <p className="text-lg font-bold leading-tight tabular-nums text-midnight-navy">{formatPrice(totals.total)}</p>
+              <p className="text-[0.7rem] font-medium text-emerald-700">
+                {totalSavings > 0 ? `Saving ${formatPrice(Math.round(totalSavings))}` : isPrepaid ? "Paying online" : "Pay on delivery"}
+              </p>
+            </div>
             <button
               type="button"
               onClick={handlePayment}
-              // Also blocked while a coupon is being (re)validated, so the amount
-              // shown and charged is never a stale pre-Wix number.
+              // Blocked while a coupon is being (re)validated, so the amount shown
+              // and charged is never a stale number.
               disabled={processing || couponPending}
-              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-champagne-gold px-8 py-4 text-xs font-bold uppercase tracking-[0.2em] text-midnight-navy shadow-lg transition-all hover:bg-champagne-gold/85 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex-1 cursor-pointer rounded-full bg-champagne-gold py-3.5 text-xs font-bold uppercase tracking-[0.15em] text-midnight-navy shadow-lg transition-all hover:bg-champagne-gold/85 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {processing
                 ? "Processing…"
                 : couponPending
-                  ? "Checking coupon…"
-                  : paymentMethod === "PREPAID"
-                    ? `Pay ${formatPrice(totals.total)} securely ⚡`
-                    : `Place order · ${formatPrice(totals.total)}`}
+                  ? "Updating total…"
+                  : isPrepaid
+                    ? `Pay ${formatPrice(totals.total)} securely`
+                    : "Place COD order"}
             </button>
-            <p className="mt-2 text-center text-[0.6rem] uppercase tracking-wider text-midnight-navy/50">
-              🔒 Secure checkout · {isPrepaid ? "Razorpay encrypted" : "Pay on delivery"}
-            </p>
           </div>
-        )}
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[0.68rem] text-midnight-navy/55">
+            <LockIcon className="h-3.5 w-3.5" />
+            {isPrepaid ? "Secured by Razorpay" : "Pay on delivery"} · 48-hr exchange ·{" "}
+            {pincodeStatus === "found" ? `Arrives ${deliveryWindowLabel()}` : "Free delivery across India"}
+          </p>
+        </div>
       </div>
+
+      {/* "Don't miss out" — one honest reminder of what's being left behind */}
+      {showExitPrompt && (
+        <div
+          className="fixed inset-0 z-[10001] flex items-end justify-center bg-midnight-navy/40 md:items-center"
+          onClick={() => setShowExitPrompt(false)}
+        >
+          <div
+            role="alertdialog"
+            aria-label="Leave checkout?"
+            className="w-full rounded-t-2xl bg-ivory p-5 shadow-2xl md:max-w-sm md:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-heading text-2xl text-midnight-navy">Wait — don&apos;t miss out</p>
+            <p className="mt-1 text-sm text-midnight-navy/65">
+              {exitLosses.length > 0
+                ? "Your bag is saved, but if you leave now you miss:"
+                : "Your bag and details are saved for when you come back."}
+            </p>
+            {exitLosses.length > 0 && (
+              <ul className="mt-3 space-y-1.5 text-sm text-midnight-navy">
+                {exitLosses.map((loss) => (
+                  <li key={loss} className="flex items-start gap-2">
+                    <span className="mt-0.5 text-champagne-gold" aria-hidden="true">●</span>
+                    {loss}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowExitPrompt(false)}
+              className="mt-5 w-full cursor-pointer rounded-full bg-midnight-navy py-3.5 text-xs font-bold uppercase tracking-[0.2em] text-champagne-gold"
+            >
+              Complete my order
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowExitPrompt(false);
+                onClose();
+              }}
+              className="mt-2 w-full cursor-pointer py-2 text-sm text-midnight-navy/55 underline underline-offset-2"
+            >
+              Leave checkout
+            </button>
+          </div>
+        </div>
+      )}
     </div>,
     document.body,
-  );
-}
-
-function Row({
-  label,
-  value,
-  valueClass = "text-midnight-navy",
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between text-midnight-navy/80">
-      <span className="text-xs uppercase tracking-[0.12em]">{label}</span>
-      <span className={`text-sm ${valueClass}`}>{value}</span>
-    </div>
   );
 }

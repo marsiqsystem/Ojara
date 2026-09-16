@@ -75,3 +75,22 @@ export const normalizeSubdivision = (state: string): string => {
   if (/^IN-[A-Z]{2}$/i.test(trimmed)) return trimmed.toUpperCase();
   return byName.get(trimmed.toLowerCase()) || trimmed;
 };
+
+// India Post's spellings that differ from ours (pincode lookup, /api/pincode).
+const POSTAL_ALIASES: Record<string, string> = {
+  chattisgarh: "IN-CT",
+  orissa: "IN-OR",
+  pondicherry: "IN-PY",
+  uttaranchal: "IN-UT",
+  "dadra and nagar haveli": "IN-DH",
+  "daman and diu": "IN-DH",
+  "andaman and nicobar": "IN-AN",
+  "jammu & kashmir": "IN-JK",
+  "new delhi": "IN-DL",
+};
+
+/** Our code for a state name as India Post writes it, or "" if unknown. */
+export const stateCodeFromName = (name: string): string => {
+  const key = name.trim().toLowerCase().replace(/\s*&\s*/g, " and ").replace(/\s+/g, " ");
+  return byName.get(key) || POSTAL_ALIASES[key] || POSTAL_ALIASES[name.trim().toLowerCase()] || "";
+};

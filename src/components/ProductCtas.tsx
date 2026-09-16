@@ -10,9 +10,7 @@ import BuyNowConfirmModal, {
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
 import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
-
-/** "Only N left" shows at or below this many units (real Wix stock). */
-const LOW_STOCK_THRESHOLD = 3;
+import { LOW_STOCK_THRESHOLD } from "@/lib/commerce/config";
 
 export default function ProductCtas({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);

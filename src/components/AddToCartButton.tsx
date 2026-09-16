@@ -13,6 +13,7 @@ export default function AddToCartButton({
   onAdded,
   ariaLabel,
   quantity = 1,
+  openBag = true,
 }: {
   product: Product;
   className?: string;
@@ -22,6 +23,9 @@ export default function AddToCartButton({
   // Units this click adds, for the AddToCart value. The store still bumps by one;
   // a caller with a quantity selector reconciles the line in `onAdded`.
   quantity?: number;
+  // Slide the bag open to confirm the add. Off inside checkout, where the order
+  // summary already updates in place.
+  openBag?: boolean;
   // Required when `children` is icon-only (the product grid): without it the
   // button has no accessible name and reads as an empty control.
   ariaLabel?: string;
@@ -53,7 +57,7 @@ export default function AddToCartButton({
       },
     });
     onAdded?.();
-    openCart(); // slide the drawer open to confirm the addition
+    if (openBag) openCart(); // slide the drawer open to confirm the addition
   };
 
   return (
