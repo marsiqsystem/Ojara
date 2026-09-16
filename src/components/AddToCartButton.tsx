@@ -12,12 +12,16 @@ export default function AddToCartButton({
   children = "Add to Bag",
   onAdded,
   ariaLabel,
+  quantity = 1,
 }: {
   product: Product;
   className?: string;
   children?: React.ReactNode;
   // Optional hook fired after the item is added (e.g. to close a modal).
   onAdded?: () => void;
+  // Units this click adds, for the AddToCart value. The store still bumps by one;
+  // a caller with a quantity selector reconciles the line in `onAdded`.
+  quantity?: number;
   // Required when `children` is icon-only (the product grid): without it the
   // button has no accessible name and reads as an empty control.
   ariaLabel?: string;
@@ -31,14 +35,14 @@ export default function AddToCartButton({
     trackEvent("AddToCart", {
       customData: {
         currency: "INR",
-        value: product.price,
+        value: product.price * quantity,
         content_ids: [contentId(product)],
-        contents: toContents([product]),
-        num_items: 1,
+        contents: toContents([{ ...product, quantity }]),
+        num_items: quantity,
         content_name: product.name,
         content_type: "product",
       },
-      items: toGa4Items([product]),
+      items: toGa4Items([{ ...product, quantity }]),
     });
     toast.success("✦ Added to Cart successfully!", {
       description: product.name,

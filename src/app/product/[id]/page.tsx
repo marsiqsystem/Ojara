@@ -18,6 +18,7 @@ import ProductCtas from "@/components/ProductCtas";
 import StickyAddToBag from "@/components/StickyAddToBag";
 import BackButton from "@/components/BackButton";
 import { RAZORPAY_ENABLED } from "@/lib/commerce/config";
+import { productSpecs } from "@/lib/productSpecs";
 
 // The four objections an Indian shopper brings to a crystal purchase: is the
 // stone real, can I pay cash on delivery, has it been energized, and will it sit
@@ -376,6 +377,27 @@ export default async function ProductDetailPage({
             </p>
           </div>
 
+          {/* Product details — only what this piece's own description states
+              (see lib/productSpecs.ts), plus the natural-variation note the FAQ
+              already makes. Competitor PDPs lead with this; ours had none. */}
+          <div className="mt-6">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-champagne-gold">
+              Product details
+            </h2>
+            <dl className="mt-3 divide-y divide-champagne-gold/20 border-y border-champagne-gold/20">
+              {productSpecs(product).map((row) => (
+                <div key={row.label} className="flex items-baseline justify-between gap-6 py-2.5 text-sm">
+                  <dt className="text-midnight-navy/60">{row.label}</dt>
+                  <dd className="text-right font-medium text-midnight-navy">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-3 text-xs leading-5 text-midnight-navy/60">
+              Each stone is natural, so colour, pattern and inclusions vary slightly from
+              piece to piece.
+            </p>
+          </div>
+
           {/* The reason to buy, scannable in five seconds — titled and set on
               check marks, the "Why [product]?" block the reference PDPs use. Moved
               below the buy zone so it informs without crowding the price/CTA. */}
@@ -435,10 +457,10 @@ export default async function ProductDetailPage({
       <ProductFaq product={product} />
 
       {/* Cross-sell rail to keep the shopper browsing */}
-      <CompleteYourRitual currentId={product.id} />
+      <CompleteYourRitual product={product} />
 
       {/* Wider cross-sell at the very bottom of the page */}
-      <YouMayAlsoLike currentId={product.id} />
+      <YouMayAlsoLike product={product} />
     </div>
   );
 }

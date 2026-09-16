@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCartStore, selectTotalQuantity } from "@/lib/store/useCartStore";
 import { useState } from "react";
-import { toast } from "sonner";
 import dynamic from "next/dynamic";
 
 const SearchOverlay = dynamic(() => import("@/components/SearchOverlay"), { ssr: false });
@@ -53,26 +52,19 @@ export default function MobileBottomNav() {
         </svg>
       ),
     },
+    // Was a "Wishlist" tab that only toasted "unlocking soon… coming next week" —
+    // a feature that doesn't exist. Shop is a real destination: the full catalogue.
     {
-      id: "wishlist",
-      label: "Wishlist",
-      onTap: () =>
-        toast.success("✦ Wishlist unlocking for your account soon.", {
-          description: "Personal energy boards coming next week",
-          style: {
-            background: "#071A47",
-            color: "#F7F3EB",
-            border: "none",
-          },
-        }),
-      match: () => false,
+      id: "shop",
+      label: "Shop",
+      href: "/collection",
+      match: (p) => p === "/collection" || p.startsWith("/category/"),
       icon: (active) => (
-        <svg
-          {...iconProps}
-          fill={active ? "#D6AF7A" : "none"}
-          className={active ? "text-champagne-gold" : "text-midnight-navy"}
-        >
-          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+        <svg {...iconProps} className={active ? "text-champagne-gold" : "text-midnight-navy"}>
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
         </svg>
       ),
     },

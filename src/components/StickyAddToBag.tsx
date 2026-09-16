@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
@@ -27,6 +27,20 @@ export default function StickyAddToBag({ product }: { product: Product }) {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [abandonedItems, setAbandonedItems] = useState<AbandonedCartItem[]>([]);
+
+  // Step aside while the page's own Add to Cart / Buy Now row (#main-add-to-bag,
+  // in ProductCtas) is on screen. Otherwise a second Buy Now sat directly under
+  // the first, and the bar covered the copy the shopper was reading.
+  const [mainCtaVisible, setMainCtaVisible] = useState(false);
+  useEffect(() => {
+    const target = document.getElementById("main-add-to-bag");
+    if (!target) return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setMainCtaVisible(entry.isIntersecting),
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
 
   // Cart lines that are a DIFFERENT product than the one being bought now.
   const collectAbandonedItems = (): AbandonedCartItem[] =>
@@ -92,8 +106,15 @@ export default function StickyAddToBag({ product }: { product: Product }) {
 
   return (
     <>
+    {/* Phones sit it above the COD strip + bottom nav (96px). From md those are
+        gone, so it drops to the edge; it stays until lg, where the buy column is
+        beside the gallery and always in view. Tablets used to get no bar at all,
+        with the buttons a full screen below the fold. */}
     <div
-      className="fixed inset-x-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-40 px-3 md:hidden"
+      inert={mainCtaVisible}
+      className={`fixed inset-x-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-40 px-3 transition-all duration-300 md:bottom-[calc(1rem+env(safe-area-inset-bottom))] lg:hidden ${
+        mainCtaVisible ? "pointer-events-none translate-y-4 opacity-0" : "opacity-100"
+      }`}
     >
       <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-midnight-navy px-3 py-2.5 shadow-2xl ring-1 ring-champagne-gold/30">
         {/* Thumbnail */}

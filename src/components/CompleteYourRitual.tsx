@@ -1,24 +1,32 @@
-import Image from "next/image";
-import Link from "next/link";
+import type { Product } from "@/lib/mockData";
 import { getAllProducts } from "@/lib/catalog";
-import { formatPrice } from "@/lib/format";
+import { pickUpsellProducts } from "@/lib/commerce/bundle";
+import ProductCard from "@/components/ProductCard";
+import ScrollRail from "@/components/ScrollRail";
+
+/** How many pieces the "Complete Your Ritual" rail offers. */
+export const RITUAL_PAIR_COUNT = 4;
 
 /**
- * Cross-sell rail shown at the foot of a product page. Surfaces three other
- * pieces to keep the shopper browsing after they've considered the main item.
+ * The pieces "Complete Your Ritual" pairs with `product`: same stone / intention
+ * family first (the affinity matcher the checkout upsell uses), in stock only.
+ * Exported so "You May Also Like" can avoid repeating them.
  */
-export default async function CompleteYourRitual({
-  currentId,
-}: {
-  currentId: string;
-}) {
-  const products = await getAllProducts();
-  const suggestions = products
-    .filter((product) => product.id !== currentId)
-    .slice(0, 3);
+export const ritualPairsFor = (product: Product, catalog: Product[]): Product[] =>
+  pickUpsellProducts(product, catalog, [product.id], RITUAL_PAIR_COUNT);
+
+/**
+ * Cross-sell rail on the product page. This used to show the first three pieces
+ * in the catalogue on every product — the same three rings everywhere, with no
+ * way to add one. It now pairs by affinity and uses the shared ProductCard, so
+ * each piece can go straight into the bag.
+ */
+export default async function CompleteYourRitual({ product }: { product: Product }) {
+  const pairs = ritualPairsFor(product, await getAllProducts());
+  if (pairs.length === 0) return null;
 
   return (
-    <section className="border-t border-champagne-gold/30 bg-sand px-6 py-16 sm:py-20">
+    <section className="border-t border-champagne-gold/30 bg-ivory px-6 py-16 sm:py-20">
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 text-center sm:mb-12">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
@@ -29,39 +37,17 @@ export default async function CompleteYourRitual({
           </h2>
         </div>
 
-        {/* Mobile: horizontal scroll rail of compact cards. Desktop: 3-up grid. */}
-        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto hide-scrollbar -mx-6 px-6 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-8 sm:overflow-visible sm:px-0">
-          {suggestions.map((product) => (
-            <Link
-              key={product.id}
-              href={`/product/${product.id}`}
-              prefetch
-              className="cursor-pointer group flex w-[45%] flex-shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-ivory shadow-sm transition-all duration-500 ease-out sm:w-auto md:hover:-translate-y-1 md:hover:shadow-2xl md:hover:shadow-champagne-gold/20 active:scale-95"
-            >
-              <div className="relative aspect-[4/5] overflow-hidden">
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  fill
-                  sizes="(max-width: 640px) 45vw, 33vw"
-                  className="object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <span className="absolute left-2 top-2 rounded-full bg-midnight-navy/90 px-2.5 py-1 text-[0.6rem] uppercase tracking-[0.15em] text-champagne-gold backdrop-blur-sm sm:left-4 sm:top-4 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.2em]">
-                  {product.intention}
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-0.5 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-                <h3 className="text-xs text-midnight-navy sm:text-lg">
-                  {product.name}
-                </h3>
-                <span className="flex-shrink-0 text-xs font-medium text-midnight-navy sm:text-lg">
-                  {formatPrice(product.price)}
-                </span>
-              </div>
-            </Link>
+        {/* Same rail + card sizing as the home page collection rails. */}
+        <ScrollRail ariaLabel="Pieces to pair with this one" className="gap-4 pb-2 md:gap-5 lg:gap-6">
+          {pairs.map((p) => (
+            <ProductCard
+              key={p.id}
+              product={p}
+              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 33vw, 25vw"
+              className="w-[45vw] shrink-0 snap-start sm:w-[38vw] md:w-[calc((100%-2.5rem)/3)] lg:w-[calc((100%-3*1.5rem)/4)]"
+            />
           ))}
-        </div>
+        </ScrollRail>
       </div>
     </section>
   );

@@ -65,15 +65,51 @@ function resolveStock(
   return mockP ? mockP.stockCount : 10;
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  quot: '"',
+  apos: "'",
+  lt: "<",
+  gt: ">",
+  rsquo: "’",
+  lsquo: "‘",
+  rdquo: "”",
+  ldquo: "“",
+  ndash: "–",
+  mdash: "—",
+  hellip: "…",
+};
+
+// Decode HTML entities in plain text (named ones above, plus numeric &#39; / &#x27;).
+// Unknown named entities are left as-is rather than guessed at.
+const decodeEntities = (text: string): string =>
+  text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code: string) => {
+    if (code[0] === "#") {
+      const n =
+        code[1].toLowerCase() === "x"
+          ? parseInt(code.slice(2), 16)
+          : parseInt(code.slice(1), 10);
+      return Number.isFinite(n) && n > 0 && n <= 0x10ffff
+        ? String.fromCodePoint(n)
+        : match;
+    }
+    return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+  });
+
 // Convert a Wix product to our Product interface
 function mapWixProduct(p: WixRawProduct): Product {
   // Find matching mock product to preserve metadata (intentions, benefits, type, etc.)
   const slug = p.slug || "";
   const mockP = mockProducts.find((mp) => mp.id === slug || mp.wixCatalogItemId === p.id);
 
-  // Parse description: Wix description is usually HTML
+  // Parse description: Wix description is usually HTML. Stripping the tags alone
+  // left entities behind — 10 product pages read "Bracelet&nbsp;is" — so decode
+  // the ones Wix's editor emits too.
   const rawDescription = p.description || "";
-  const cleanDescription = rawDescription.replace(/<[^>]*>/g, "").trim();
+  const cleanDescription = decodeEntities(rawDescription.replace(/<[^>]*>/g, ""))
+    .replace(/\s+/g, " ")
+    .trim();
 
   // Wix returns image urls either absolute or as a bare media id — normalise both.
   const toUrl = (u: string) =>

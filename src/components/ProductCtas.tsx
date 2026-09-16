@@ -104,10 +104,15 @@ export default function ProductCtas({ product }: { product: Product }) {
     setConfirmOpen(false);
   };
 
-  // AddToCartButton has already called addItem() by the time this fires; we only
-  // need to reconcile the line to the quantity chosen in the selector.
+  // AddToCartButton has already called addItem() (+1) by the time this fires, so
+  // reconcile the line to what was in the bag BEFORE the click plus the selector.
+  // Setting it to `qty` alone used to shrink an existing line: 2 in the bag, add 1
+  // more, and the bag dropped to 1.
+  const inBagBefore =
+    cartItems.find((item) => item.product.id === product.id)?.quantity ?? 0;
   const handleAddToCart = () => {
-    updateQuantity(product.id, qty);
+    // Never past what Wix has on hand.
+    updateQuantity(product.id, Math.min(inBagBefore + qty, maxQty));
   };
 
   if (isOutOfStock) {
@@ -118,7 +123,8 @@ export default function ProductCtas({ product }: { product: Product }) {
           disabled
           className="w-full cursor-not-allowed rounded-full bg-gray-200 text-gray-500 border border-gray-300 px-6 py-4 text-xs font-bold uppercase tracking-wider text-center"
         >
-          SOLD OUT - JOIN WAITLIST
+          {/* Was "SOLD OUT - JOIN WAITLIST" — there is no waitlist to join. */}
+          Sold out
         </button>
       </div>
     );
@@ -167,6 +173,7 @@ export default function ProductCtas({ product }: { product: Product }) {
         <AddToCartButton
           product={product}
           onAdded={handleAddToCart}
+          quantity={qty}
           className="w-full rounded-full bg-champagne-gold text-midnight-navy px-6 py-4 text-xs font-bold uppercase tracking-wider hover:bg-champagne-gold/85 transition-all duration-150 md:hover:shadow-xl active:scale-95 shadow-lg"
         >
           Add to Cart
