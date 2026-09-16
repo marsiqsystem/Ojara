@@ -795,14 +795,7 @@ export default function CheckoutModal() {
                 <Row label="Subtotal" value={formatPrice(totals.subtotal)} />
                 <Row
                   label="Shipping"
-                  strike={formatPrice(totals.shippingFeeDisplay)}
                   value="FREE"
-                  valueClass="text-green-600 font-bold"
-                />
-                <Row
-                  label="Processing fee"
-                  strike={formatPrice(totals.processingFeeDisplay)}
-                  value="₹0"
                   valueClass="text-green-600 font-bold"
                 />
                 {totals.couponDiscount > 0 && (
@@ -859,21 +852,16 @@ export default function CheckoutModal() {
 function Row({
   label,
   value,
-  strike,
   valueClass = "text-midnight-navy",
 }: {
   label: string;
   value: string;
-  strike?: string;
   valueClass?: string;
 }) {
   return (
     <div className="flex items-center justify-between text-midnight-navy/80">
       <span className="text-xs uppercase tracking-[0.12em]">{label}</span>
-      <span className="flex items-center gap-2">
-        {strike && <span className="text-xs text-midnight-navy/40 line-through">{strike}</span>}
-        <span className={`text-sm ${valueClass}`}>{value}</span>
-      </span>
+      <span className={`text-sm ${valueClass}`}>{value}</span>
     </div>
   );
 }

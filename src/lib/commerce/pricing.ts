@@ -13,11 +13,11 @@
 //                       only: they power the "add ₹X to unlock" nudge and keep the
 //                       two legacy codes working if Wix is ever unreachable. Codes
 //                       the owner creates in Wix work WITHOUT being added here.
-//   • display optics  — shipping ₹99 + processing ₹50 are SHOWN then struck off,
-//                       purely to make "FREE shipping / no fees" legible. They are
-//                       folded into `displaySubtotal` and must NEVER be sent to
-//                       Razorpay, the Wix order, or the confirmation email.
-//   • total           — max(0, subtotal − couponDiscount − prepaidDiscount).
+//   • no fake fees    — checkout used to show a ₹99 shipping and ₹50 "processing"
+//                       fee struck off. Neither was ever charged, so it was an
+//                       invented saving. Shipping reads a plain "FREE"; don't add
+//                       a shown-then-waived fee back unless it's a real charge.
+//   • total          — max(0, subtotal − couponDiscount − prepaidDiscount).
 //                       THIS is what Razorpay charges.
 //
 // NOTE: since coupons are now validated live against Wix (/api/coupon), you no
@@ -31,10 +31,6 @@ export const PREPAID_DISCOUNT = 50;
 
 /** Luxury gift-wrap + handwritten note charge (₹). A real charge on the order. */
 export const GIFT_WRAP_FEE = 149;
-
-/** Shown-then-struck display fees. Pure optics — never charged. */
-export const SHIPPING_FEE_DISPLAY = 99;
-export const PROCESSING_FEE_DISPLAY = 50;
 
 export type CouponType = "FLAT" | "PERCENT";
 
@@ -136,10 +132,6 @@ export interface Totals {
   giftWrapFee: number;
   /** The real amount charged. Never negative. */
   total: number;
-  /** Optics only — inflated subtotal so shipping/processing can be struck off. */
-  displaySubtotal: number;
-  shippingFeeDisplay: number;
-  processingFeeDisplay: number;
 }
 
 /**
@@ -176,9 +168,5 @@ export const computeTotals = ({
     bundleDiscount: bundle,
     giftWrapFee: wrap,
     total,
-    // *** DISPLAY ONLY — never send to a gateway / order / email. ***
-    displaySubtotal: subtotal + SHIPPING_FEE_DISPLAY + PROCESSING_FEE_DISPLAY,
-    shippingFeeDisplay: SHIPPING_FEE_DISPLAY,
-    processingFeeDisplay: PROCESSING_FEE_DISPLAY,
   };
 };
