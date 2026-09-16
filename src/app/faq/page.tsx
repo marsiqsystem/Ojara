@@ -36,7 +36,7 @@ const faqs: FaqItem[] = [
   {
     question: "How long will shipping take?",
     answer:
-      "Domestic orders arrive within 3–7 business days and international orders within 7–21 business days. You'll receive tracking as soon as your order ships. See our Shipping & Returns page for full details.",
+      "We ship within India only — we don't deliver internationally. Orders arrive within 3–7 business days. You'll receive tracking as soon as your order ships. See our Shipping & Returns page for full details.",
   },
   {
     question: "What is your exchange policy?",

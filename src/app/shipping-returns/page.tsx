@@ -12,7 +12,7 @@ export default function ShippingReturnsPage() {
   return (
     <PolicyPage
       title="Shipping & Exchanges"
-      updated="July 2026"
+      updated="September 2026"
       intro="Every OJARA piece is cleansed, wrapped, and dispatched with care. Here's everything you need to know about how your order travels to you — and how exchanges work if it isn't the right fit."
       sections={[
         {
@@ -24,7 +24,7 @@ export default function ShippingReturnsPage() {
         {
           heading: "Shipping Times & Costs",
           body: [
-            "Domestic orders arrive within 3–7 business days. International orders typically arrive within 7–21 business days, depending on destination and customs.",
+            "We ship within India only — we don't deliver internationally. Orders arrive within 3–7 business days.",
             "Shipping is complimentary on every order — always free, with no minimum spend. Expedited options are available where offered.",
           ],
         },
@@ -32,12 +32,6 @@ export default function ShippingReturnsPage() {
           heading: "Tracking Your Order",
           body: [
             "Once your order ships, you'll receive a confirmation email with a tracking number so you can follow your piece on its journey to you.",
-          ],
-        },
-        {
-          heading: "Customs & Duties",
-          body: [
-            "International orders may be subject to import duties or taxes levied by your country. These are the responsibility of the recipient and are not included in our prices or shipping charges.",
           ],
         },
         {
