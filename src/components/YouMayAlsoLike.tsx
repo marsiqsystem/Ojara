@@ -2,7 +2,7 @@ import type { Product } from "@/lib/mockData";
 import { getAllProducts } from "@/lib/catalog";
 import ProductCard from "@/components/ProductCard";
 import ScrollRail from "@/components/ScrollRail";
-import { ritualPairsFor } from "@/components/CompleteYourRitual";
+import { ritualPairsFor } from "@/lib/commerce/bundle";
 
 /**
  * Bottom-of-page cross-sell. Rotates the catalogue so it starts just after the

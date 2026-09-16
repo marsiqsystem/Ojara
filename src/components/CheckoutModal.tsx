@@ -8,12 +8,21 @@ import { useCartStore } from "@/lib/store/useCartStore";
 import { useWixClient } from "@/hooks/useWixClient";
 import { formatPrice } from "@/lib/format";
 import {
+  cartSubtotal,
   computeTotals,
+  giftWrapFeeFor,
+  isTierCode,
   PREPAID_DISCOUNT,
-  GIFT_WRAP_FEE,
 } from "@/lib/commerce/pricing";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
-import { WIX_ENABLED, BRAND_NAME, UPSELL_ENABLED } from "@/lib/commerce/config";
+import {
+  WIX_ENABLED,
+  BRAND_NAME,
+  PREPAID_ENABLED,
+  UPSELL_ENABLED,
+} from "@/lib/commerce/config";
+import { useCouponAutoRemoveHandler } from "@/lib/commerce/useAutoTierCoupon";
+import TierProgress from "@/components/TierProgress";
 import { IN_STATES, stateName as nameOfState } from "@/lib/commerce/indiaStates";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { trackEvent, trackingContext } from "@/lib/analytics/capi";
@@ -26,26 +35,6 @@ import type { Product } from "@/lib/mockData";
 
 type PaymentMethod = "PREPAID" | "COD";
 
-// ---------------------------------------------------------------------------
-// PREPAID SWITCH — self-gating on whether a Razorpay key is present in the env.
-//
-// This is deliberately tied to NEXT_PUBLIC_RAZORPAY_KEY_ID (the one Razorpay
-// value the browser is allowed to see) rather than a hardcoded boolean, so the
-// site can NEVER advertise "Pay Online" in an environment that has no keys:
-//   • locally (.env.local has the test keys)   -> prepaid ON  (for testing)
-//   • on Vercel BEFORE the owner adds the keys  -> prepaid OFF (COD only, safe)
-//   • the moment the owner adds the LIVE keys   -> prepaid ON, no code change
-//
-// This matters because these are TEST keys today and live activation is still
-// under review: shipping a hardcoded `true` would show real customers a "Pay
-// Online" button that test-mode Razorpay rejects. Keep only LIVE keys on Vercel.
-//
-// The whole prepaid path (Razorpay order -> widget -> verify-signature ->
-// discount reconciliation) is intact; this flag only decides whether it's shown.
-// While OFF: "Pay Online" renders disabled as "Coming soon", COD is the only
-// selectable method, and the −₹50 prepaid incentive is hidden.
-// ---------------------------------------------------------------------------
-const PREPAID_ENABLED = !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
 // Razorpay ships no npm checkout SDK — inject the script on demand.
 const loadRazorpayScript = (): Promise<boolean> =>
@@ -114,8 +103,6 @@ export default function CheckoutModal() {
   const checkoutTracked = useRef(false);
   const paymentInfoTracked = useRef(false);
 
-  const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
-
   // Normalised cart lines — the seam. Today from the local store; when the Wix
   // cart takes over (Phase 2) this maps the Wix lineItems to the same shape.
   // Bundle picks ride alongside the cart as ordinary lines, so they are priced,
@@ -140,6 +127,11 @@ export default function CheckoutModal() {
     [cartItems, upsell.items],
   );
 
+  // Products subtotal — what the ladder minimums and free gift wrap key off.
+  const productsSubtotal = cartSubtotal(lines);
+  // Free at the top ladder step; /api/checkout re-checks against Wix's subtotal.
+  const giftWrapFee = giftWrapFeeFor(giftWrap, productsSubtotal);
+
   // Live coupon — validated against Wix's engine (mirror fallback if unreachable).
   // `couponDiscount` recomputes as the cart/upsell changes, so a % code stays
   // correct on the final subtotal. `email` lets Wix enforce single-use-per-buyer.
@@ -159,13 +151,12 @@ export default function CheckoutModal() {
     pending: couponPending,
     apply: applyCouponLive,
     remove: removeCouponLive,
-  } = useLiveCoupon(couponLines, email.trim() || undefined, (reason) =>
-    toast(
-      reason === "empty" || reason === "no-priced-lines"
-        ? "Coupon removed — your bag changed."
-        : "That coupon is no longer valid for this order.",
-    ),
+  } = useLiveCoupon(
+    couponLines,
+    email.trim() || undefined,
+    useCouponAutoRemoveHandler(toast),
   );
+  const setShopperChoseCoupon = useCartStore((s) => s.setShopperChoseCoupon);
 
   const isPrepaid = paymentMethod === "PREPAID";
   const totals = useMemo(
@@ -304,6 +295,8 @@ export default function CheckoutModal() {
   };
 
   const handleApplyCoupon = async () => {
+    // A typed code is the shopper's choice — the ladder stops managing the coupon.
+    setShopperChoseCoupon(true);
     const { ok, error: cErr } = await applyCouponLive(couponInput);
     if (ok) {
       setCouponError("");
@@ -315,6 +308,7 @@ export default function CheckoutModal() {
   };
 
   const handleRemoveCoupon = () => {
+    setShopperChoseCoupon(true);
     removeCouponLive();
     setCouponError("");
   };
@@ -766,12 +760,22 @@ export default function CheckoutModal() {
                 })}
               </div>
 
+              {/* Spend ladder — the code applies itself (useAutoTierCoupon). */}
+              <div className="rounded-lg border border-dashed border-champagne-gold/50 bg-champagne-gold/5 p-3">
+                <TierProgress subtotal={productsSubtotal} />
+              </div>
+
               {/* Coupon */}
               <div className="rounded-lg border border-midnight-navy/15 bg-white/50 p-3">
                 {appliedCoupon ? (
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wider text-green-700">
                       ✦ {appliedCoupon} applied
+                      {isTierCode(appliedCoupon) && (
+                        <span className="ml-1 font-normal normal-case tracking-normal text-green-700/80">
+                          automatically
+                        </span>
+                      )}
                     </span>
                     <button type="button" onClick={handleRemoveCoupon} className="cursor-pointer text-xs text-midnight-navy/60 underline underline-offset-2 hover:text-midnight-navy">
                       Remove
@@ -799,7 +803,7 @@ export default function CheckoutModal() {
                   valueClass="text-green-600 font-bold"
                 />
                 {totals.couponDiscount > 0 && (
-                  <Row label={`Coupon (${appliedCoupon})`} value={`− ${formatPrice(totals.couponDiscount)}`} valueClass="text-champagne-gold font-semibold" />
+                  <Row label={`${isTierCode(appliedCoupon) ? "Offer" : "Coupon"} (${appliedCoupon})`} value={`− ${formatPrice(totals.couponDiscount)}`} valueClass="text-champagne-gold font-semibold" />
                 )}
                 {totals.prepaidDiscount > 0 && (
                   <Row label="Online payment discount" value={`− ${formatPrice(totals.prepaidDiscount)}`} valueClass="text-champagne-gold font-semibold" />
@@ -807,8 +811,12 @@ export default function CheckoutModal() {
                 {totals.bundleDiscount > 0 && (
                   <Row label="✦ Sacred Bundle" value={`− ${formatPrice(totals.bundleDiscount)}`} valueClass="text-champagne-gold font-semibold" />
                 )}
-                {totals.giftWrapFee > 0 && (
+                {totals.giftWrapFee > 0 ? (
                   <Row label="Gift wrap & note" value={`+ ${formatPrice(totals.giftWrapFee)}`} />
+                ) : (
+                  giftWrap && (
+                    <Row label="Gift wrap & note" value="FREE" valueClass="text-green-600 font-bold" />
+                  )
                 )}
                 <div className="mt-2 flex items-center justify-between border-t border-midnight-navy/15 pt-2">
                   <span className="text-xs font-bold uppercase tracking-[0.15em] text-midnight-navy/80">To pay</span>

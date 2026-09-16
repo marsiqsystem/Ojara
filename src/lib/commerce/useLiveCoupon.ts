@@ -103,7 +103,7 @@ async function askWix(
 export function useLiveCoupon(
   lines: CouponLine[],
   email?: string,
-  onAutoRemove?: (reason: string) => void,
+  onAutoRemove?: (reason: string, code: string) => void,
 ): LiveCoupon {
   const appliedCoupon = useCartStore((s) => s.appliedCoupon);
   const setAppliedCoupon = useCartStore((s) => s.setAppliedCoupon);
@@ -160,7 +160,7 @@ export function useLiveCoupon(
   useEffect(() => {
     if (appliedCoupon && fresh && verdict.invalid) {
       setAppliedCoupon("");
-      onAutoRemove?.(verdict.invalid);
+      onAutoRemove?.(verdict.invalid, appliedCoupon);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fresh, verdict.invalid, appliedCoupon]);

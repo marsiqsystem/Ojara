@@ -10,8 +10,13 @@ import {
 } from "@/lib/store/useCartStore";
 import { formatPrice } from "@/lib/format";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
-import { PRIMARY_COUPON, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
+import { GIFT_WRAP_FEE, giftWrapFeeFor, isTierCode } from "@/lib/commerce/pricing";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
+import {
+  useAutoTierCoupon,
+  useCouponAutoRemoveHandler,
+} from "@/lib/commerce/useAutoTierCoupon";
+import TierProgress from "@/components/TierProgress";
 import { trackEvent } from "@/lib/analytics/capi";
 import { hasSpecificIntention } from "@/lib/mockData";
 
@@ -35,7 +40,14 @@ export default function CartDrawer() {
   const giftNote = useCartStore((s) => s.giftNote);
   const setGiftWrap = useCartStore((s) => s.setGiftWrap);
   const setGiftNote = useCartStore((s) => s.setGiftNote);
-  const giftWrapFee = giftWrap ? GIFT_WRAP_FEE : 0;
+  // Free at the top ladder step (re-checked on the server).
+  const giftWrapFee = giftWrapFeeFor(giftWrap, totalPrice);
+  const giftWrapFree = giftWrap && giftWrapFee === 0;
+
+  // The spend ladder applies itself — this drawer is always mounted, so it owns
+  // the auto-apply for the whole site.
+  useAutoTierCoupon();
+  const setShopperChoseCoupon = useCartStore((s) => s.setShopperChoseCoupon);
 
   // Coupon — validated LIVE against Wix's engine (with the local mirror as a
   // fallback if Wix is unreachable). The applied code lives on the store so
@@ -63,25 +75,15 @@ export default function CartDrawer() {
     discount: couponDiscount,
     apply: applyCoupon,
     remove: removeCoupon,
-  } = useLiveCoupon(couponLines, undefined, (reason) =>
-    toast(
-      reason === "empty" || reason === "no-priced-lines"
-        ? "Coupon removed — your bag changed."
-        : "That coupon is no longer valid for this order.",
-    ),
-  );
+  } = useLiveCoupon(couponLines, undefined, useCouponAutoRemoveHandler(toast));
   const displayTotal = Math.max(0, totalPrice + giftWrapFee - couponDiscount);
-
-  // Coupon unlock nudge — "Add ₹X more to save 10% with OJAS10". Flips to a
-  // success line once the threshold is met. (Free shipping has no nudge — it's
-  // free on every order.)
-  const couponRemaining = Math.max(0, PRIMARY_COUPON.minimum - totalPrice);
-  const couponUnlocked = totalPrice >= PRIMARY_COUPON.minimum;
 
   const applyPromo = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = promoCode.trim();
     if (!code) return;
+    // A typed code is the shopper's choice — the ladder stops managing the coupon.
+    setShopperChoseCoupon(true);
     const { ok, error } = await applyCoupon(code);
     if (ok) {
       setPromoError("");
@@ -93,6 +95,7 @@ export default function CartDrawer() {
   };
 
   const removePromo = () => {
+    setShopperChoseCoupon(true);
     removeCoupon();
     setPromoError("");
   };
@@ -168,32 +171,13 @@ export default function CartDrawer() {
           </button>
         </div>
 
-        {/* Coupon unlock nudge — "Add ₹X more to save 10% with OJAS10". Flips to
-            a success line once the threshold is met. No free-shipping bar: shipping
-            is free on every order. This is a slim fixed band, so it doesn't eat
+        {/* Spend ladder — "Add ₹X more for 15% OFF + FREE gift wrap". The code
+            applies itself, so there's nothing to copy. No free-shipping bar:
+            shipping is free on every order. A slim fixed band, so it doesn't eat
             into the items list. */}
         {cartItems.length > 0 && (
-          <div className="border-b border-midnight-navy/10 px-6 py-3 bg-champagne-gold/5">
-            <p className="text-center text-xs leading-5 tracking-wide text-midnight-navy/80 sm:text-sm">
-              {couponUnlocked ? (
-                <span className="font-semibold text-champagne-gold">
-                  ✦ You&apos;ve unlocked 10% off — apply code{" "}
-                  <span className="font-bold">{PRIMARY_COUPON.code}</span> below.
-                </span>
-              ) : (
-                <>
-                  Add{" "}
-                  <span className="font-bold text-midnight-navy">
-                    {formatPrice(couponRemaining)}
-                  </span>{" "}
-                  more to be eligible for{" "}
-                  <span className="font-semibold text-champagne-gold">
-                    {PRIMARY_COUPON.code}
-                  </span>{" "}
-                  — 10% off
-                </>
-              )}
-            </p>
+          <div className="border-b border-midnight-navy/10 bg-champagne-gold/5 px-6 py-3">
+            <TierProgress subtotal={totalPrice} />
           </div>
         )}
 
@@ -342,9 +326,15 @@ export default function CartDrawer() {
               >
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-midnight-navy/85">
                   ✦ Add Luxury Gift Wrap &amp; Note{" "}
-                  <span className="text-champagne-gold font-bold">
-                    (+{formatPrice(GIFT_WRAP_FEE)})
-                  </span>
+                  {giftWrapFeeFor(true, totalPrice) === 0 ? (
+                    <span className="font-bold text-emerald-700">
+                      (FREE <s className="font-normal text-midnight-navy/40">{formatPrice(GIFT_WRAP_FEE)}</s>)
+                    </span>
+                  ) : (
+                    <span className="text-champagne-gold font-bold">
+                      (+{formatPrice(GIFT_WRAP_FEE)})
+                    </span>
+                  )}
                 </span>
                 <span
                   aria-hidden="true"
@@ -396,8 +386,9 @@ export default function CartDrawer() {
                 aria-expanded={promoOpen}
                 className="flex w-full cursor-pointer items-center justify-between text-left transition-all duration-150 active:scale-[0.99]"
               >
+                {/* Offers apply themselves, so this is only for a separate code. */}
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-midnight-navy/80">
-                  Apply Offer Code
+                  Have a different code?
                 </span>
                 <span
                   aria-hidden="true"
@@ -477,14 +468,18 @@ export default function CartDrawer() {
               {giftWrap && (
                 <div className="flex items-center justify-between text-xs text-midnight-navy/70">
                   <span className="uppercase tracking-[0.15em]">Gift wrap</span>
-                  <span className="font-bold">+{formatPrice(GIFT_WRAP_FEE)}</span>
+                  {giftWrapFree ? (
+                    <span className="font-bold uppercase tracking-wider text-green-600">FREE</span>
+                  ) : (
+                    <span className="font-bold">+{formatPrice(giftWrapFee)}</span>
+                  )}
                 </div>
               )}
 
               {couponDiscount > 0 && (
                 <div className="flex items-center justify-between text-xs text-champagne-gold">
                   <span className="uppercase tracking-[0.15em]">
-                    Coupon ({appliedCoupon})
+                    {isTierCode(appliedCoupon) ? "Offer" : "Coupon"} ({appliedCoupon})
                   </span>
                   <span className="font-bold">− {formatPrice(couponDiscount)}</span>
                 </div>

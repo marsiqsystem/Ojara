@@ -43,13 +43,25 @@ export interface CouponTier {
   value: number;
   /** Shopper-facing one-liner for the "unlock" nudge. */
   label: string;
+  /** Extra reward that comes with this step, shown beside the discount. */
+  perk?: string;
 }
 
-// These MUST mirror the coupons the owner has created in the Wix dashboard.
-// Codes are matched case-insensitively. When live, Wix validates authoritatively;
-// this mirror only drives the "add ₹X to unlock" nudge + the pre-apply preview.
+// ---- Spend ladder ------------------------------------------------------------
+// "Spend more, save more", applied AUTOMATICALLY in the bag (useAutoTierCoupon) —
+// nobody types a code. Wix allows one coupon per order, so the steps never stack:
+// the bag holds the best step the order qualifies for. Wix stays the authority
+// (minimum, expiry, limits); if it rejects a step, the bag falls back a step.
 //
-// OJAS10   — created in Wix on 2026-07-18: 10% off, minimum order subtotal ₹1499.
+// These MUST mirror coupons that exist in the Wix dashboard, codes matched
+// case-insensitively. Owner-approved ladder 2026-09-16:
+//
+// OJAS10 — created in Wix on 2026-07-18: 10% off, minimum order subtotal ₹1,499
+//          (two pieces).
+// OJAS15 — TODO(owner): create in Wix — 15% off, minimum ₹2,499 (three pieces).
+//          Until it exists Wix rejects it and 3-piece bags quietly get OJAS10.
+//          FREE gift wrap at this step is a site rule, not part of the coupon —
+//          see FREE_GIFT_WRAP_MINIMUM (re-checked server-side in /api/checkout).
 // (AKSHAT30 — a Jul 27–Aug 10 2026 30%-off code — was removed after it expired.)
 export const COUPON_TIERS: CouponTier[] = [
   {
@@ -57,12 +69,43 @@ export const COUPON_TIERS: CouponTier[] = [
     type: "PERCENT",
     minimum: 1499,
     value: 0.1,
-    label: "10% off orders over ₹1499",
+    label: "10% off orders over ₹1,499",
+  },
+  {
+    code: "OJAS15",
+    type: "PERCENT",
+    minimum: 2499,
+    value: 0.15,
+    label: "15% off + FREE gift wrap on orders over ₹2,499",
+    perk: "FREE gift wrap",
   },
 ];
 
-/** The coupon the storefront actively promotes (banner + cart unlock nudge). */
-export const PRIMARY_COUPON = COUPON_TIERS[0];
+/** Gift wrap is free once the order reaches the top ladder step. */
+export const FREE_GIFT_WRAP_MINIMUM = COUPON_TIERS[COUPON_TIERS.length - 1].minimum;
+
+/** What gift wrap costs on an order with this products subtotal (0 when free / not chosen). */
+export const giftWrapFeeFor = (giftWrap: boolean, subtotal: number): number =>
+  giftWrap && subtotal < FREE_GIFT_WRAP_MINIMUM ? GIFT_WRAP_FEE : 0;
+
+/** Whole-number percent for display, e.g. 0.15 → 15. */
+export const tierPercent = (tier: CouponTier): number => Math.round(tier.value * 100);
+
+/** Highest step `subtotal` qualifies for (skipping codes Wix has refused), or undefined. */
+export const bestTierFor = (
+  subtotal: number,
+  unavailable: ReadonlySet<string> = new Set(),
+): CouponTier | undefined =>
+  [...COUPON_TIERS]
+    .reverse()
+    .find((t) => subtotal >= t.minimum && !unavailable.has(t.code));
+
+/** Next step still to unlock, or undefined once the top step is reached. */
+export const nextTierFor = (subtotal: number): CouponTier | undefined =>
+  COUPON_TIERS.find((t) => subtotal < t.minimum);
+
+export const isTierCode = (code: string): boolean =>
+  COUPON_TIERS.some((t) => t.code === code.trim().toUpperCase());
 
 export interface PricedLine {
   price: number;

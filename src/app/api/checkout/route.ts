@@ -1,6 +1,6 @@
 import { NextResponse, after } from "next/server";
 import { UPSELL_ENABLED, WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
-import { GIFT_WRAP_FEE, PREPAID_DISCOUNT } from "@/lib/commerce/pricing";
+import { GIFT_WRAP_FEE, PREPAID_DISCOUNT, giftWrapFeeFor } from "@/lib/commerce/pricing";
 import { normalizeSubdivision } from "@/lib/commerce/indiaStates";
 import { clientIp, isRateLimited, isSameOrigin } from "@/lib/apiGuard";
 import {
@@ -313,7 +313,9 @@ export async function POST(req: Request) {
       // owner reads on the Wix order — that's the whole point of collecting it.
       buyerNote:
         (giftWrap && giftNote ? `🎁 GIFT NOTE: "${giftNote}"\n` : "") +
-        (giftWrap ? `Gift wrap requested (+₹${GIFT_WRAP_FEE}).\n` : "") +
+        // A charged wrap adds its own fee line to the order (step 5); no fee line
+        // means it was free at the top ladder step. Wrap it either way.
+        (giftWrap ? "Gift wrap requested.\n" : "") +
         (paymentMethod === "COD"
           ? `Payment: Cash on Delivery (COD). Phone: ${phone}. Pincode: ${postalCode}.`
           : `Payment: Prepaid. Phone: ${phone}. Pincode: ${postalCode}.` +
@@ -333,7 +335,7 @@ export async function POST(req: Request) {
         ...(bundleDiscount > 0
           ? [{ title: "Sacred Bundle", value: `−₹${bundleDiscount}` }]
           : []),
-        ...(giftWrap ? [{ title: "Gift Wrap", value: "Yes (+₹149)" }] : []),
+        ...(giftWrap ? [{ title: "Gift Wrap", value: "Yes" }] : []),
         ...(giftWrap && giftNote ? [{ title: "Gift Note", value: giftNote }] : []),
       ],
     });
@@ -367,7 +369,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const giftWrapAmount = giftWrap ? GIFT_WRAP_FEE : 0;
+    // Gift wrap is free once the order reaches the top ladder step. Decided on
+    // Wix's own subtotal, never the browser's; if Wix didn't report one, charge
+    // the normal fee rather than guess the order qualified.
+    const wixSubtotal = Number(updatedCheckout?.priceSummary?.subtotal?.amount);
+    const giftWrapAmount = Number.isFinite(wixSubtotal)
+      ? giftWrapFeeFor(giftWrap, wixSubtotal)
+      : giftWrap
+        ? GIFT_WRAP_FEE
+        : 0;
     const prepaidDiscountAmount = payment ? PREPAID_DISCOUNT : 0;
 
     // 3b. Prepaid: the payment must cover THIS order, before any order exists.

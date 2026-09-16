@@ -107,6 +107,17 @@ const groupsFor = (name: string): number[] => {
   }, []);
 };
 
+/** How many pieces the product page's "Complete your ritual" row offers. */
+export const RITUAL_PAIR_COUNT = 4;
+
+/**
+ * The pieces the product page pairs with `product` ("Complete your ritual"):
+ * same stone / intention family first, in stock only. "You May Also Like" uses
+ * it too, to avoid repeating them.
+ */
+export const ritualPairsFor = (product: Product, catalog: Product[]): Product[] =>
+  pickUpsellProducts(product, catalog, [product.id], RITUAL_PAIR_COUNT);
+
 /**
  * Three upsell candidates for the shopper's primary item.
  *

@@ -138,7 +138,7 @@ export default function ProductReviews({
   };
 
   return (
-    <section className="mt-10 border-t border-champagne-gold/25 pt-8">
+    <section id="reviews" className="mt-10 scroll-mt-28 border-t border-champagne-gold/25 pt-8">
       <h2 className="font-heading text-2xl uppercase tracking-[0.1em] text-midnight-navy">
         Reviews
       </h2>

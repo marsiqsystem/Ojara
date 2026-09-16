@@ -34,6 +34,12 @@ interface CartState {
   // Coupon + gift-wrap live on the store so they survive the cart → checkout
   // hand-off (the checkout modal reads them) and a page refresh.
   appliedCoupon: string;
+  // True once the shopper types or removes a code themselves. The spend-ladder
+  // auto-apply (useAutoTierCoupon) then leaves the coupon alone.
+  shopperChoseCoupon: boolean;
+  // Ladder codes Wix refused this visit (e.g. not created yet), so the auto-apply
+  // falls back a step instead of retrying. Deliberately not persisted.
+  unavailableTierCodes: string[];
   giftWrap: boolean;
   giftNote: string;
   addItem: (product: Product) => void;
@@ -47,6 +53,8 @@ interface CartState {
   openAuth: () => void;
   closeAuth: () => void;
   setAppliedCoupon: (code: string) => void;
+  setShopperChoseCoupon: (chose: boolean) => void;
+  markTierCodeUnavailable: (code: string) => void;
   setGiftWrap: (on: boolean) => void;
   setGiftNote: (note: string) => void;
 }
@@ -94,6 +102,8 @@ export const useCartStore = create<CartState>()(
       isCheckoutOpen: false,
       isAuthOpen: false,
       appliedCoupon: "",
+      shopperChoseCoupon: false,
+      unavailableTierCodes: [],
       giftWrap: false,
       giftNote: "",
 
@@ -142,7 +152,13 @@ export const useCartStore = create<CartState>()(
         syncWixCart([]);
         // A cleared cart drops its coupon + gift-wrap too — they don't belong to
         // the next, empty order.
-        set({ cartItems: [], appliedCoupon: "", giftWrap: false, giftNote: "" });
+        set({
+          cartItems: [],
+          appliedCoupon: "",
+          shopperChoseCoupon: false,
+          giftWrap: false,
+          giftNote: "",
+        });
       },
 
       openCart: () => set({ isCartOpen: true }),
@@ -156,6 +172,13 @@ export const useCartStore = create<CartState>()(
       closeAuth: () => set({ isAuthOpen: false }),
 
       setAppliedCoupon: (code) => set({ appliedCoupon: code }),
+      setShopperChoseCoupon: (chose) => set({ shopperChoseCoupon: chose }),
+      markTierCodeUnavailable: (code) =>
+        set((state) =>
+          state.unavailableTierCodes.includes(code)
+            ? state
+            : { unavailableTierCodes: [...state.unavailableTierCodes, code] },
+        ),
       setGiftWrap: (on) => set({ giftWrap: on }),
       setGiftNote: (note) => set({ giftNote: note }),
     }),
@@ -166,6 +189,7 @@ export const useCartStore = create<CartState>()(
       partialize: (state) => ({
         cartItems: state.cartItems,
         appliedCoupon: state.appliedCoupon,
+        shopperChoseCoupon: state.shopperChoseCoupon,
         giftWrap: state.giftWrap,
         giftNote: state.giftNote,
       }),

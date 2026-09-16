@@ -11,6 +11,9 @@ import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
 import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
 
+/** "Only N left" shows at or below this many units (real Wix stock). */
+const LOW_STOCK_THRESHOLD = 3;
+
 export default function ProductCtas({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);
   const removeItem = useCartStore((state) => state.removeItem);
@@ -161,10 +164,18 @@ export default function ProductCtas({ product }: { product: Product }) {
             +
           </button>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          In Stock
-        </span>
+        {/* Honest urgency: Wix tracks real stock, so a low count is shown as it is. */}
+        {product.stockCount <= LOW_STOCK_THRESHOLD ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+            Only {product.stockCount} left
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            In Stock
+          </span>
+        )}
       </div>
 
       {/* Button styles swapped (owner call 2026-07-17): Add to Cart is the golden

@@ -106,7 +106,8 @@ const BuyNowConfirmModal = ({
         return {
           code: t.code,
           saving,
-          label: `Unlock ${offer} (≈ ${formatPrice(saving)} savings) with code ${t.code}`,
+          // The ladder applies itself in the bag, so there's no code to quote.
+          label: `Keep them and unlock ${offer}${t.perk ? ` + ${t.perk}` : ""} (≈ ${formatPrice(saving)} savings), applied automatically`,
         };
       })
       .sort((a, b) => b.saving - a.saving);

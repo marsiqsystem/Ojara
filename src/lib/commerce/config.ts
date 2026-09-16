@@ -29,6 +29,41 @@ export const RAZORPAY_ENABLED = !!(
 );
 
 // ---------------------------------------------------------------------------
+// PREPAID SWITCH — self-gating on whether a Razorpay key is present in the env.
+//
+// This is deliberately tied to NEXT_PUBLIC_RAZORPAY_KEY_ID (the one Razorpay
+// value the browser is allowed to see) rather than a hardcoded boolean, so the
+// site can NEVER advertise "Pay Online" in an environment that has no keys:
+//   • locally (.env.local has the test keys)   -> prepaid ON  (for testing)
+//   • on Vercel BEFORE the owner adds the keys  -> prepaid OFF (COD only, safe)
+//   • the moment the owner adds the LIVE keys   -> prepaid ON, no code change
+//
+// This matters because these are TEST keys today and live activation is still
+// under review: shipping a hardcoded `true` would show real customers a "Pay
+// Online" button that test-mode Razorpay rejects. Keep only LIVE keys on Vercel.
+//
+// The whole prepaid path (Razorpay order -> widget -> verify-signature ->
+// discount reconciliation) is intact; this flag only decides whether it's shown.
+// While OFF: "Pay Online" renders disabled as "Coming soon", COD is the only
+// selectable method, and the −₹50 prepaid incentive is hidden — in checkout and
+// on the product page's "Offers for you". Lives here so both read one switch.
+// ---------------------------------------------------------------------------
+export const PREPAID_ENABLED = !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+
+// ---------------------------------------------------------------------------
+// WhatsApp — TODO(owner): the business number, digits only with country code
+// (e.g. "919876543210"). Empty hides every WhatsApp button on the site, so none
+// ever opens a chat to nowhere.
+// ---------------------------------------------------------------------------
+export const WHATSAPP_NUMBER = "";
+
+/** wa.me link with a prefilled message, or null while no number is set. */
+export const whatsappLink = (message: string): string | null =>
+  WHATSAPP_NUMBER
+    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
+    : null;
+
+// ---------------------------------------------------------------------------
 // SACRED UPSELL ("Complete Your Chakra") KILL SWITCH — off while it's unfinished.
 //
 // The whole SacredUpsellFlow (checkout step 2) is hidden from shoppers while

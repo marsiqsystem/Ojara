@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { hasSpecificIntention, type Product } from "@/lib/mockData";
+import { COMMERCE_FACTS } from "@/lib/seo";
 
 interface Section {
   key: string;
@@ -32,7 +33,9 @@ export default function RitualAccordion({ product }: { product: Product }) {
     {
       key: "shipping",
       title: "Shipping & Exchanges",
-      body: "Free standard delivery on all PAN-India orders. Orders dispatch within 24-48 hours. We don't offer returns or refunds — we offer exchanges: if the piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging.",
+      // Same numbers as the shipping policy + delivery dates (COMMERCE_FACTS).
+      // This used to say "dispatch within 24-48 hours", contradicting the policy.
+      body: `Free delivery on every order across India, with Cash on Delivery available. Orders are prepared within ${COMMERCE_FACTS.handlingDaysMin}–${COMMERCE_FACTS.handlingDaysMax} business days and arrive ${COMMERCE_FACTS.transitDaysMin}–${COMMERCE_FACTS.transitDaysMax} business days after dispatch. We don't offer returns or refunds — we offer exchanges: if the piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging.`,
     },
   ];
 
@@ -44,7 +47,9 @@ export default function RitualAccordion({ product }: { product: Product }) {
       {sections.map((section) => {
         const isOpen = open === section.key;
         return (
-          <div key={section.key}>
+          // `id` lets the PDP's "Read more" link jump to a chapter (Description
+          // is open by default).
+          <div key={section.key} id={`product-${section.key}`} className="scroll-mt-28">
             <h3>
               <button
                 type="button"

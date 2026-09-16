@@ -6,9 +6,15 @@ import Image from "next/image";
 type ProductGalleryProps = {
   images: string[];
   productName: string;
+  /** Whole-number % off shown as a badge on the main image; 0 hides it. */
+  discountPercent?: number;
 };
 
-export default function ProductGallery({ images, productName }: ProductGalleryProps) {
+export default function ProductGallery({
+  images,
+  productName,
+  discountPercent = 0,
+}: ProductGalleryProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [zoomStyle, setZoomStyle] = useState({});
   const [isZoomed, setIsZoomed] = useState(false);
@@ -114,6 +120,13 @@ export default function ProductGallery({ images, productName }: ProductGalleryPr
               </svg>
             </button>
           </>
+        )}
+
+        {/* Discount badge — the real markdown from Wix's strikethrough price. */}
+        {discountPercent > 0 && (
+          <span className="absolute left-4 top-4 z-10 rounded-full bg-midnight-navy px-3 py-1 text-xs font-bold text-champagne-gold shadow-md">
+            {discountPercent}% OFF
+          </span>
         )}
 
         {/* Badge counter */}

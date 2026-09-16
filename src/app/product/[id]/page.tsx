@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCategoryBySlug, getProductById } from "@/lib/catalog";
+import { getAllProducts, getCategoryBySlug, getProductById } from "@/lib/catalog";
 import { products, hasSpecificIntention } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
-import CompleteYourRitual from "@/components/CompleteYourRitual";
 import RitualAccordion from "@/components/RitualAccordion";
 import ProductReviews from "@/components/ProductReviews";
 import ProductFaq from "@/components/ProductFaq";
@@ -15,14 +14,24 @@ import JsonLd from "@/components/seo/JsonLd";
 import ProductViewTracker from "@/components/analytics/ProductViewTracker";
 import { productSchema, breadcrumbSchema } from "@/lib/seo";
 import ProductCtas from "@/components/ProductCtas";
+import ProductOffers from "@/components/ProductOffers";
+import PairItWith from "@/components/PairItWith";
+import DeliveryEstimate from "@/components/DeliveryEstimate";
 import StickyAddToBag from "@/components/StickyAddToBag";
 import BackButton from "@/components/BackButton";
-import { RAZORPAY_ENABLED } from "@/lib/commerce/config";
+import { whatsappLink, SITE_URL } from "@/lib/commerce/config";
+import { FREE_GIFT_WRAP_MINIMUM, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
+import { ritualPairsFor } from "@/lib/commerce/bundle";
 import { productSpecs } from "@/lib/productSpecs";
 
-// The four objections an Indian shopper brings to a crystal purchase: is the
-// stone real, can I pay cash on delivery, has it been energized, and will it sit
-// right in my home per Vastu. Answered directly beneath the primary CTA.
+// ============================================================================
+// Product page — laid out in the order a shopper decides (the Viora rebuild):
+// what it is → rating → why it's real → short description → price & saving →
+// offers → buy → when it arrives + why it's safe → gifting / second opinion →
+// pieces to add → details → reviews. Every number shown comes from Wix or the
+// offer config (lib/commerce/pricing.ts); nothing here is invented.
+// ============================================================================
+
 const iconProps = {
   xmlns: "http://www.w3.org/2000/svg",
   width: 18,
@@ -36,56 +45,14 @@ const iconProps = {
   "aria-hidden": true,
 };
 
-const trustBadges = [
-  {
-    label: "Lab Certified Authentic",
-    icon: (
-      <svg {...iconProps}>
-        <path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3Z" />
-        <path d="m9 11.5 2 2 4-4" />
-      </svg>
-    ),
-  },
-  {
-    label: "Cash on Delivery (COD)",
-    icon: (
-      <svg {...iconProps}>
-        <rect x="2" y="6" width="20" height="12" rx="2" />
-        <path d="M8 10h5" />
-        <path d="M8 13h3.5" />
-        <path d="M11 10a2.5 2.5 0 0 1 0 5H8l4 3" />
-      </svg>
-    ),
-  },
-  {
-    label: "Energized & Cleansed Before Dispatch",
-    icon: (
-      <svg {...iconProps}>
-        <path d="M12 2.5 13.8 8l5.7.2-4.5 3.5 1.6 5.5-4.6-3.2-4.6 3.2 1.6-5.5L4.5 8.2 10.2 8Z" />
-      </svg>
-    ),
-  },
-  {
-    label: "Vastu Compliant",
-    icon: (
-      <svg {...iconProps}>
-        <path d="M3 10.5 12 3l9 7.5" />
-        <path d="M5.5 9.5V20h13V9.5" />
-        <path d="m14 12-1.4 3.6L9 17l3.6 1.4L14 22l1.4-3.6L19 17l-3.6-1.4Z" />
-      </svg>
-    ),
-  },
-];
-
-// Short, truthful assurances shown high in the hero, in the slot the reference
-// PDPs fill with a star rating. OJARA has no published reviews yet and won't
-// invent a number (see ProductReviews) — so this states real guarantees the
-// brand already makes on every piece.
+// Short, truthful assurances shown as chips under the name. The duplicate grid
+// that used to sit under the buttons (the same claims again, plus "Vastu
+// Compliant") is gone; the trust row below states store-wide facts instead.
 const heroAssurances = [
   {
     label: "Lab-Certified",
     icon: (
-      <svg {...iconProps} width={16} height={16}>
+      <svg {...iconProps} width={14} height={14}>
         <path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3Z" />
         <path d="m9 11.5 2 2 4-4" />
       </svg>
@@ -94,7 +61,7 @@ const heroAssurances = [
   {
     label: "Cleansed & Energized",
     icon: (
-      <svg {...iconProps} width={16} height={16}>
+      <svg {...iconProps} width={14} height={14}>
         <path d="M12 2.5 13.8 8l5.7.2-4.5 3.5 1.6 5.5-4.6-3.2-4.6 3.2 1.6-5.5L4.5 8.2 10.2 8Z" />
       </svg>
     ),
@@ -102,11 +69,35 @@ const heroAssurances = [
   {
     label: "100% Natural Stone",
     icon: (
-      <svg {...iconProps} width={16} height={16}>
+      <svg {...iconProps} width={14} height={14}>
         <path d="M6 3h12l3 6-9 12L3 9l3-6Z" />
         <path d="M3 9h18M9 3l3 18M15 3l-3 18" />
       </svg>
     ),
+  },
+];
+
+// Store-wide promises that hold for every order (see /shipping-returns).
+const trustItems = [
+  {
+    label: "Free delivery",
+    sub: "All over India",
+    icon: <path d="M10 17h4V5H2v12h3M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1M7.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />,
+  },
+  {
+    label: "Cash on Delivery",
+    sub: "Available",
+    icon: <path d="M2 6h20v12H2zM12 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM6 12h.01M18 12h.01" />,
+  },
+  {
+    label: "48-hr exchange",
+    sub: "Easy swap",
+    icon: <path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 8 5M21 12a9 9 0 0 1-9 9 9 9 0 0 1-8-5M3 4v4h4M21 20v-4h-4" />,
+  },
+  {
+    label: "Secure",
+    sub: "Checkout",
+    icon: <path d="M12 3l7 3v5c0 4.4-3 8.2-7 9.5C8 19.2 5 15.4 5 11V6l7-3ZM9 11.5l2 2 4-4" />,
   },
 ];
 
@@ -174,6 +165,20 @@ export default async function ProductDetailPage({
       : []),
     { name: product.name, url: `/product/${id}` },
   ];
+
+  // Real markdown from Wix's strikethrough price; 0 when there isn't one.
+  const discountPercent =
+    product.originalPrice && product.originalPrice > product.price
+      ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+      : 0;
+
+  // "Complete your ritual" — pieces from the same stone / intention family.
+  const pairs = ritualPairsFor(product, await getAllProducts());
+
+  // Hidden until the owner sets WHATSAPP_NUMBER (commerce/config.ts).
+  const whatsappHref = whatsappLink(
+    `Hi OJARA! I'd like to know more about the ${product.name}: ${SITE_URL}/product/${product.id}`,
+  );
 
   return (
     <div className="bg-ivory">
@@ -265,16 +270,15 @@ export default async function ProductDetailPage({
           <ProductGallery
             images={product.images?.length ? product.images : [product.image]}
             productName={product.name}
+            discountPercent={discountPercent}
           />
         </div>
 
         {/* RIGHT — the tall column that scrolls past the pinned image */}
         <div className="w-full lg:w-[48%] flex flex-col">
-          {/* Eyebrow row — the intention as a badge (the reference PDPs lead with
-              a "Best Seller" pill; ours leads with what the piece is FOR) plus the
-              share control. */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2">
+          {/* Eyebrow — what the piece is FOR, when it has a real intention. */}
+          {(hasSpecificIntention(product) || product.isBundle) && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
               {hasSpecificIntention(product) && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-champagne-gold/15 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold">
                   ✦ {product.intention}
@@ -286,112 +290,143 @@ export default async function ProductDetailPage({
                 </span>
               )}
             </div>
-            <ShareButton productName={product.name} className="mt-0.5 shrink-0" />
-          </div>
+          )}
 
-          <h1 className="mt-4 text-4xl leading-[1.1] text-midnight-navy sm:text-5xl">
+          <h1 className="text-3xl leading-[1.1] text-midnight-navy sm:text-4xl lg:text-5xl">
             {product.name}
           </h1>
 
-          {/* Assurance row — truthful guarantees in the slot the references give a
-              star rating. See heroAssurances (no reviews yet, no invented number). */}
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* Rating line. No published reviews yet, so it invites the first one
+              rather than inventing a score — and jumps to the reviews section. */}
+          <a
+            href="#reviews"
+            className="mt-2 inline-flex items-center gap-2 self-start text-sm text-midnight-navy/60 hover:text-midnight-navy"
+          >
+            <span className="flex gap-0.5 text-midnight-navy/25" aria-hidden="true">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <svg key={n} width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z" />
+                </svg>
+              ))}
+            </span>
+            <span className="underline-offset-2 hover:underline">Be the first to review</span>
+          </a>
+
+          {/* Why it's real — as chips. */}
+          <ul className="mt-3 flex flex-wrap gap-2">
             {heroAssurances.map((a) => (
-              <span
+              <li
                 key={a.label}
-                className="inline-flex items-center gap-1.5 text-[0.7rem] font-medium tracking-wide text-midnight-navy/70 sm:text-xs"
+                className="inline-flex items-center gap-1.5 rounded-full bg-sand/70 px-3 py-1 text-[0.7rem] font-medium tracking-wide text-midnight-navy/80"
               >
                 <span className="text-champagne-gold">{a.icon}</span>
                 {a.label}
-              </span>
-            ))}
-          </div>
-
-          {/* Price highlight — golden price on the normal ivory ground (owner call
-              2026-07-17: no navy chip). Now shows the rupee saving alongside the %,
-              the way the reference PDPs frame the discount ("You Save ₹X (Y%)"). */}
-          <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-2 sm:mt-7">
-            <span className="text-3xl font-semibold tracking-tight text-champagne-gold sm:text-4xl">
-              {formatPrice(product.price)}
-            </span>
-            {product.originalPrice && (
-              <span className="text-lg text-midnight-navy/40 line-through">
-                {formatPrice(product.originalPrice)}
-              </span>
-            )}
-            {product.originalPrice && (
-              <span className="rounded-md bg-emerald-100 px-2.5 py-1.5 text-sm font-bold text-emerald-700">
-                Save {formatPrice(product.originalPrice - product.price)} (
-                {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%)
-              </span>
-            )}
-          </div>
-
-          {/* Prepaid incentive — Viora's green "Extra ₹50 off" strip. Gated behind
-              RAZORPAY_ENABLED so it only advertises a payment method checkout can
-              actually take. Appears on its own the moment prepaid is switched on. */}
-          {RAZORPAY_ENABLED && (
-            <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
-              <span aria-hidden="true">🎉</span>
-              Get Extra ₹50 Off on Prepaid Payments
-            </div>
-          )}
-
-          {/* Primary action — quantity selector + Add to Cart / Buy Now.
-              The Certified Natural / Cleansed & Energized badges that sat here were
-              removed (owner call 2026-07-17) — the same reassurance lives in the
-              trust-badge grid below the CTA, and the empty space keeps the buy zone
-              calm and Viora-like. */}
-          <ProductCtas product={product} />
-
-          {/* Risk-reversal trust badges sit directly under the CTA (Viora order),
-              then the delivery promise. */}
-          <ul className="mt-6 grid grid-cols-2 gap-x-6 gap-y-3 text-midnight-navy/70">
-            {trustBadges.map((badge) => (
-              <li
-                key={badge.label}
-                className="inline-flex items-center gap-2 text-[0.7rem] tracking-wide sm:text-xs"
-              >
-                <span className="flex-shrink-0 text-champagne-gold">
-                  {badge.icon}
-                </span>
-                <span>{badge.label}</span>
               </li>
             ))}
           </ul>
 
-          {/* Delivery promise. Replaces the pincode estimator: it quoted a
-              per-pincode ETA we can't actually honour, so we state the real
-              dispatch window instead. */}
-          <div className="mt-5 flex items-center gap-3 rounded-xl border border-champagne-gold/25 bg-sand/40 px-4 py-3">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="shrink-0 text-champagne-gold"
-              aria-hidden="true"
-            >
-              <path d="M10 17h4V5H2v12h3M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1" />
-              <circle cx="7.5" cy="17.5" r="2.5" />
-              <circle cx="17.5" cy="17.5" r="2.5" />
-            </svg>
-            <p className="text-sm text-midnight-navy/80">
-              Delivery expected in{" "}
-              <span className="font-semibold text-midnight-navy">6–7 days</span>{" "}
-              &middot; Free shipping &middot; Cash on Delivery
-            </p>
+          {/* Two lines of description up top; the full text is in the accordion. */}
+          {product.description && (
+            <div className="mt-3 text-sm leading-6 text-midnight-navy/70">
+              <p className="line-clamp-2">{product.description}</p>
+              <a
+                href="#product-description"
+                className="font-semibold text-champagne-gold underline-offset-2 hover:underline"
+              >
+                Read more
+              </a>
+            </div>
+          )}
+
+          {/* Price, the markdown, and the rupee saving. */}
+          <div className="mt-5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-3xl font-semibold tracking-tight text-midnight-navy sm:text-4xl">
+                {formatPrice(product.price)}
+              </span>
+              {discountPercent > 0 && (
+                <>
+                  <span className="text-lg text-midnight-navy/40 line-through">
+                    {formatPrice(product.originalPrice!)}
+                  </span>
+                  <span className="rounded-md bg-champagne-gold px-2.5 py-1 text-sm font-bold text-midnight-navy">
+                    {discountPercent}% OFF
+                  </span>
+                </>
+              )}
+            </div>
+            {discountPercent > 0 && (
+              <p className="mt-1 text-xs font-semibold text-emerald-700">
+                You save {formatPrice(product.originalPrice! - product.price)}
+              </p>
+            )}
           </div>
+
+          {/* Spend ladder (applied automatically in the bag) + pay-online deal. */}
+          <ProductOffers price={product.price} productId={product.id} />
+
+          {/* Primary action — quantity selector + Add to Cart / Buy Now. */}
+          <ProductCtas product={product} />
+
+          {/* When it arrives, why it's safe, and a human to ask. */}
+          <div className="mt-6 rounded-xl border border-champagne-gold/25 bg-sand/30 p-4">
+            <div className="flex items-center gap-3">
+              <svg {...iconProps} width={20} height={20} className="shrink-0 text-emerald-700">
+                <path d="M10 17h4V5H2v12h3M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1" />
+                <circle cx="7.5" cy="17.5" r="2.5" />
+                <circle cx="17.5" cy="17.5" r="2.5" />
+              </svg>
+              <DeliveryEstimate />
+            </div>
+            <ul className="mt-3 grid grid-cols-4 gap-1 border-t border-champagne-gold/20 pt-3">
+              {trustItems.map((t) => (
+                <li key={t.label} className="flex flex-col items-center gap-1 text-center">
+                  <svg {...iconProps} width={20} height={20} className="text-champagne-gold">
+                    {t.icon}
+                  </svg>
+                  <span className="text-[0.68rem] font-semibold leading-tight text-midnight-navy">
+                    {t.label}
+                  </span>
+                  <span className="text-[0.62rem] leading-tight text-midnight-navy/55">{t.sub}</span>
+                </li>
+              ))}
+            </ul>
+            {whatsappHref && (
+              <a
+                href={whatsappHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 flex items-center justify-center gap-2 border-t border-champagne-gold/20 pt-3 text-sm font-medium text-emerald-700 hover:underline"
+              >
+                Want a closer look? Chat with us on WhatsApp
+              </a>
+            )}
+          </div>
+
+          {/* Gifting cue + a second opinion. Wrap is added in the bag. */}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2.5 rounded-xl border border-champagne-gold/30 px-3 py-2.5">
+              <svg {...iconProps} width={20} height={20} className="flex-shrink-0 text-champagne-gold">
+                <path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8C10.5 5 7 3.5 6.5 6S9 8 12 8zM12 8c1.5-3 5-4.5 5.5-2S15 8 12 8z" />
+              </svg>
+              <span className="text-xs leading-tight">
+                <span className="block font-semibold text-midnight-navy">Gifting it?</span>
+                <span className="text-midnight-navy/55">
+                  Wrap + note {formatPrice(GIFT_WRAP_FEE)} in your bag · FREE on{" "}
+                  {formatPrice(FREE_GIFT_WRAP_MINIMUM)}+
+                </span>
+              </span>
+            </div>
+            <ShareButton productName={product.name} />
+          </div>
+
+          {/* Pieces to add, right where the decision is made. */}
+          <PairItWith items={pairs} />
 
           {/* Product details — only what this piece's own description states
               (see lib/productSpecs.ts), plus the natural-variation note the FAQ
-              already makes. Competitor PDPs lead with this; ours had none. */}
-          <div className="mt-6">
+              already makes. */}
+          <div className="mt-8">
             <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-champagne-gold">
               Product details
             </h2>
@@ -409,9 +444,7 @@ export default async function ProductDetailPage({
             </p>
           </div>
 
-          {/* The reason to buy, scannable in five seconds — titled and set on
-              check marks, the "Why [product]?" block the reference PDPs use. Moved
-              below the buy zone so it informs without crowding the price/CTA. */}
+          {/* The reason to buy, scannable in five seconds. */}
           {product.benefits.length > 0 && (
             <div className="mt-8 rounded-2xl border border-champagne-gold/25 bg-sand/25 p-6">
               <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-champagne-gold">
@@ -457,7 +490,7 @@ export default async function ProductDetailPage({
             </div>
           )}
 
-          {/* Ritual accordions — energy, ritual, promise */}
+          {/* Ritual accordions — description, ritual, shipping */}
           <RitualAccordion product={product} />
 
           {/* Reviews — honest empty state + star/photo submission form */}
@@ -465,14 +498,11 @@ export default async function ProductDetailPage({
         </div>
       </div>
 
-      {/* Mobile-only Viora-style sticky Buy Now bar */}
+      {/* Sticky Buy Now bar (phones + tablets) */}
       <StickyAddToBag product={product} />
 
       {/* Item-specific FAQ — answers the last objections before checkout */}
       <ProductFaq product={product} />
-
-      {/* Cross-sell rail to keep the shopper browsing */}
-      <CompleteYourRitual product={product} />
 
       {/* Wider cross-sell at the very bottom of the page */}
       <YouMayAlsoLike product={product} />

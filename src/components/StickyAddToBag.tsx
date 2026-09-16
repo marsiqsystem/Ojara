@@ -135,10 +135,18 @@ export default function StickyAddToBag({ product }: { product: Product }) {
             <span className="text-sm font-bold text-champagne-gold">
               {formatPrice(product.price)}
             </span>
-            {product.originalPrice && (
-              <span className="text-xs text-ivory/40 line-through">
-                {formatPrice(product.originalPrice)}
-              </span>
+            {product.originalPrice && product.originalPrice > product.price && (
+              <>
+                <span className="text-xs text-ivory/40 line-through">
+                  {formatPrice(product.originalPrice)}
+                </span>
+                <span className="text-xs font-semibold text-emerald-300">
+                  {Math.round(
+                    ((product.originalPrice - product.price) / product.originalPrice) * 100,
+                  )}
+                  % OFF
+                </span>
+              </>
             )}
           </p>
         </div>
