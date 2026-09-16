@@ -62,8 +62,9 @@ export default async function ProductGrid({
   const showRings = variant === "rings" || variant === "both";
   const showBracelets = variant === "bracelets" || variant === "both";
 
-  // The /#collection anchor (BackButton fallback, footer link) should land on
+  // The #collection anchor (the hero's "Shop bracelets" button) should land on
   // whichever rail appears first in the flow — bracelets when it's shown alone.
+  // Everything else that says "Shop" goes to the real shop page, /collection.
   const anchorId = showBracelets ? "collection" : "rings";
 
   return (

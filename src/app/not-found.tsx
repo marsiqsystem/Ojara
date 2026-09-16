@@ -22,7 +22,7 @@ export default function NotFound() {
         </p>
 
         <Link
-          href="/#collection"
+          href="/collection"
           prefetch
           className="mt-12 inline-flex rounded-full bg-champagne-gold px-12 py-4 text-xs font-medium uppercase tracking-[0.25em] text-midnight-navy transition-colors duration-300 ease-out hover:bg-champagne-gold/85"
         >

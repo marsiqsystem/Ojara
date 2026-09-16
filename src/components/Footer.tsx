@@ -46,8 +46,7 @@ const columns: FooterColumn[] = [
     title: "The Brand",
     links: [
       { label: "Our Story", href: "/our-story" },
-      { label: "Collection", href: "/#collection" },
-      { label: "Manifestation Stories", href: "/#stories" },
+      { label: "Shop all", href: "/collection" },
     ],
   },
   {

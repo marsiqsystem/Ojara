@@ -178,7 +178,7 @@ export default function ShopMenu() {
 
           <div className="mt-5 border-t border-champagne-gold/30 pt-4">
             <Link
-              href="/#collection"
+              href="/collection"
               prefetch
               onClick={() => setOpen(false)}
               className="cursor-pointer text-xs uppercase tracking-[0.25em] text-champagne-gold underline-offset-8 transition-all duration-150 ease-out hover:text-ivory hover:underline active:scale-95"

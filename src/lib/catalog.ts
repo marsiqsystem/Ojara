@@ -1,4 +1,5 @@
 import { WIX_ENABLED } from "./commerce/config";
+import { matchesIntentionCollection } from "./commerce/bundle";
 import {
   products as mockProducts,
   categories as mockCategories,
@@ -359,13 +360,21 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
 export const getProductsByCategory = async (category: Category): Promise<Product[]> => {
   const all = await getAllProducts();
   
-  // Try filtering by wixCollectionId first
+  // Wix collection members first (the owner's curation), then pieces whose stones
+  // match the intention. The Wix intention collections held one piece each
+  // (2026-09-16), so the category pages the home page links to were near-empty.
   const wixColId = (category as Category & { wixCollectionId?: string })
     .wixCollectionId;
   if (wixColId) {
-    const filtered = (all as ProductWithCollections[]).filter((product) =>
+    const inCollection = (all as ProductWithCollections[]).filter((product) =>
       product.collectionIds?.includes(wixColId),
     );
+    const byStone = all.filter(
+      (product) =>
+        !inCollection.includes(product) &&
+        matchesIntentionCollection(category.slug, product.name),
+    );
+    const filtered = [...inCollection, ...byStone];
     if (filtered.length > 0) return filtered;
   }
 

@@ -154,7 +154,7 @@ export default function OurStoryPage() {
           Find the piece that carries your intention.
         </h2>
         <Link
-          href="/#collection"
+          href="/collection"
           prefetch
           className="mt-10 inline-flex rounded-full bg-midnight-navy px-12 py-4 text-xs font-medium uppercase tracking-[0.25em] text-champagne-gold transition-colors duration-300 ease-out hover:bg-midnight-navy/90"
         >

@@ -92,12 +92,31 @@ const AFFINITY_GROUPS: ReadonlyArray<readonly string[]> = [
   // Wealth
   ["citrine", "pyrite", "wealth", "money", "abundance", "prosper", "aventurine", "jade"],
   // Calm & clarity
-  ["amethyst", "lepidolite", "howlite", "selenite", "clear quartz", "calm", "focus", "sleep", "clarity"],
+  ["amethyst", "lepidolite", "howlite", "selenite", "clear quartz", "lapis", "calm", "focus", "sleep", "clarity"],
   // Love & harmony
   ["rose quartz", "rhodonite", "kunzite", "love", "harmony"],
   // Energy & courage
-  ["carnelian", "tiger eye", "tiger's eye", "garnet", "red jasper", "sunstone", "lava", "chakra", "energy", "vitality", "confidence"],
+  ["carnelian", "tiger eye", "tiger's eye", "tigers eye", "garnet", "red jasper", "sunstone", "lava", "chakra", "energy", "vitality", "confidence"],
 ];
+
+// Live Wix intention collections → the affinity group whose stones belong in it.
+const INTENTION_COLLECTION_GROUP: Record<string, number> = {
+  "protection-evil-eye": 1,
+  "wealth-success": 2,
+  "calm-focus": 3,
+  "energy-vitality": 5,
+};
+
+/**
+ * Whether a piece belongs on an intention collection page by its stone. The Wix
+ * collections were left nearly empty (one piece each on 2026-09-16), so category
+ * pages also list pieces whose names match that intention's stones. Returns false
+ * for slugs that aren't intention collections.
+ */
+export const matchesIntentionCollection = (slug: string, productName: string): boolean => {
+  const group = INTENTION_COLLECTION_GROUP[slug];
+  return group !== undefined && groupsFor(productName).includes(group);
+};
 
 const groupsFor = (name: string): number[] => {
   const n = name.toLowerCase();
