@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Razorpay from "razorpay";
+import { razorpayServer } from "@/lib/razorpayServer";
 
 // Create the Razorpay payment order server-side so KEY_SECRET never reaches the
 // browser. Returns the public key_id + order details for the checkout widget.
@@ -13,18 +13,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
-    const keyId =
-      process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (!keyId || !keySecret) {
+    const instance = razorpayServer();
+    if (!instance) {
       return NextResponse.json(
         { error: "Razorpay credentials not configured" },
         { status: 500 },
       );
     }
-
-    const instance = new Razorpay({ key_id: keyId, key_secret: keySecret });
 
     const order = await instance.orders.create({
       amount: Math.round(numericAmount * 100), // Razorpay works in paise
@@ -38,7 +33,7 @@ export async function POST(req: NextRequest) {
       order_id: order.id,
       amount: order.amount,
       currency: order.currency,
-      key_id: keyId,
+      key_id: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
     });
   } catch (err: unknown) {
     console.error("Razorpay create order failed:", err);

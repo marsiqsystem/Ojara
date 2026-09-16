@@ -13,7 +13,8 @@ import {
   GIFT_WRAP_FEE,
 } from "@/lib/commerce/pricing";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
-import { WIX_ENABLED, BRAND_NAME } from "@/lib/commerce/config";
+import { WIX_ENABLED, BRAND_NAME, UPSELL_ENABLED } from "@/lib/commerce/config";
+import { IN_STATES, stateName as nameOfState } from "@/lib/commerce/indiaStates";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { trackEvent, trackingContext } from "@/lib/analytics/capi";
 import { contentIds, toContents, toGa4Items } from "@/lib/analytics/content";
@@ -45,43 +46,6 @@ type PaymentMethod = "PREPAID" | "COD";
 // selectable method, and the −₹50 prepaid incentive is hidden.
 // ---------------------------------------------------------------------------
 const PREPAID_ENABLED = !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-
-// ---------------------------------------------------------------------------
-// SACRED UPSELL ("Complete Your Chakra") KILL SWITCH — off while it's unfinished.
-//
-// The whole SacredUpsellFlow (checkout step 2) is hidden from shoppers while
-// false: checkout runs Contact -> Delivery & Payment with no bundle step, and
-// the step counter reads "of 2". Nothing was deleted — the component, pricing,
-// and the Wix bundled-order path all still typecheck. Flip to `true` to bring
-// the chakra bundle step back once it's complete and the Wix path is tested.
-// ---------------------------------------------------------------------------
-const UPSELL_ENABLED = false;
-
-// ISO 3166-2 subdivision codes — Wix requires the CODE, not free text.
-const IN_STATES: { code: string; name: string }[] = [
-  { code: "IN-AP", name: "Andhra Pradesh" },
-  { code: "IN-AS", name: "Assam" },
-  { code: "IN-BR", name: "Bihar" },
-  { code: "IN-CT", name: "Chhattisgarh" },
-  { code: "IN-DL", name: "Delhi" },
-  { code: "IN-GA", name: "Goa" },
-  { code: "IN-GJ", name: "Gujarat" },
-  { code: "IN-HR", name: "Haryana" },
-  { code: "IN-HP", name: "Himachal Pradesh" },
-  { code: "IN-JH", name: "Jharkhand" },
-  { code: "IN-KA", name: "Karnataka" },
-  { code: "IN-KL", name: "Kerala" },
-  { code: "IN-MP", name: "Madhya Pradesh" },
-  { code: "IN-MH", name: "Maharashtra" },
-  { code: "IN-OR", name: "Odisha" },
-  { code: "IN-PB", name: "Punjab" },
-  { code: "IN-RJ", name: "Rajasthan" },
-  { code: "IN-TN", name: "Tamil Nadu" },
-  { code: "IN-TG", name: "Telangana" },
-  { code: "IN-UP", name: "Uttar Pradesh" },
-  { code: "IN-UT", name: "Uttarakhand" },
-  { code: "IN-WB", name: "West Bengal" },
-];
 
 // Razorpay ships no npm checkout SDK — inject the script on demand.
 const loadRazorpayScript = (): Promise<boolean> =>
@@ -358,7 +322,7 @@ export default function CheckoutModal() {
   // Build the item + summary payload the email renderer needs (mock mode) and the
   // Wix email step mirrors (live mode).
   const buildOrderPayload = () => {
-    const stateName = IN_STATES.find((s) => s.code === stateCode)?.name || stateCode;
+    const stateName = nameOfState(stateCode);
     return {
       items: lines.map((l) => ({
         name: l.name,

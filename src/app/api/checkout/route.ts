@@ -1,6 +1,15 @@
 import { NextResponse, after } from "next/server";
-import { WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
+import { UPSELL_ENABLED, WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
 import { GIFT_WRAP_FEE, PREPAID_DISCOUNT } from "@/lib/commerce/pricing";
+import { normalizeSubdivision } from "@/lib/commerce/indiaStates";
+import { clientIp, isRateLimited, isSameOrigin } from "@/lib/apiGuard";
+import {
+  capturePayment,
+  markPaymentUsed,
+  paymentCoversTotal,
+  verifyPrepaidPayment,
+  type VerifiedPayment,
+} from "@/lib/razorpayServer";
 import {
   sendOrderConfirmationEmail,
   type OrderEmailParams,
@@ -36,7 +45,6 @@ type CheckoutAddressPayload = {
   postalCode: string;
   paymentMethod: "COD" | "PREPAID";
   razorpayPaymentId?: string;
-  razorpayAmount?: string;
 };
 
 // Ceiling on the client-supplied Sacred Bundle discount. The tier tops out at
@@ -79,38 +87,6 @@ const splitName = (fullName: string) => {
   };
 };
 
-// Wix requires ISO 3166-2 subdivision CODES, not free text.
-const subdivisionCodes: Record<string, string> = {
-  "andhra pradesh": "IN-AP",
-  assam: "IN-AS",
-  bihar: "IN-BR",
-  chhattisgarh: "IN-CT",
-  delhi: "IN-DL",
-  goa: "IN-GA",
-  gujarat: "IN-GJ",
-  haryana: "IN-HR",
-  "himachal pradesh": "IN-HP",
-  jharkhand: "IN-JH",
-  karnataka: "IN-KA",
-  kerala: "IN-KL",
-  "madhya pradesh": "IN-MP",
-  maharashtra: "IN-MH",
-  odisha: "IN-OR",
-  punjab: "IN-PB",
-  rajasthan: "IN-RJ",
-  "tamil nadu": "IN-TN",
-  telangana: "IN-TG",
-  "uttar pradesh": "IN-UP",
-  uttarakhand: "IN-UT",
-  "west bengal": "IN-WB",
-};
-
-const normalizeSubdivision = (state: string) => {
-  const normalized = state.trim();
-  if (/^IN-[A-Z]{2}$/i.test(normalized)) return normalized.toUpperCase();
-  return subdivisionCodes[normalized.toLowerCase()] || normalized;
-};
-
 // Wix nests calculation errors unpredictably — flatten whatever shape arrives.
 const flattenCalculationErrors = (value: unknown): string[] => {
   if (!value) return [];
@@ -133,6 +109,18 @@ const flattenCalculationErrors = (value: unknown): string[] => {
 };
 
 export async function POST(req: Request) {
+  // Only our own checkout may place orders, and not in a burst. Ten per ten
+  // minutes per IP leaves a real shopper plenty of retries.
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+  if (isRateLimited(`checkout:${clientIp(req)}`, 10)) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please wait a few minutes and try again." },
+      { status: 429 },
+    );
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const details = body?.details as Partial<CheckoutAddressPayload> | undefined;
@@ -147,7 +135,6 @@ export async function POST(req: Request) {
     const postalCode = normalizeText(details?.postalCode);
     const paymentMethod = details?.paymentMethod === "PREPAID" ? "PREPAID" : "COD";
     const razorpayPaymentId = normalizeText(details?.razorpayPaymentId);
-    const razorpayAmount = normalizeText(details?.razorpayAmount);
 
     // Gift wrap + note and the coupon code ride along so the owner sees them on
     // the Wix order (gift wrap is otherwise invisible server-side).
@@ -159,11 +146,14 @@ export async function POST(req: Request) {
     // GLOBAL custom discount, exactly like the prepaid −₹50. Clamped and
     // re-rounded server-side: this arrives from the browser, so it is treated as
     // a request, not as truth. BUNDLE_DISCOUNT_CAP is the ceiling any legitimate
-    // 30%-of-three-items tier can reach.
-    const bundleDiscount = Math.min(
-      BUNDLE_DISCOUNT_CAP,
-      Math.max(0, Math.round(Number(body?.bundleDiscount) || 0)),
-    );
+    // 30%-of-three-items tier can reach. While the upsell is switched off no real
+    // order can earn one, so a request claiming it is ignored outright.
+    const bundleDiscount = UPSELL_ENABLED
+      ? Math.min(
+          BUNDLE_DISCOUNT_CAP,
+          Math.max(0, Math.round(Number(body?.bundleDiscount) || 0)),
+        )
+      : 0;
 
     if (!email || !fullName || !phone || !addressLine1 || !city || !state || !postalCode) {
       return NextResponse.json(
@@ -173,6 +163,24 @@ export async function POST(req: Request) {
     }
 
     const checkoutId = normalizeText(body?.checkoutId);
+
+    // ------------------------------------------------ Prepaid: prove the payment
+    // A prepaid order is only ever built on a payment Razorpay itself reports as
+    // successful and unused. The browser's word is not enough: this used to mark
+    // the Wix order PAID (and take ₹50 off) for any string it was sent. The
+    // amount is checked further down, once Wix has priced the checkout.
+    let payment: VerifiedPayment | null = null;
+    if (paymentMethod === "PREPAID") {
+      const check = await verifyPrepaidPayment(razorpayPaymentId);
+      if (!check.ok) {
+        return NextResponse.json({ error: check.error }, { status: check.status });
+      }
+      payment = check.payment;
+    }
+    // Rupees Razorpay actually took — replaces the amount the browser used to send.
+    const razorpayAmount = payment ? payment.amount.toFixed(2) : "";
+    // Only a verified payment id is ever written onto an order or an email.
+    const paidPaymentId = payment ? payment.id : "";
 
     // ------------------------------------------------- Meta Purchase (server)
     // The browser also fires Purchase, but ad blockers, a crashed tab or a
@@ -230,9 +238,18 @@ export async function POST(req: Request) {
     };
 
     // ------------------------------------------------------------------ MOCK
-    // No Wix admin key (or no checkoutId): synthesise the order and email from the
-    // client-supplied cart. This is what runs pre-keys.
-    if (!WIX_ADMIN_ENABLED || !checkoutId) {
+    // No Wix admin key: synthesise the order and email from the client-supplied
+    // cart. This is what runs pre-keys — and ONLY pre-keys. It used to run
+    // whenever a request simply left out `checkoutId`, which on the live site let
+    // anyone make our Gmail send an "order confirmation" to any address and post
+    // a Purchase of any value to the live Meta pixel.
+    if (WIX_ADMIN_ENABLED && !checkoutId) {
+      return NextResponse.json(
+        { error: "Your checkout session expired. Please refresh and try again." },
+        { status: 400 },
+      );
+    }
+    if (!WIX_ADMIN_ENABLED) {
       const items = (Array.isArray(body?.items) ? body.items : []) as
         OrderEmailParams["items"];
       const summary = (body?.summary || {}) as OrderEmailParams["summary"];
@@ -253,7 +270,7 @@ export async function POST(req: Request) {
         orderDate,
         paymentMethod,
         amount,
-        razorpayPaymentId: razorpayPaymentId || undefined,
+        razorpayPaymentId: paidPaymentId || undefined,
         items,
         summary,
         giftNote: giftWrap && giftNote ? giftNote : undefined,
@@ -300,7 +317,7 @@ export async function POST(req: Request) {
         (paymentMethod === "COD"
           ? `Payment: Cash on Delivery (COD). Phone: ${phone}. Pincode: ${postalCode}.`
           : `Payment: Prepaid. Phone: ${phone}. Pincode: ${postalCode}.` +
-            (razorpayPaymentId ? ` Razorpay Payment ID: ${razorpayPaymentId}.` : "") +
+            (paidPaymentId ? ` Razorpay Payment ID: ${paidPaymentId}.` : "") +
             (razorpayAmount ? ` Amount paid: ${razorpayAmount}.` : "")),
       customFields: [
         {
@@ -308,8 +325,8 @@ export async function POST(req: Request) {
           value: paymentMethod === "COD" ? "Cash on Delivery" : "Prepaid (Razorpay)",
         },
         { title: "Customer Phone", value: phone },
-        ...(razorpayPaymentId
-          ? [{ title: "Razorpay Payment ID", value: razorpayPaymentId }]
+        ...(paidPaymentId
+          ? [{ title: "Razorpay Payment ID", value: paidPaymentId }]
           : []),
         ...(razorpayAmount ? [{ title: "Amount Paid", value: razorpayAmount }] : []),
         ...(couponCode ? [{ title: "Coupon", value: couponCode }] : []),
@@ -350,6 +367,43 @@ export async function POST(req: Request) {
       );
     }
 
+    const giftWrapAmount = giftWrap ? GIFT_WRAP_FEE : 0;
+    const prepaidDiscountAmount = payment ? PREPAID_DISCOUNT : 0;
+
+    // 3b. Prepaid: the payment must cover THIS order, before any order exists.
+    // Wix's checkout total already carries the coupon; the adjustments made in
+    // step 5 are applied on top exactly as the shopper was quoted.
+    if (payment) {
+      const expectedTotal =
+        Number(updatedCheckout?.priceSummary?.total?.amount) +
+        giftWrapAmount -
+        prepaidDiscountAmount -
+        bundleDiscount;
+      if (!paymentCoversTotal(payment.amount, expectedTotal)) {
+        console.error(
+          `Prepaid amount mismatch: paid ${payment.amount}, order ${expectedTotal}, payment ${payment.id}`,
+        );
+        return NextResponse.json(
+          {
+            error: `The amount paid doesn't match your order total. No order was placed — please contact us with payment ID ${payment.id}.`,
+          },
+          { status: 402 },
+        );
+      }
+      try {
+        await capturePayment(payment);
+        // Burn the payment id against this checkout BEFORE the order exists, so a
+        // replay racing this request is refused by verifyPrepaidPayment.
+        await markPaymentUsed(payment.id, checkoutId);
+      } catch (e) {
+        console.error("Razorpay capture failed:", e);
+        return NextResponse.json(
+          { error: `We couldn't complete your payment. No order was placed — please contact us with payment ID ${payment.id}.` },
+          { status: 502 },
+        );
+      }
+    }
+
     // 4. Create + approve the order.
     const orderResult = await wixClient.checkout.createOrder(checkoutId);
     const orderId =
@@ -386,10 +440,6 @@ export async function POST(req: Request) {
     let finalTotal = wixOrderTotal;
     let committedOrder: Record<string, unknown> | null = null;
     let discountApplied = false;
-
-    const giftWrapAmount = giftWrap ? GIFT_WRAP_FEE : 0;
-    const prepaidDiscountAmount =
-      paymentMethod === "PREPAID" && razorpayPaymentId ? PREPAID_DISCOUNT : 0;
 
     if (giftWrapAmount > 0 || prepaidDiscountAmount > 0 || bundleDiscount > 0) {
       try {
@@ -464,7 +514,7 @@ export async function POST(req: Request) {
               giftWrapAmount -
               prepaidDiscountAmount -
               bundleDiscount
-            : Number(razorpayAmount);
+            : (payment?.amount ?? NaN);
         finalTotal =
           committedTotal?.total?.amount != null
             ? Number(committedTotal.total.amount)
@@ -472,15 +522,15 @@ export async function POST(req: Request) {
         discountApplied = true;
       } catch (adjErr) {
         console.error("Order adjustment (draft edit) failed:", adjErr);
-        finalTotal = Number.isFinite(Number(razorpayAmount))
-          ? Number(razorpayAmount)
-          : wixOrderTotal;
+        // Prepaid: what was actually paid. COD: the unadjusted Wix total. (This
+        // used to read Number("") = 0 for COD, reporting a ₹0 order.)
+        finalTotal = payment ? payment.amount : wixOrderTotal;
       }
     }
 
     // 6. Record the payment so the order reads as PAID for finalTotal.
     let paymentMarkedPaid = false;
-    if (paymentMethod === "PREPAID" && razorpayPaymentId) {
+    if (payment) {
       try {
         if (Number.isFinite(finalTotal) && finalTotal > 0) {
           await wixClient.orderTransactions.addPayments(orderId, [
@@ -490,7 +540,7 @@ export async function POST(req: Request) {
                 offlinePayment: true,
                 status: "APPROVED",
                 paymentMethod: "Razorpay",
-                providerTransactionId: razorpayPaymentId,
+                providerTransactionId: paidPaymentId,
               },
             },
           ]);
@@ -578,7 +628,7 @@ export async function POST(req: Request) {
         orderDate,
         paymentMethod,
         amount: (Number.isFinite(emailAmount) ? emailAmount : 0).toFixed(2),
-        razorpayPaymentId: razorpayPaymentId || undefined,
+        razorpayPaymentId: paidPaymentId || undefined,
         items,
         summary,
         giftNote: giftWrap && giftNote ? giftNote : undefined,

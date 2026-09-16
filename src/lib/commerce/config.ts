@@ -28,6 +28,21 @@ export const RAZORPAY_ENABLED = !!(
   process.env.RAZORPAY_KEY_SECRET
 );
 
+// ---------------------------------------------------------------------------
+// SACRED UPSELL ("Complete Your Chakra") KILL SWITCH — off while it's unfinished.
+//
+// The whole SacredUpsellFlow (checkout step 2) is hidden from shoppers while
+// false: checkout runs Contact -> Delivery & Payment with no bundle step, and
+// the step counter reads "of 2". Nothing was deleted — the component, pricing,
+// and the Wix bundled-order path all still typecheck. Flip to `true` to bring
+// the chakra bundle step back once it's complete and the Wix path is tested.
+//
+// Lives here (not in CheckoutModal) because /api/checkout reads it too: while
+// the upsell is off, no genuine order can carry a bundle discount, so the server
+// ignores any `bundleDiscount` a request sends instead of taking it on trust.
+// ---------------------------------------------------------------------------
+export const UPSELL_ENABLED = false;
+
 /** True when Gmail SMTP credentials exist (any outbound email). */
 export const EMAIL_ENABLED = !!(
   process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD
