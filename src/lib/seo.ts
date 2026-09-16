@@ -24,9 +24,13 @@ export const COMMERCE_FACTS = {
   shippingCountry: "IN",
   // Free shipping on every order, no minimum spend.
   shippingCost: 0,
-  // 1–3 business days to prepare + cleanse, then 3–7 business days in transit.
-  handlingDaysMin: 1,
-  handlingDaysMax: 3,
+  // Dispatch (owner, 2026-09-17): orders placed before 8 pm IST are packed and
+  // shipped the same day; after 8 pm, the next working day. Monday–Saturday —
+  // closed Sundays. So handling is 0–1 working days, then 3–7 business days in
+  // transit. lib/deliveryEstimate.ts turns these into real dates.
+  handlingDaysMin: 0,
+  handlingDaysMax: 1,
+  dispatchCutoffHourIST: 20,
   transitDaysMin: 3,
   transitDaysMax: 7,
   // No refunds; exchange only, within 48 hours of delivery (2 calendar days).

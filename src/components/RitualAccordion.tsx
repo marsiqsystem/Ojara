@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { hasSpecificIntention, type Product } from "@/lib/mockData";
 import { COMMERCE_FACTS } from "@/lib/seo";
+import { DISPATCH_POLICY_TEXT } from "@/lib/deliveryEstimate";
 
 interface Section {
   key: string;
@@ -25,17 +26,13 @@ export default function RitualAccordion({ product }: { product: Product }) {
         ? `${product.description} Attuned to ${product.intention.toLowerCase()}, its frequency is meant to be felt as much as seen — a quiet current you keep close.`
         : product.description,
     },
-    {
-      key: "rituals",
-      title: "Crystal Rituals",
-      body: "Cleanse with sage smoke or a night of moonlight to recharge its frequency. Hold it between your palms, breathe slowly, and speak your intention aloud — then place it where its work begins: your desk, your threshold, your bedside.",
-    },
+    // The ritual guidance now lives in the "Your ritual" steps above (RitualSteps).
     {
       key: "shipping",
       title: "Shipping & Exchanges",
       // Same numbers as the shipping policy + delivery dates (COMMERCE_FACTS).
       // This used to say "dispatch within 24-48 hours", contradicting the policy.
-      body: `Free delivery on every order across India, with Cash on Delivery available. Orders are prepared within ${COMMERCE_FACTS.handlingDaysMin}–${COMMERCE_FACTS.handlingDaysMax} business days and arrive ${COMMERCE_FACTS.transitDaysMin}–${COMMERCE_FACTS.transitDaysMax} business days after dispatch. We don't offer returns or refunds — we offer exchanges: if the piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging.`,
+      body: `Free delivery on every order across India, with Cash on Delivery available. ${DISPATCH_POLICY_TEXT} Orders arrive ${COMMERCE_FACTS.transitDaysMin}–${COMMERCE_FACTS.transitDaysMax} business days after dispatch. We don't offer returns or refunds — we offer exchanges: if the piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging.`,
     },
   ];
 

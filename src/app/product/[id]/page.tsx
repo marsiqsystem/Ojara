@@ -16,7 +16,9 @@ import { productSchema, breadcrumbSchema } from "@/lib/seo";
 import ProductCtas from "@/components/ProductCtas";
 import ProductOffers from "@/components/ProductOffers";
 import PairItWith from "@/components/PairItWith";
-import DeliveryEstimate from "@/components/DeliveryEstimate";
+import DeliveryTimeline from "@/components/DeliveryTimeline";
+import RitualSteps from "@/components/RitualSteps";
+import ProductVideos from "@/components/ProductVideos";
 import StickyAddToBag from "@/components/StickyAddToBag";
 import BackButton from "@/components/BackButton";
 import { whatsappLink, SITE_URL } from "@/lib/commerce/config";
@@ -159,7 +161,7 @@ export default async function ProductDetailPage({
   // Structured breadcrumb mirroring the visible trail below (Home / Shop / …).
   const breadcrumbCrumbs = [
     { name: "Home", url: "/" },
-    { name: "Shop", url: "/#collection" },
+    { name: "Shop", url: "/collection" },
     ...(primaryCategory
       ? [{ name: primaryCategory.label, url: `/category/${primaryCategory.slug}` }]
       : []),
@@ -171,6 +173,14 @@ export default async function ProductDetailPage({
     product.originalPrice && product.originalPrice > product.price
       ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
       : 0;
+
+  // Tick bullets under the price: stated specs first, then a fact true of every order.
+  const highlights = [
+    ...productSpecs(product)
+      .filter((row) => row.label !== "Piece")
+      .map((row) => (row.label === "Bead size" ? `${row.value} beads` : row.value)),
+    "Free delivery across India · Cash on Delivery",
+  ].slice(0, 3);
 
   // "Complete your ritual" — pieces from the same stone / intention family.
   const pairs = ritualPairsFor(product, await getAllProducts());
@@ -194,7 +204,7 @@ export default async function ProductDetailPage({
         aria-label="Breadcrumb"
         className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-3 sm:py-4"
       >
-        <BackButton fallbackHref="/#collection" className="shrink-0" />
+        <BackButton fallbackHref="/collection" className="shrink-0" />
         <span aria-hidden="true" className="hidden text-champagne-gold/50 sm:inline">
           |
         </span>
@@ -213,7 +223,7 @@ export default async function ProductDetailPage({
           </li>
           <li>
             <Link
-              href="/#collection"
+              href="/collection"
               prefetch
               className="transition-colors duration-300 ease-out hover:text-midnight-navy"
             >
@@ -311,6 +321,15 @@ export default async function ProductDetailPage({
             </span>
             <span className="underline-offset-2 hover:underline">Be the first to review</span>
           </a>
+          <a
+            href="#product-videos"
+            className="mt-2 inline-flex items-center gap-1.5 self-start rounded-full border border-midnight-navy/15 px-3 py-1 text-xs font-medium text-midnight-navy/75 hover:border-champagne-gold"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M7 4.5v15l13-7.5z" />
+            </svg>
+            Watch videos
+          </a>
 
           {/* Why it's real — as chips. */}
           <ul className="mt-3 flex flex-wrap gap-2">
@@ -362,6 +381,19 @@ export default async function ProductDetailPage({
             )}
           </div>
 
+          {/* Highlights — ticks for what this piece's own description states
+              (lib/productSpecs.ts), plus free delivery, which is true of every order. */}
+          <ul className="mt-4 space-y-1.5">
+            {highlights.map((h) => (
+              <li key={h} className="flex items-center gap-2 text-sm text-midnight-navy/85">
+                <svg {...iconProps} width={16} height={16} className="flex-shrink-0 text-emerald-600">
+                  <path d="m5 12.5 4.5 4.5L19 7.5" />
+                </svg>
+                {h}
+              </li>
+            ))}
+          </ul>
+
           {/* Spend ladder (applied automatically in the bag) + pay-online deal. */}
           <ProductOffers price={product.price} productId={product.id} />
 
@@ -370,14 +402,7 @@ export default async function ProductDetailPage({
 
           {/* When it arrives, why it's safe, and a human to ask. */}
           <div className="mt-6 rounded-xl border border-champagne-gold/25 bg-sand/30 p-4">
-            <div className="flex items-center gap-3">
-              <svg {...iconProps} width={20} height={20} className="shrink-0 text-emerald-700">
-                <path d="M10 17h4V5H2v12h3M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1" />
-                <circle cx="7.5" cy="17.5" r="2.5" />
-                <circle cx="17.5" cy="17.5" r="2.5" />
-              </svg>
-              <DeliveryEstimate />
-            </div>
+            <DeliveryTimeline />
             <ul className="mt-3 grid grid-cols-4 gap-1 border-t border-champagne-gold/20 pt-3">
               {trustItems.map((t) => (
                 <li key={t.label} className="flex flex-col items-center gap-1 text-center">
@@ -490,7 +515,13 @@ export default async function ProductDetailPage({
             </div>
           )}
 
-          {/* Ritual accordions — description, ritual, shipping */}
+          {/* Cleanse → set your intention → wear it. */}
+          <RitualSteps />
+
+          {/* Video wall — brand reels as placeholders until customer videos arrive. */}
+          <ProductVideos />
+
+          {/* Accordions — description, shipping */}
           <RitualAccordion product={product} />
 
           {/* Reviews — honest empty state + star/photo submission form */}

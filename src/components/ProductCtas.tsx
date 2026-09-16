@@ -11,6 +11,8 @@ import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
 import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
 import { LOW_STOCK_THRESHOLD } from "@/lib/commerce/config";
+import BundleOptions from "@/components/BundleOptions";
+import PaymentMethods from "@/components/PaymentMethods";
 
 export default function ProductCtas({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);
@@ -132,10 +134,13 @@ export default function ProductCtas({ product }: { product: Product }) {
   }
 
   return (
-    <div id="main-add-to-bag" className="mt-6">
+    <div id="main-add-to-bag">
+      {/* Single / Pair / Trio — the spend ladder as ready-made choices. */}
+      <BundleOptions product={product} qty={qty} maxQty={maxQty} onSelect={setQty} />
+
       {/* Quantity selector + stock status, sitting directly above the primary
           actions so the shopper sets intent then acts. Stock is Wix-managed. */}
-      <div className="flex items-center gap-4">
+      <div className="mt-6 flex items-center gap-4">
         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-midnight-navy/60">
           Qty
         </span>
@@ -195,6 +200,8 @@ export default function ProductCtas({ product }: { product: Product }) {
           Buy Now ⚡
         </button>
       </div>
+
+      <PaymentMethods className="mt-3" />
 
       <BuyNowConfirmModal
         open={confirmOpen}

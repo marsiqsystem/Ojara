@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import PolicyPage from "@/components/PolicyPage";
+import { COMMERCE_FACTS } from "@/lib/seo";
+import { DISPATCH_POLICY_TEXT } from "@/lib/deliveryEstimate";
 
 export const metadata: Metadata = {
   title: "Shipping & Exchanges",
@@ -18,13 +20,14 @@ export default function ShippingReturnsPage() {
         {
           heading: "Processing Time",
           body: [
-            "Orders are prepared and energetically cleansed within 1–3 business days. During new collection launches or holidays, processing may take slightly longer — we'll always keep you informed.",
+            DISPATCH_POLICY_TEXT,
+            "Each piece is cleansed and packed with care before it leaves us. On public holidays dispatch may move to the next working day — we'll always keep you informed.",
           ],
         },
         {
           heading: "Shipping Times & Costs",
           body: [
-            "We ship within India only — we don't deliver internationally. Orders arrive within 3–7 business days.",
+            `We ship within India only — we don't deliver internationally. Orders arrive ${COMMERCE_FACTS.transitDaysMin}–${COMMERCE_FACTS.transitDaysMax} business days after dispatch.`,
             "Shipping is complimentary on every order — always free, with no minimum spend. Expedited options are available where offered.",
           ],
         },
