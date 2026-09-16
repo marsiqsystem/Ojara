@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Product } from "@/lib/mockData";
+import { hasSpecificIntention, type Product } from "@/lib/mockData";
 
 interface Section {
   key: string;
@@ -20,7 +20,9 @@ export default function RitualAccordion({ product }: { product: Product }) {
     {
       key: "description",
       title: "Description",
-      body: `${product.description} Attuned to ${product.intention.toLowerCase()}, its frequency is meant to be felt as much as seen — a quiet current you keep close.`,
+      body: hasSpecificIntention(product)
+        ? `${product.description} Attuned to ${product.intention.toLowerCase()}, its frequency is meant to be felt as much as seen — a quiet current you keep close.`
+        : product.description,
     },
     {
       key: "rituals",

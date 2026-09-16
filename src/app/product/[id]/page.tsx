@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategoryBySlug, getProductById } from "@/lib/catalog";
-import { products } from "@/lib/mockData";
+import { products, hasSpecificIntention } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import CompleteYourRitual from "@/components/CompleteYourRitual";
 import RitualAccordion from "@/components/RitualAccordion";
@@ -215,22 +215,29 @@ export default async function ProductDetailPage({
               Shop
             </Link>
           </li>
-          <li aria-hidden="true" className="text-champagne-gold">
-            /
-          </li>
-          <li className="text-midnight-navy/70">
-            {primaryCategory ? (
-              <Link
-                href={`/category/${primaryCategory.slug}`}
-                prefetch
-                className="transition-colors duration-300 ease-out hover:text-midnight-navy"
-              >
-                {primaryCategory.label}
-              </Link>
-            ) : (
-              product.intention
-            )}
-          </li>
+          {/* Category crumb only when there's a real one. Products without a
+              curated twin used to show "Wear Your Intention" here — a tagline
+              posing as a category, linking nowhere. */}
+          {(primaryCategory || hasSpecificIntention(product)) && (
+            <>
+              <li aria-hidden="true" className="text-champagne-gold">
+                /
+              </li>
+              <li className="text-midnight-navy/70">
+                {primaryCategory ? (
+                  <Link
+                    href={`/category/${primaryCategory.slug}`}
+                    prefetch
+                    className="transition-colors duration-300 ease-out hover:text-midnight-navy"
+                  >
+                    {primaryCategory.label}
+                  </Link>
+                ) : (
+                  product.intention
+                )}
+              </li>
+            </>
+          )}
           <li aria-hidden="true" className="text-champagne-gold">
             /
           </li>
@@ -247,9 +254,11 @@ export default async function ProductDetailPage({
       <div className="mx-auto flex max-w-7xl flex-col px-6 pb-24 lg:flex-row lg:items-start lg:gap-20 gap-8">
 
         {/* LEFT — sticky gallery.
-            Mobile: full-bleed escape via left-1/2 -translate-x-1/2 w-screen.
+            Below lg: full-bleed by cancelling the row's px-6 (-mx-6). This used to
+            be left-1/2 + w-screen, but 100vw includes a desktop scrollbar, so
+            browsers 768–1023px wide scrolled sideways by the scrollbar's width.
             Desktop: pins to viewport while the right column scrolls past. */}
-        <div className="w-full relative left-1/2 -translate-x-1/2 w-screen overflow-hidden lg:left-auto lg:translate-x-0 lg:w-[52%] lg:overflow-visible lg:sticky lg:top-28 lg:self-start lg:h-fit">
+        <div className="relative -mx-6 overflow-hidden lg:mx-0 lg:w-[52%] lg:overflow-visible lg:sticky lg:top-28 lg:self-start lg:h-fit">
           {/* Every image the product actually has (4 per product from Wix), not a
               padded placeholder set. `images` is optional on Product, so mock-mode
               products fall back to their single image. */}
@@ -266,9 +275,11 @@ export default async function ProductDetailPage({
               share control. */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-champagne-gold/15 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold">
-                ✦ {product.intention}
-              </span>
+              {hasSpecificIntention(product) && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-champagne-gold/15 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold">
+                  ✦ {product.intention}
+                </span>
+              )}
               {product.isBundle && (
                 <span className="inline-block rounded-full border border-champagne-gold/40 px-3 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-champagne-gold">
                   Curated Harmony Set
@@ -428,19 +439,23 @@ export default async function ProductDetailPage({
             </div>
           )}
 
-          {/* Intention — reinforces the brand story */}
-          <div className="mt-8 rounded-2xl border border-champagne-gold/30 bg-sand/50 p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-champagne-gold">
-              The Intention
-            </p>
-            <p className="mt-2 font-heading text-3xl text-midnight-navy">
-              {product.intention}
-            </p>
-            <p className="mt-3 text-sm leading-6 text-midnight-navy/80">
-              Charged with purpose and kept close — a daily reminder to{" "}
-              {product.intention.toLowerCase()}, every day.
-            </p>
-          </div>
+          {/* Intention — reinforces the brand story. Only for pieces with a real
+              intention; for the rest it read "Wear Your Intention… a daily
+              reminder to wear your intention", filler on 22 of 27 products. */}
+          {hasSpecificIntention(product) && (
+            <div className="mt-8 rounded-2xl border border-champagne-gold/30 bg-sand/50 p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-champagne-gold">
+                The Intention
+              </p>
+              <p className="mt-2 font-heading text-3xl text-midnight-navy">
+                {product.intention}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-midnight-navy/80">
+                Charged with purpose and kept close — a daily reminder to{" "}
+                {product.intention.toLowerCase()}, every day.
+              </p>
+            </div>
+          )}
 
           {/* Ritual accordions — energy, ritual, promise */}
           <RitualAccordion product={product} />

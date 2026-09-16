@@ -1,4 +1,4 @@
-import type { Product } from "@/lib/mockData";
+import { hasSpecificIntention, type Product } from "@/lib/mockData";
 import FaqAccordion, { type FaqItem } from "@/components/FaqAccordion";
 
 /**
@@ -17,10 +17,18 @@ export default function ProductFaq({ product }: { product: Product }) {
       answer:
         "Cleanse it with sage smoke or a night of moonlight whenever it feels heavy or after intense use. Hold it, breathe, and restate your intention. Keep it away from prolonged direct sunlight and harsh water, as some stones are delicate.",
     },
-    {
-      question: `How should I use it to ${product.intention.toLowerCase()}?`,
-      answer: `Place it where its work begins — your desk, your threshold, or your bedside — or keep it close throughout the day. Treat it as a daily anchor for your intention to ${product.intention.toLowerCase()}, returning to it whenever you need to refocus.`,
-    },
+    // Without a real intention this read "How should I use it to wear your
+    // intention?", so those products get the plain version of the question.
+    hasSpecificIntention(product)
+      ? {
+          question: `How should I use it to ${product.intention.toLowerCase()}?`,
+          answer: `Place it where its work begins — your desk, your threshold, or your bedside — or keep it close throughout the day. Treat it as a daily anchor for your intention to ${product.intention.toLowerCase()}, returning to it whenever you need to refocus.`,
+        }
+      : {
+          question: "How should I wear it?",
+          answer:
+            "Wear it every day as a reminder of the intention you set when you put it on — or keep it close on your desk, threshold, or bedside. Return to it whenever you need to refocus.",
+        },
     {
       question: "Will it arrive cleansed and ready to use?",
       answer:

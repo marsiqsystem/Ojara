@@ -3,6 +3,7 @@ import {
   products as mockProducts,
   categories as mockCategories,
   getProductById as _getProductById,
+  GENERIC_INTENTION,
   type Product,
   type Category,
   type IntentionSlug,
@@ -172,7 +173,7 @@ function mapWixProduct(p: WixRawProduct): Product {
     // Healing" was the old default and reads as a therapeutic claim — the brand
     // makes none. Such a product also renders with no benefit bullets and no
     // category, so it needs an entry in mockData rather than a better default.
-    intention: mockP ? mockP.intention : "Wear Your Intention",
+    intention: mockP ? mockP.intention : GENERIC_INTENTION,
     benefits: mockP ? mockP.benefits : [],
     intentions: mockP ? mockP.intentions : [],
     type: mockP ? mockP.type : undefined,

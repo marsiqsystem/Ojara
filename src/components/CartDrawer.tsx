@@ -13,6 +13,7 @@ import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { PRIMARY_COUPON, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import { trackEvent } from "@/lib/analytics/capi";
+import { hasSpecificIntention } from "@/lib/mockData";
 
 export default function CartDrawer() {
   const isCartOpen = useCartStore((state) => state.isCartOpen);
@@ -243,9 +244,11 @@ export default function CartDrawer() {
                           {formatPrice(item.product.price * item.quantity)}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[0.65rem] uppercase tracking-[0.2em] font-semibold text-champagne-gold">
-                        ✦ {item.product.intention}
-                      </p>
+                      {hasSpecificIntention(item.product) && (
+                        <p className="mt-0.5 text-[0.65rem] uppercase tracking-[0.2em] font-semibold text-champagne-gold">
+                          ✦ {item.product.intention}
+                        </p>
+                      )}
                     </div>
 
                     {/* Quantity selectors + sleek trash bin remove action */}

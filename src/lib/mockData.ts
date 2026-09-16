@@ -11,6 +11,18 @@ export type TypeSlug =
 
 export type CategorySlug = IntentionSlug | TypeSlug;
 
+/**
+ * The brand line a Wix product gets as its `intention` when it has no curated
+ * twin below (see catalog.ts) — 22 of the 27 live products today. It's a tagline,
+ * not a real intention, so the PDP must not dress it up as one ("The Intention:
+ * Wear Your Intention… a daily reminder to wear your intention").
+ */
+export const GENERIC_INTENTION = "Wear Your Intention";
+
+/** True when the product carries a real, curated intention (not the brand line). */
+export const hasSpecificIntention = (product: Pick<Product, "intention">): boolean =>
+  !!product.intention && product.intention !== GENERIC_INTENTION;
+
 export interface Product {
   id: string;
   name: string;
