@@ -30,6 +30,7 @@ import { useUpsellSuggestions } from "@/lib/commerce/useUpsellSuggestions";
 import { IN_STATES, stateName as nameOfState } from "@/lib/commerce/indiaStates";
 import { deliveryWindowLabel } from "@/lib/deliveryEstimate";
 import { suggestEmail } from "@/lib/emailSuggest";
+import { saveOrderSnapshot } from "@/lib/orderSnapshot";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { trackEvent, trackingContext } from "@/lib/analytics/capi";
 import { contentIds, toContents, toGa4Items } from "@/lib/analytics/content";
@@ -468,7 +469,7 @@ export default function CheckoutModal() {
   const finalizeOrder = async (
     method: PaymentMethod,
     razorpayPaymentId?: string,
-  ): Promise<{ orderId: string }> => {
+  ): Promise<{ orderId: string; orderNumber?: string }> => {
     const payload = buildOrderPayload();
 
     let checkoutId: string | undefined;
@@ -539,10 +540,10 @@ export default function CheckoutModal() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Order creation failed.");
     if (!data.orderId) throw new Error("No order ID was returned.");
-    return { orderId: data.orderId };
+    return { orderId: data.orderId, orderNumber: data.orderNumber };
   };
 
-  const completeOrder = (orderId: string) => {
+  const completeOrder = (orderId: string, orderNumber?: string) => {
     // Fire Purchase BEFORE clearCart wipes the totals. eventId matches the server
     // CAPI event so Meta de-duplicates.
     const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -571,6 +572,23 @@ export default function CheckoutModal() {
       },
       // GA4 `purchase` — `order_id` above becomes its `transaction_id`.
       items: toGa4Items(lines),
+    });
+    // What the success page shows — saved before clearCart wipes the lines.
+    saveOrderSnapshot({
+      orderId,
+      orderNumber,
+      placedAt: Date.now(),
+      firstName: nameParts[0] || "",
+      email: email.trim(),
+      phoneLast4: phone.slice(-4),
+      city: city.trim(),
+      paymentMethod,
+      items: lines.map((l) => ({ name: l.name, quantity: l.quantity, price: l.price, image: l.image })),
+      subtotal: totals.subtotal,
+      discount: totals.couponDiscount + totals.prepaidDiscount,
+      giftWrap,
+      giftWrapFee: totals.giftWrapFee,
+      total: totals.total,
     });
     clearCart();
     // Reset for next time (handler, not an effect — React Compiler safe).
@@ -638,8 +656,8 @@ export default function CheckoutModal() {
           if (!verifyResponse.ok || !verifyData?.verified) {
             throw new Error("Payment verification failed.");
           }
-          const { orderId } = await finalizeOrder("PREPAID", response.razorpay_payment_id);
-          completeOrder(orderId);
+          const { orderId, orderNumber } = await finalizeOrder("PREPAID", response.razorpay_payment_id);
+          completeOrder(orderId, orderNumber);
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Unknown error";
           setError(
@@ -712,8 +730,8 @@ export default function CheckoutModal() {
         await runPrepaidOrder(); // stays "processing" until its callbacks fire
         return;
       }
-      const { orderId } = await finalizeOrder("COD");
-      completeOrder(orderId);
+      const { orderId, orderNumber } = await finalizeOrder("COD");
+      completeOrder(orderId, orderNumber);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(`Failed to place order: ${msg}`);

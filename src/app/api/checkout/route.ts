@@ -561,6 +561,9 @@ export async function POST(req: Request) {
       }
     }
 
+    // The shopper-facing order number ("#1234"), also returned to the success page.
+    let orderNumberForShopper: string | undefined;
+
     // 7. Confirmation email (the "webhook" — fired inline).
     try {
       const finalOrder =
@@ -606,6 +609,7 @@ export async function POST(req: Request) {
       const orderNumber = hasValidOrderNumber
         ? `#${rawOrderNumber}`
         : `#${String(orderId).slice(-8)}`;
+      orderNumberForShopper = orderNumber;
 
       const ps = fo?.priceSummary || {};
       const summary = {
@@ -672,6 +676,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       checkoutId,
       orderId,
+      orderNumber: orderNumberForShopper,
       paymentMarkedPaid,
       discountApplied,
       finalTotal: Number.isFinite(finalTotal) ? finalTotal : undefined,

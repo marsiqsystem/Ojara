@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-// The "brand tags" band (owner call, 2026-09-12): a thin trust strip that sits
-// between the Rings rail and the ValueProps grid, spelling out the core
-// promises the brand makes on every order. Copy mirrors the AnnouncementBar
+// The "brand tags" band (owner call, 2026-09-12): a thin trust strip spelling
+// out the core promises the brand makes on every order. Since the sales rebuild
+// it sits directly under the hero. Copy mirrors the AnnouncementBar
 // (free pan-India shipping, COD, lab-certified) plus the 48-hour exchange window
 // used across the shipping/returns pages.
 interface BrandTag {
@@ -71,25 +71,22 @@ const tags: BrandTag[] = [
 
 export default function BrandTags() {
   return (
-    <section className="border-y border-champagne-gold/30 bg-ivory px-6 py-10 sm:py-12">
-      {/* Mobile: a compact horizontal scroll rail (owner's standing rule — rails,
-          not vertical stacks). Desktop: an even 4-up row with hairline dividers. */}
-      <div className="mx-auto flex max-w-7xl snap-x snap-mandatory gap-4 overflow-x-auto hide-scrollbar -mx-6 px-6 sm:mx-auto sm:grid sm:grid-cols-4 sm:gap-px sm:overflow-hidden sm:rounded-2xl sm:border sm:border-champagne-gold/25 sm:bg-champagne-gold/25 sm:px-0">
+    // A slim trust strip directly under the hero (the Viora home order): the
+    // promises that hold on every order, answered before the first product.
+    <section aria-label="Why shop with OJARA" className="border-b border-champagne-gold/25 bg-ivory">
+      <ul className="mx-auto flex max-w-7xl snap-x gap-6 overflow-x-auto px-6 py-4 hide-scrollbar md:justify-between">
         {tags.map((tag) => (
-          <div
-            key={tag.title}
-            className="flex w-[62%] flex-shrink-0 snap-start flex-col items-center gap-2 rounded-2xl border border-champagne-gold/25 bg-ivory px-5 py-6 text-center sm:w-auto sm:rounded-none sm:border-0 sm:px-6 sm:py-8"
-          >
-            <span className="text-champagne-gold">{tag.icon}</span>
-            <h3 className="mt-1 text-[0.7rem] uppercase tracking-[0.15em] text-midnight-navy sm:text-xs sm:tracking-[0.18em]">
-              {tag.title}
-            </h3>
-            <p className="max-w-[16rem] text-xs leading-5 text-midnight-navy/60">
-              {tag.description}
-            </p>
-          </div>
+          <li key={tag.title} className="flex shrink-0 snap-start items-center gap-2.5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-champagne-gold/10 text-champagne-gold [&_svg]:h-5 [&_svg]:w-5">
+              {tag.icon}
+            </span>
+            <span className="leading-tight">
+              <span className="block text-[0.8rem] font-semibold text-midnight-navy">{tag.title}</span>
+              <span className="block text-[0.7rem] text-midnight-navy/55">{tag.description}</span>
+            </span>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
