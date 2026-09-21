@@ -38,6 +38,12 @@ function ShopButton() {
   );
 }
 
+// Buy-2-Get-1 banners are hidden for now: the B2G1FREE / B2G1RINGS coupons don't
+// validate on Wix Catalog V3 (Wix returns ERROR_INVALID_PRODUCTS for product-
+// scoped coupons). Flip to true once the two offers are re-created as Wix
+// AUTOMATIC discounts. Artwork stays in /public/offers, ready to re-enable.
+const SHOW_B2G1 = false;
+
 export default function GiftingSection() {
   return (
     <section className="border-y border-champagne-gold/30 bg-midnight-navy text-ivory px-6 py-14 sm:py-20">
@@ -82,7 +88,9 @@ export default function GiftingSection() {
             </div>
           </div>
 
-          {/* Row 2 — the two buy-2-get-1 artworks, side by side on desktop. */}
+          {/* Row 2 — the two buy-2-get-1 artworks, side by side on desktop.
+              Gated on SHOW_B2G1 (see note above) — currently hidden. */}
+          {SHOW_B2G1 && (
           <div className="grid gap-8 sm:grid-cols-2">
             {/* Buy 2 bracelets, get 1 free. */}
             <div>
@@ -131,6 +139,7 @@ export default function GiftingSection() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </section>
