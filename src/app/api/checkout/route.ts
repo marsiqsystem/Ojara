@@ -404,10 +404,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const approvedOrderResult = await wixClient.orders.updateOrderStatus(
-      orderId,
-      "APPROVED",
-    );
+    // From here on the order EXISTS in Wix. Nothing below may turn it into a
+    // failed response — the shopper would see "failed", miss the confirmation
+    // page and maybe order twice. Approving is best-effort: Wix may already have
+    // approved it (COD orders from a checkout usually are) and refuse a repeat.
+    let approvedOrderResult: Awaited<ReturnType<typeof wixClient.orders.updateOrderStatus>> | null = null;
+    try {
+      approvedOrderResult = await wixClient.orders.updateOrderStatus(orderId, "APPROVED");
+    } catch (approveErr) {
+      console.error("Approving the Wix order failed (order is placed):", orderId, approveErr);
+    }
 
     const wixOrderTotal = Number(
       updatedCheckout?.priceSummary?.total?.amount ??

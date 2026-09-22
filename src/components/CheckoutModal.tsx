@@ -1299,12 +1299,19 @@ export default function CheckoutModal() {
               </div>
             </section>
 
-            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           </div>
         </div>
 
         {/* Sticky pay bar — the total and the one button, always in reach */}
         <div className="border-t border-midnight-navy/10 bg-ivory px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.06)]">
+          {/* Order errors sit right above the button that caused them — at the
+              foot of the form they were off screen, and a failed order looked
+              like nothing had happened. */}
+          {error && (
+            <p role="alert" className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          )}
           {lowStockLine && (
             <p className="mb-2 text-center text-[0.7rem] font-semibold text-orange-700">
               ⚠ Only {lowStockLine.stockCount} left of {lowStockLine.name} — order now to get yours
