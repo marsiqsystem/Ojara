@@ -10,6 +10,7 @@ import CartDrawer from "@/components/CartDrawer";
 import CheckoutModal from "@/components/CheckoutModal";
 import AuthDrawerMount from "@/components/AuthDrawerMount";
 import EnergyGuideChat from "@/components/EnergyGuideChat";
+import FloatingReel from "@/components/FloatingReel";
 import ConsentManager from "@/components/ConsentManager";
 import ScrollToTop from "@/components/ScrollToTop";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -133,6 +134,7 @@ export default function RootLayout({
           {/* Mounted once here — never per-header/nav (see AuthDrawerMount). */}
           <AuthDrawerMount />
           <EnergyGuideChat />
+          <FloatingReel />
           <MobileBottomNav />
           <Toaster
             position="top-center"

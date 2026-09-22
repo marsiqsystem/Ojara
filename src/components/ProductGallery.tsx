@@ -3,6 +3,9 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 
+// A reel's poster sits beside it with the same name (public/media/reels/x.mp4 → x.jpg).
+const posterFor = (src: string) => src.replace(/\.mp4$/, ".jpg");
+
 type ProductGalleryProps = {
   images: string[];
   productName: string;
@@ -55,10 +58,14 @@ export default function ProductGallery({
   };
 
   return (
-    <div className="flex flex-col gap-4 w-full">
+    // Desktop (lg+): thumbnails stand in a column to the LEFT of the main image,
+    // and the image is sized by the window height, not the column width, so the
+    // whole square stays on screen under the sticky header (12rem = announcement
+    // bar + header + breadcrumb + a little air). 6rem = thumbnail column + gap.
+    <div className="flex flex-col gap-4 w-full lg:flex-row lg:items-start">
       {/* Main Media Box */}
       <div
-        className={`group relative w-full aspect-square bg-sand/30 overflow-hidden rounded-sm ${
+        className={`group relative w-full aspect-square bg-sand/30 overflow-hidden rounded-sm lg:w-[min(calc(100%-6rem),calc(100svh-12rem))] ${
           isVideo ? "cursor-default" : "lg:cursor-zoom-in"
         }`}
         onMouseEnter={() => !isVideo && setIsZoomed(true)}
@@ -74,14 +81,28 @@ export default function ProductGallery({
             infographics whose text ran off the top and bottom of this square box.
             Containing letterboxes them against bg-sand instead of cropping. */}
         {isVideo ? (
-          <video
-            src={activeMedia}
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-contain"
-          />
+          <>
+            {/* A 9:16 reel in a square frame: its own poster, blurred, fills the sides. */}
+            <Image
+              src={posterFor(activeMedia)}
+              alt=""
+              aria-hidden="true"
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="scale-110 object-cover opacity-70 blur-2xl"
+            />
+            <video
+              key={activeMedia}
+              src={activeMedia}
+              poster={posterFor(activeMedia)}
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-label={`${productName} — reel`}
+              className="relative h-full w-full object-contain"
+            />
+          </>
         ) : (
           <Image
             src={activeMedia}
@@ -150,13 +171,14 @@ export default function ProductGallery({
         )}
       </div>
 
-      {/* Thumbnails. Centred under the main image, but the row still scrolls if a
-          product ever carries more shots than fit. `w-max mx-auto` is what allows
-          both: plain `justify-center` centres fine until the row overflows, at which
-          point it pushes the first thumbnail past the scroll origin and it can never
-          be reached. */}
-      <div className="overflow-x-auto pb-2 hide-scrollbar">
-        <div className="flex w-max mx-auto items-center gap-3">
+      {/* Thumbnails. Mobile: centred under the main image, but the row still
+          scrolls if a product ever carries more shots than fit. `w-max mx-auto` is
+          what allows both: plain `justify-center` centres fine until the row
+          overflows, at which point it pushes the first thumbnail past the scroll
+          origin and it can never be reached. Desktop: a vertical column moved in
+          front of the image (order-first), as tall as the image, scrolling if needed. */}
+      <div className="overflow-x-auto pb-2 hide-scrollbar lg:order-first lg:max-h-[calc(100svh-12rem)] lg:flex-shrink-0 lg:overflow-x-visible lg:overflow-y-auto lg:pb-0">
+        <div className="flex w-max mx-auto items-center gap-3 lg:mx-0 lg:flex-col">
         {images.map((img, idx) => {
           const isThumbVideo = img.endsWith(".mp4");
           return (
@@ -172,13 +194,10 @@ export default function ProductGallery({
             >
               {isThumbVideo ? (
                 <div className="relative w-full h-full bg-midnight-navy flex flex-col items-center justify-center text-champagne-gold">
-                  <video
-                    src={img}
-                    muted
-                    playsInline
-                    className="absolute inset-0 w-full h-full object-cover opacity-40"
-                  />
-                  <span className="relative text-lg z-10">✦</span>
+                  <Image src={posterFor(img)} alt="" fill sizes="80px" className="object-cover opacity-50" />
+                  <svg className="relative z-10" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M7 4v16l13-8z" />
+                  </svg>
                   <span className="relative text-[9px] uppercase tracking-wider font-semibold z-10">Reel</span>
                 </div>
               ) : (
