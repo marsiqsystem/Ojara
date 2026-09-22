@@ -22,7 +22,7 @@ export default function ComboFeature() {
           {reel && (
             <div className="relative aspect-[9/16] overflow-hidden rounded-2xl bg-midnight-navy">
               <InViewVideo
-                src={reel.src}
+                src={reel.preview}
                 poster={reel.poster}
                 label={reel.alt}
                 className="absolute inset-0 h-full w-full object-cover"

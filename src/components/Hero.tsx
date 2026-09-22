@@ -14,7 +14,7 @@ export default async function Hero() {
     // arrive sooner — the first screen should sell, not only set a mood.
     <section className="relative isolate flex min-h-[72vh] items-center justify-center overflow-hidden bg-midnight-navy sm:min-h-[88vh]">
       {/* Background: OJARA's own footage — bracelets and rings worn together
-          (public/media/reels/hero-loop.mp4, 11s, silent, ~1.4 MB). It replaced a
+          (public/media/reels/hero-loop.mp4, 11s, silent, ~0.9 MB). It replaced a
           stock Pexels clip of incense smoke that showed none of the pieces. */}
       <video
         autoPlay

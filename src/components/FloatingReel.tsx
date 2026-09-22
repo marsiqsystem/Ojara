@@ -94,8 +94,8 @@ export default function FloatingReel() {
               className="group relative block aspect-[9/16] w-[84px] cursor-pointer overflow-hidden rounded-xl bg-midnight-navy shadow-xl ring-2 ring-champagne-gold/70 transition-transform duration-200 hover:scale-[1.03] md:w-[120px]"
             >
               <video
-                key={reel.src}
-                src={reel.src}
+                key={reel.preview}
+                src={reel.preview}
                 poster={reel.poster}
                 muted
                 loop

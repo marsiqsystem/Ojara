@@ -28,7 +28,7 @@ export default function TrustSection() {
           {packing && (
             <div className="relative aspect-square w-[72vw] max-w-[320px] shrink-0 snap-start overflow-hidden rounded-2xl bg-sand md:w-auto md:max-w-none">
               <InViewVideo
-                src={packing.src}
+                src={packing.preview}
                 poster={packing.poster}
                 label={packing.alt}
                 className="absolute inset-0 h-full w-full object-cover"

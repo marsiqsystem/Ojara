@@ -25,7 +25,13 @@ export type ReelKind = "brand" | "creator" | "customer";
 
 export interface Reel {
   id: string;
+  /** The full reel (540p, with sound) — only for the big player and the product gallery. */
   src: string;
+  /**
+   * A silent 12-second, 432px-wide loop (~0.6 MB, vs 1–5 MB for the full reel)
+   * for the small autoplaying spots: floating mini reel, reel cards, feature tiles.
+   */
+  preview: string;
   poster: string;
   /** Short line on the card — what the viewer gets from watching. */
   title: string;
@@ -46,9 +52,10 @@ export interface Reel {
   tags: ("wealth" | "calm" | "protection" | "love" | "trust" | "unboxing" | "offer" | "combo" | "lifestyle")[];
 }
 
-const reel = (id: string, r: Omit<Reel, "id" | "src" | "poster">): Reel => ({
+const reel = (id: string, r: Omit<Reel, "id" | "src" | "preview" | "poster">): Reel => ({
   id,
   src: `/media/reels/${id}.mp4`,
+  preview: `/media/reels/preview/${id}.mp4`,
   poster: `/media/reels/${id}.jpg`,
   ...r,
 });

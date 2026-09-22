@@ -45,7 +45,7 @@ function ReelCard({
       >
         <video
           ref={ref}
-          src={reel.src}
+          src={reel.preview}
           poster={reel.poster}
           aria-hidden="true"
           muted
