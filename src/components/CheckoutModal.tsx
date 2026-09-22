@@ -15,6 +15,7 @@ import {
 } from "@/lib/commerce/pricing";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import { useWixOffers } from "@/lib/commerce/useWixOffers";
+import { estimateOffers } from "@/lib/commerce/offers";
 import {
   BRAND_NAME,
   LOW_STOCK_THRESHOLD,
@@ -165,6 +166,10 @@ export default function CheckoutModal() {
   const wixClient = useWixClient();
   const cartItems = useCartStore((s) => s.cartItems);
   const clearCart = useCartStore((s) => s.clearCart);
+  const addItem = useCartStore((s) => s.addItem);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const openCart = useCartStore((s) => s.openCart);
   const open = useCartStore((s) => s.isCheckoutOpen);
   const onClose = useCartStore((s) => s.closeCheckout);
   // The coupon comes from the cart store, so the shopper sees the same
@@ -286,6 +291,48 @@ export default function CheckoutModal() {
     Object.keys(
       validateFields({ phone, pincode, fullName, address, city, state: stateCode, email, paymentMethod, codCommitted }),
     ).length === 0;
+
+  // Change the order without leaving checkout. A removal says what it costs
+  // (a free bracelet, the ring's 10%) and can be undone; removing the last
+  // piece goes back to the (empty) bag.
+  const [undoLine, setUndoLine] = useState<{ item: (typeof cartItems)[number]; lost: string[] } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+  }, []);
+  const offerLinesOf = (items: typeof cartItems) =>
+    items.map((ci) => ({ name: ci.product.name, price: ci.product.price, quantity: ci.quantity }));
+  const removeLine = (productId: string) => {
+    const item = cartItems.find((ci) => ci.product.id === productId);
+    if (!item) return;
+    const rest = cartItems.filter((ci) => ci.product.id !== productId);
+    const before = estimateOffers(offerLinesOf(cartItems));
+    const after = estimateOffers(offerLinesOf(rest));
+    const lost = [
+      after.freeCount < before.freeCount ? "your free bracelet" : "",
+      after.comboCount < before.comboCount ? "10% off your ring" : "",
+    ].filter(Boolean);
+    removeItem(productId);
+    if (rest.length === 0) {
+      onClose();
+      openCart();
+      return;
+    }
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoLine({ item, lost });
+    undoTimer.current = setTimeout(() => setUndoLine(null), 8000);
+  };
+  const undoRemove = () => {
+    if (!undoLine) return;
+    const { item } = undoLine;
+    addItem(item.product);
+    if (item.quantity > 1) updateQuantity(item.product.id, item.quantity);
+    setUndoLine(null);
+  };
+  const changeLineQuantity = (productId: string, quantity: number) => {
+    if (quantity < 1) removeLine(productId);
+    else updateQuantity(productId, quantity);
+  };
 
   // Pieces that complete an offer (more bracelets → one free, a ring → 10% off it).
   const { rails: offerRails } = useUpsellSuggestions({ bag: cartItems, limit: 6 });
@@ -807,9 +854,22 @@ export default function CheckoutModal() {
               <span className="flex-1 text-sm text-midnight-navy">
                 Your order · {itemCount} {itemCount === 1 ? "piece" : "pieces"}
               </span>
-              <span className="text-xs font-semibold text-champagne-gold group-open:hidden">Show</span>
+              <span className="text-xs font-semibold text-champagne-gold group-open:hidden">View &amp; edit</span>
               <span className="hidden text-xs font-semibold text-champagne-gold group-open:inline">Hide</span>
             </summary>
+            {undoLine && (
+              <div role="status" className="mx-5 mb-3 flex items-center justify-between gap-3 rounded-lg bg-midnight-navy px-3 py-2 text-xs text-ivory">
+                <span className="min-w-0">
+                  <span className="block truncate">Removed {undoLine.item.product.name}</span>
+                  {undoLine.lost.length > 0 && (
+                    <span className="block text-champagne-gold">You no longer get {undoLine.lost.join(" or ")}</span>
+                  )}
+                </span>
+                <button type="button" onClick={undoRemove} className="shrink-0 cursor-pointer font-bold uppercase tracking-wider text-champagne-gold">
+                  Undo
+                </button>
+              </div>
+            )}
             <ul className="space-y-3 px-5 pb-4">
               {lines.map((l) => (
                 <li key={l.id} className="flex items-center gap-3">
@@ -818,12 +878,40 @@ export default function CheckoutModal() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-1 block text-sm text-midnight-navy">{l.name}</span>
-                    <span className="text-xs text-midnight-navy/55">Qty {l.quantity}</span>
                     {l.stockCount > 0 && l.stockCount <= LOW_STOCK_THRESHOLD && (
-                      <span className="ml-2 text-xs font-semibold text-orange-600">Only {l.stockCount} left</span>
+                      <span className="text-xs font-semibold text-orange-600">Only {l.stockCount} left</span>
                     )}
+                    <span className="mt-1 flex items-center gap-3">
+                      <span className="flex h-7 items-center rounded-lg border border-midnight-navy/20 bg-white">
+                        <button
+                          type="button"
+                          onClick={() => changeLineQuantity(l.id, l.quantity - 1)}
+                          aria-label={`Decrease quantity of ${l.name}`}
+                          className="h-full w-7 cursor-pointer text-midnight-navy"
+                        >
+                          −
+                        </button>
+                        <span className="w-6 text-center text-xs font-semibold tabular-nums text-midnight-navy">{l.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => changeLineQuantity(l.id, l.quantity + 1)}
+                          disabled={l.stockCount > 0 && l.quantity >= l.stockCount}
+                          aria-label={`Increase quantity of ${l.name}`}
+                          className="h-full w-7 cursor-pointer text-midnight-navy disabled:opacity-40"
+                        >
+                          +
+                        </button>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeLine(l.id)}
+                        className="cursor-pointer text-xs font-medium text-midnight-navy/55 underline underline-offset-2 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </span>
                   </span>
-                  <span className="text-sm font-medium tabular-nums text-midnight-navy">{formatPrice(l.price * l.quantity)}</span>
+                  <span className="self-start text-sm font-medium tabular-nums text-midnight-navy">{formatPrice(l.price * l.quantity)}</span>
                 </li>
               ))}
             </ul>
