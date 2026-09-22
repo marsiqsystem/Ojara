@@ -146,7 +146,7 @@ export default function ProductReviews({
       {/* Empty state. There are no published reviews yet — and rather than invent
           any, we say so. Submissions go to the owner's inbox until a review store
           exists (see src/app/api/reviews/route.ts). */}
-      <div className="mt-5 rounded-2xl border border-champagne-gold/25 bg-sand/30 px-6 py-8 text-center">
+      <div className="mt-5 rounded-2xl border border-champagne-gold/25 bg-sand/30 px-4 sm:px-6 py-8 text-center">
         <p className="mx-auto max-w-md font-heading text-base leading-7 text-midnight-navy/75">
           ✦ OJARA is a new chapter. Our reviews are yet to be written — but the
           promise already stands: every bracelet is checked, cleansed, and charged

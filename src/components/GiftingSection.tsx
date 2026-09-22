@@ -1,6 +1,4 @@
 import { getAllProducts } from "@/lib/catalog";
-import { formatPrice } from "@/lib/format";
-import { FREE_GIFT_WRAP_MINIMUM, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
 import ProductCard from "@/components/ProductCard";
 import ScrollRail from "@/components/ScrollRail";
 
@@ -11,9 +9,8 @@ const GIFT_PICKS = 8;
 /**
  * Gifting on the home page. It used to show the first two products as "Gift Box"
  * sets "complete with a handwritten intention card" — neither was true: there
- * are no gift boxes, and the note comes with the paid gift wrap. It now states
- * the real offer (wrap + handwritten note, free at the top ladder step) over a
- * rail of in-stock pieces that make natural gifts, each addable in one tap.
+ * are no gift boxes and no gift wrap. It is now a rail of in-stock pieces that
+ * make natural gifts, each addable in one tap.
  */
 export default async function GiftingSection() {
   const products = (await getAllProducts()).filter((p) => p.stockCount > 0);
@@ -26,16 +23,15 @@ export default async function GiftingSection() {
   if (picks.length === 0) return null;
 
   return (
-    <section id="gifting" className="scroll-mt-24 border-y border-champagne-gold/30 bg-midnight-navy px-6 py-16 text-ivory sm:py-24">
-      <div className="mx-auto max-w-7xl">
+    <section id="gifting" className="scroll-mt-24 border-y border-champagne-gold/30 bg-midnight-navy px-4 sm:px-6 py-16 text-ivory sm:py-24">
+      <div className="mx-auto max-w-[1600px]">
         <div className="mb-10 text-center">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">Gifting made easy</span>
           <h2 className="mt-4 font-heading text-3xl uppercase tracking-[0.12em] text-champagne-gold sm:text-4xl">
             Give the Gift of Intention
           </h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-ivory/75">
-            Add gift wrap with your handwritten note in the bag for {formatPrice(GIFT_WRAP_FEE)} — FREE on
-            orders of {formatPrice(FREE_GIFT_WRAP_MINIMUM)}+.
+            Pieces that make natural gifts — add one to your bag in a tap.
           </p>
         </div>
 

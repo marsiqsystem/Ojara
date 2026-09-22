@@ -40,7 +40,7 @@ export default function Newsletter() {
   };
 
   return (
-    <section className="border-y border-champagne-gold/20 bg-sand px-6 pb-28 pt-10">
+    <section className="border-y border-champagne-gold/20 bg-sand px-4 sm:px-6 pb-28 pt-10">
       <div className="mx-auto max-w-2xl text-center">
         <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
           Newsletter

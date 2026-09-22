@@ -142,7 +142,7 @@ export default function SearchOverlay({
         aria-modal="true"
         aria-label="Search"
         onClick={(e) => e.stopPropagation()}
-        className={`mx-auto flex min-h-full max-w-3xl flex-col justify-center px-6 py-20 transition-transform duration-500 ease-out ${
+        className={`mx-auto flex min-h-full max-w-3xl flex-col justify-center px-4 sm:px-6 py-20 transition-transform duration-500 ease-out ${
           open ? "translate-y-0" : "-translate-y-4"
         }`}
       >

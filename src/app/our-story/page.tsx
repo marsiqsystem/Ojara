@@ -82,12 +82,12 @@ export default function OurStoryPage() {
           <div className="absolute inset-0 bg-midnight-navy/70" />
         </div>
         {/* Back control, over the hero */}
-        <div className="absolute left-0 top-0 z-10 w-full px-6 pt-6">
-          <div className="mx-auto max-w-7xl">
+        <div className="absolute left-0 top-0 z-10 w-full px-4 sm:px-6 pt-6">
+          <div className="mx-auto max-w-[1600px]">
             <BackButton fallbackHref="/" tone="light" />
           </div>
         </div>
-        <div className="relative mx-auto flex min-h-[60vh] max-w-4xl flex-col items-center justify-center px-6 py-28 text-center">
+        <div className="relative mx-auto flex min-h-[60vh] max-w-4xl flex-col items-center justify-center px-4 sm:px-6 py-28 text-center">
           <span className="text-xs uppercase tracking-[0.5em] text-champagne-gold">
             Our Story
           </span>
@@ -102,7 +102,7 @@ export default function OurStoryPage() {
       </section>
 
       {/* Alternating image / text blocks */}
-      <div className="mx-auto max-w-7xl px-6">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6">
         {blocks.map((block, index) => {
           const reversed = index % 2 === 1;
           return (
@@ -146,7 +146,7 @@ export default function OurStoryPage() {
       </div>
 
       {/* Closing CTA */}
-      <section className="border-t border-champagne-gold/20 bg-sand px-6 py-24 text-center">
+      <section className="border-t border-champagne-gold/20 bg-sand px-4 sm:px-6 py-24 text-center">
         <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
           Begin
         </span>

@@ -97,7 +97,7 @@ export default function EnergyQuiz({
         open ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
-      <div className="flex min-h-full items-center justify-center px-6 py-10">
+      <div className="flex min-h-full items-center justify-center px-4 sm:px-6 py-10">
       <div
         role="dialog"
         aria-modal="true"
@@ -149,7 +149,7 @@ export default function EnergyQuiz({
           ))}
         </div>
 
-        <div className="px-8 pb-10 pt-6 sm:px-10">
+        <div className="px-5 pb-10 pt-6 sm:px-10">
           <p className="text-center text-xs uppercase tracking-[0.4em] text-champagne-gold">
             Find Your Bracelet
           </p>
@@ -258,7 +258,7 @@ function QuizOption({
     <button
       type="button"
       onClick={onClick}
-      className="group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-champagne-gold/25 bg-sand/40 px-6 py-5 text-left transition-all duration-150 hover:border-champagne-gold hover:bg-champagne-gold/15 active:scale-[0.98]"
+      className="group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-champagne-gold/25 bg-sand/40 px-4 sm:px-6 py-5 text-left transition-all duration-150 hover:border-champagne-gold hover:bg-champagne-gold/15 active:scale-[0.98]"
     >
       <span>
         <span className="block font-heading text-lg tracking-wide text-midnight-navy">

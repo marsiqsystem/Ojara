@@ -25,8 +25,8 @@ export default async function YouMayAlsoLike({ product }: { product: Product }) 
   if (suggestions.length === 0) return null;
 
   return (
-    <section className="border-t border-champagne-gold/30 bg-sand/40 px-6 py-16 sm:py-24">
-      <div className="mx-auto max-w-7xl">
+    <section className="border-t border-champagne-gold/30 bg-sand/40 px-4 sm:px-6 py-16 sm:py-24">
+      <div className="mx-auto max-w-[1600px]">
         <div className="mb-10 text-center sm:mb-14">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">
             Keep Exploring

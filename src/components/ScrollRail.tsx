@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 // Horizontal scroll rail with two affordances that hint "this scrolls sideways":
 //   1. A MARS-style dash indicator beneath — the active segment tracks scroll.
-//   2. Small round arrows tucked into the side gutter on wide screens, that page
+//   2. Small round arrows on the rail's inner edges on wide screens, that page
 //      the rail along when clicked.
-// Both hide when there's nothing to scroll. The arrows only appear from xl up,
-// where the centered content leaves gutter space beside the rail — on narrower
-// screens there's no room, so they're skipped and swipe/dashes carry it (which
-// is what the owner asked for: add them where there's space, else leave it).
+// Both hide when there's nothing to scroll. The arrows only appear from xl up.
+// They used to sit in the side gutter outside the rail, but the page now runs
+// nearly edge to edge (owner call 2026-09-21), so they overlay the first and
+// last visible cards instead; on narrower screens swipe/dashes carry it.
 //
 // Server components can render their items straight into `children`; only this
 // wrapper is client-side.
@@ -125,7 +125,7 @@ export default function ScrollRail({
           </div>
 
           {/* Mobile-only "Swipe" hint — fades once the customer has scrolled.
-              Desktop gets the gutter arrows instead. */}
+              Desktop gets the edge arrows instead. */}
           <span
             aria-hidden="true"
             className={`flex items-center gap-1 text-[0.7rem] uppercase tracking-[0.25em] text-champagne-gold transition-opacity duration-500 md:hidden ${
@@ -170,7 +170,7 @@ function ArrowButton({
       aria-label={label}
       onClick={onClick}
       className={`absolute top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-champagne-gold/40 bg-ivory/85 text-midnight-navy shadow-sm backdrop-blur-sm transition-all duration-200 ease-out hover:border-champagne-gold hover:bg-champagne-gold hover:text-midnight-navy active:scale-95 xl:flex ${
-        isRight ? "right-0 translate-x-[130%]" : "left-0 -translate-x-[130%]"
+        isRight ? "right-2" : "left-2"
       }`}
     >
       <svg

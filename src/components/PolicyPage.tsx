@@ -24,7 +24,7 @@ export default function PolicyPage({
 }) {
   return (
     <div className="bg-ivory">
-      <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16 sm:py-24">
         <BackButton fallbackHref="/" />
 
         <header className="mt-10 border-b border-champagne-gold/25 pb-10">

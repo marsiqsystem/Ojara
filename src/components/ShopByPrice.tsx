@@ -10,8 +10,8 @@ export default async function ShopByPrice() {
   if (bands.length === 0) return null;
 
   return (
-    <section aria-labelledby="shop-by-price" className="bg-ivory px-6 py-12 sm:py-16">
-      <div className="mx-auto max-w-7xl">
+    <section aria-labelledby="shop-by-price" className="bg-ivory px-4 sm:px-6 py-12 sm:py-16">
+      <div className="mx-auto max-w-[1600px]">
         <p className="text-xs uppercase tracking-[0.35em] text-champagne-gold">Shop by budget</p>
         <h2 id="shop-by-price" className="mt-2 font-heading text-3xl text-midnight-navy sm:text-4xl">
           Find your piece at your price

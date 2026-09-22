@@ -20,12 +20,12 @@ const INSTAGRAM_URL = "https://www.instagram.com/ojara.india";
 export default function ContactPage() {
   return (
     <div className="bg-ivory">
-      <div className="mx-auto max-w-7xl px-6 pt-6">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 pt-6">
         <BackButton fallbackHref="/" />
       </div>
 
       {/* Header */}
-      <section className="border-b border-champagne-gold/20 bg-midnight-navy px-6 py-20 text-center sm:py-24">
+      <section className="border-b border-champagne-gold/20 bg-midnight-navy px-4 sm:px-6 py-20 text-center sm:py-24">
         <p className="text-[0.65rem] uppercase tracking-[0.4em] text-champagne-gold">
           ✦ We&rsquo;re here
         </p>
@@ -38,7 +38,7 @@ export default function ContactPage() {
         </p>
       </section>
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-14 px-6 py-16 lg:grid-cols-2 lg:gap-20 lg:py-24">
+      <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-14 px-4 sm:px-6 py-16 lg:grid-cols-2 lg:gap-20 lg:py-24">
         {/* LEFT — the form */}
         <div>
           <h2 className="font-heading text-3xl text-midnight-navy">
@@ -68,7 +68,7 @@ export default function ContactPage() {
               href={INSTAGRAM_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between rounded-2xl border border-champagne-gold/25 bg-sand/50 px-6 py-5 transition-all duration-150 hover:border-champagne-gold/60 active:scale-[0.99]"
+              className="group flex items-center justify-between rounded-2xl border border-champagne-gold/25 bg-sand/50 px-4 sm:px-6 py-5 transition-all duration-150 hover:border-champagne-gold/60 active:scale-[0.99]"
             >
               <span>
                 <span className="block text-xs text-midnight-navy/60">
@@ -87,7 +87,7 @@ export default function ContactPage() {
                 linking to "#", which would look live and go nowhere. */}
             <div
               title="Coming soon"
-              className="flex items-center justify-between rounded-2xl border border-champagne-gold/15 bg-sand/30 px-6 py-5 opacity-50"
+              className="flex items-center justify-between rounded-2xl border border-champagne-gold/15 bg-sand/30 px-4 sm:px-6 py-5 opacity-50"
             >
               <span>
                 <span className="block text-xs text-midnight-navy/60">
@@ -107,7 +107,7 @@ export default function ContactPage() {
 
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="group flex items-center justify-between rounded-2xl border border-champagne-gold/25 bg-sand/50 px-6 py-5 transition-all duration-150 hover:border-champagne-gold/60 active:scale-[0.99]"
+              className="group flex items-center justify-between rounded-2xl border border-champagne-gold/25 bg-sand/50 px-4 sm:px-6 py-5 transition-all duration-150 hover:border-champagne-gold/60 active:scale-[0.99]"
             >
               <span className="min-w-0">
                 <span className="block text-xs text-midnight-navy/60">
@@ -137,7 +137,7 @@ export default function ContactPage() {
               </span>
             </a>
 
-            <div className="rounded-2xl border border-champagne-gold/25 bg-sand px-6 py-6">
+            <div className="rounded-2xl border border-champagne-gold/25 bg-sand px-4 sm:px-6 py-6">
               <p className="font-heading text-sm uppercase tracking-[0.2em] text-midnight-navy">
                 Registered Address
               </p>

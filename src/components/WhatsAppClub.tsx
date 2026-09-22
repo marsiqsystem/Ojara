@@ -10,8 +10,8 @@ export default function WhatsAppClub() {
   if (!helpHref) return null;
 
   return (
-    <section aria-labelledby="whatsapp-club" className="bg-sand px-6 py-12 sm:py-16">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <section aria-labelledby="whatsapp-club" className="bg-sand px-4 sm:px-6 py-12 sm:py-16">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-champagne-gold">OJARA on WhatsApp</p>
           <h2 id="whatsapp-club" className="mt-2 font-heading text-3xl text-midnight-navy sm:text-4xl">

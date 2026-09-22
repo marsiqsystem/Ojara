@@ -7,13 +7,27 @@ import ProductCard from "@/components/ProductCard";
 import BackButton from "@/components/BackButton";
 import BrandTags from "@/components/BrandTags";
 import SortSelect from "./SortSelect";
-import OfferLadderTile from "./OfferLadderTile";
+import OffersTile from "./OffersTile";
+import OfferCarousel from "@/components/media/OfferCarousel";
+import ShoppableReels from "@/components/media/ShoppableReels";
+import { reelsForTags, type Reel } from "@/lib/media";
+
+/** Reel topics for a category page, read off its slug (wealth-success → wealth). */
+const reelTagsFor = (slug?: string): Reel["tags"] => {
+  const s = slug ?? "";
+  if (s.includes("wealth")) return ["wealth"];
+  if (s.includes("calm")) return ["calm"];
+  if (s.includes("protection")) return ["protection"];
+  if (s.includes("love")) return ["love"];
+  return ["wealth", "trust", "unboxing"];
+};
 
 /**
  * The shop page, shared by /collection and /category/[slug] (the Viora ShopView).
  * Short header so the first pieces arrive fast; category pills with a real photo;
- * a sticky sort + price + type bar; the spend-ladder tile inside the grid; sold
- * out last; and an empty state that always offers a way back.
+ * a sticky sort + price + type bar; the offer artwork above the grid on desktop
+ * and the running-offers tile inside it; sold out last; an empty state that
+ * always offers a way back; then reels for this category, one tap from the bag.
  */
 export default function ShopView({
   basePath,
@@ -55,7 +69,7 @@ export default function ShopView({
   return (
     <div className="bg-ivory">
       {/* Header — kept short so the first pieces arrive on the first phone screen */}
-      <section className="mx-auto max-w-7xl px-6 pt-4 sm:pt-8">
+      <section className="mx-auto max-w-[1600px] px-4 sm:px-6 pt-4 sm:pt-8">
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs uppercase tracking-[0.2em] text-midnight-navy/50">
           <BackButton fallbackHref="/" className="shrink-0" />
           <span aria-hidden="true" className="text-champagne-gold/50">|</span>
@@ -86,7 +100,7 @@ export default function ShopView({
       {/* Categories — swipeable pills with a real product photo */}
       {categories.length > 0 && (
         <nav aria-label="Categories" className="mt-4">
-          <ul className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-6 pb-1 hide-scrollbar">
+          <ul className="mx-auto flex max-w-[1600px] gap-2 overflow-x-auto px-4 sm:px-6 pb-1 hide-scrollbar">
             <li className="shrink-0">
               <Link href="/collection" aria-current={!activeSlug ? "page" : undefined} className={`${chipClass(!activeSlug)} h-10 px-4`}>
                 All
@@ -116,7 +130,7 @@ export default function ShopView({
       {/* Sort + price + type — sticks under the header while browsing */}
       {result.total > 0 && (
         <div className="sticky top-[79px] z-30 mt-3 border-y border-champagne-gold/20 bg-ivory/95 backdrop-blur lg:top-[81px]">
-          <div className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-6 py-2 hide-scrollbar">
+          <div className="mx-auto flex max-w-[1600px] items-center gap-2 overflow-x-auto px-4 sm:px-6 py-2 hide-scrollbar">
             <SortSelect basePath={basePath} params={params} />
             <span className="h-5 w-px shrink-0 bg-midnight-navy/15" aria-hidden="true" />
             {result.typeChips.map((chip) => (
@@ -148,7 +162,7 @@ export default function ShopView({
         </div>
       )}
 
-      <section className="mx-auto max-w-7xl px-6 pb-16 pt-4 sm:pt-6">
+      <section className="mx-auto max-w-[1600px] px-4 sm:px-6 pb-16 pt-4 sm:pt-6">
         {filtered && count > 0 && (
           <p className="mb-3 text-xs text-midnight-navy/60">
             Showing {count} of {result.total} pieces ·{" "}
@@ -157,6 +171,8 @@ export default function ShopView({
             </Link>
           </p>
         )}
+
+        {count > 0 && <OfferCarousel className="mb-6 hidden md:block" />}
 
         {count > 0 ? (
           <ul className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
@@ -167,7 +183,7 @@ export default function ShopView({
             ))}
           </ul>
         ) : result.total > 0 ? (
-          <div className="rounded-2xl border border-champagne-gold/25 bg-sand/50 px-6 py-12 text-center">
+          <div className="rounded-2xl border border-champagne-gold/25 bg-sand/50 px-4 sm:px-6 py-12 text-center">
             <p className="font-heading text-2xl text-midnight-navy">Nothing matches these filters here</p>
             <p className="mt-2 text-sm text-midnight-navy/65">
               {result.total} other {result.total === 1 ? "piece is" : "pieces are"} waiting.
@@ -181,7 +197,7 @@ export default function ShopView({
             </Link>
           </div>
         ) : (
-          <div className="rounded-2xl border border-champagne-gold/25 bg-sand/50 px-6 py-16 text-center">
+          <div className="rounded-2xl border border-champagne-gold/25 bg-sand/50 px-4 sm:px-6 py-16 text-center">
             <p className="font-heading text-2xl text-midnight-navy">New pieces are being cleansed and charged.</p>
             <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-midnight-navy/70">
               This collection is being prepared. In the meantime, explore everything else.
@@ -194,6 +210,14 @@ export default function ShopView({
             </Link>
           </div>
         )}
+
+        <ShoppableReels
+          reels={reelsForTags(reelTagsFor(activeSlug), 10)}
+          eyebrow="Watch before you buy"
+          title="Unboxed, worn and explained"
+          subtitle="Tap a reel to watch with sound — add the piece without leaving the video."
+          className="mt-14"
+        />
       </section>
 
       <BrandTags />
@@ -202,7 +226,7 @@ export default function ShopView({
 }
 
 /**
- * The ladder row goes after a complete grid row: after 4 cards on phones (2 rows)
+ * The offers row goes after a complete grid row: after 4 cards on phones (2 rows)
  * and desktop (1 row), after 6 on tablets (2 rows of 3).
  */
 function GridItem({
@@ -219,12 +243,12 @@ function GridItem({
       <li>{children}</li>
       {showLadder && index === 3 && (
         <li className="col-span-2 md:hidden lg:col-span-4 lg:block">
-          <OfferLadderTile />
+          <OffersTile />
         </li>
       )}
       {showLadder && index === 5 && (
         <li className="hidden md:col-span-3 md:block lg:hidden">
-          <OfferLadderTile />
+          <OffersTile />
         </li>
       )}
     </>

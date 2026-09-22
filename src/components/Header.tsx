@@ -42,7 +42,7 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-champagne-gold/30 bg-midnight-navy/95 backdrop-blur-sm">
-        <div className="mx-auto grid grid-cols-3 items-center max-w-7xl px-6 py-5">
+        <div className="mx-auto grid grid-cols-3 items-center max-w-[1600px] px-4 sm:px-6 py-5">
           {/* Col 1: Mobile Hamburger / Desktop Navigation Links */}
           <div className="flex items-center justify-start">
             {/* Mobile: Hamburger Menu */}

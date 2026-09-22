@@ -18,12 +18,13 @@ import ProductOffers from "@/components/ProductOffers";
 import PairItWith from "@/components/PairItWith";
 import DeliveryTimeline from "@/components/DeliveryTimeline";
 import RitualSteps from "@/components/RitualSteps";
-import ProductVideos from "@/components/ProductVideos";
+import ShoppableReels from "@/components/media/ShoppableReels";
+import { galleryReelFor, reelsForProduct } from "@/lib/media";
 import StickyAddToBag from "@/components/StickyAddToBag";
 import BackButton from "@/components/BackButton";
 import { whatsappLink, SITE_URL } from "@/lib/commerce/config";
-import { FREE_GIFT_WRAP_MINIMUM, GIFT_WRAP_FEE } from "@/lib/commerce/pricing";
-import { ritualPairsFor } from "@/lib/commerce/bundle";
+import { pickUpsellProducts, ritualPairsFor } from "@/lib/commerce/bundle";
+import { pieceKind } from "@/lib/commerce/offers";
 import { productSpecs } from "@/lib/productSpecs";
 
 // ============================================================================
@@ -183,7 +184,29 @@ export default async function ProductDetailPage({
   ].slice(0, 3);
 
   // "Complete your ritual" — pieces from the same stone / intention family.
-  const pairs = ritualPairsFor(product, await getAllProducts());
+  const catalog = await getAllProducts();
+  const pairs = ritualPairsFor(product, catalog);
+  // Bracelet + ring offer: the other kind of piece, best matches first, for the
+  // row "Browse rings / bracelets" opens inside "Offers for you".
+  const comboKind = pieceKind(product) === "ring" ? "bracelet" : "ring";
+  const comboPieces = pickUpsellProducts(
+    product,
+    catalog.filter((p) => pieceKind(p) === comboKind),
+    [product.id],
+    12,
+  );
+
+  // Gallery: the Wix photos with this piece's own reel second (where shoppers look
+  // first). Offer / exchange artwork stays OUT: it shows other bracelets, which on
+  // this page reads as "which one am I buying?" (owner, 2026-09-22).
+  const photos = product.images?.length ? product.images : [product.image];
+  const galleryReel = galleryReelFor(product.name);
+  const gallery = [
+    photos[0],
+    ...(galleryReel ? [galleryReel.src] : []),
+    ...photos.slice(1),
+  ];
+  const reels = reelsForProduct(product.name, 8);
 
   // Hidden until the owner sets WHATSAPP_NUMBER (commerce/config.ts).
   const whatsappHref = whatsappLink(
@@ -199,10 +222,10 @@ export default async function ProductDetailPage({
       <ProductViewTracker product={product} />
 
       {/* Breadcrumb trail + back control. Widened in step with the hero row below
-          (max-w-7xl on desktop) so the trail keeps aligning with the gallery. */}
+          (max-w-[1600px] on desktop) so the trail keeps aligning with the gallery. */}
       <nav
         aria-label="Breadcrumb"
-        className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-3 px-6 py-3 sm:py-4"
+        className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-3 px-4 sm:px-6 py-3 sm:py-4"
       >
         <BackButton fallbackHref="/collection" className="shrink-0" />
         <span aria-hidden="true" className="hidden text-champagne-gold/50 sm:inline">
@@ -263,22 +286,22 @@ export default async function ProductDetailPage({
       </nav>
 
       {/* Split-screen: sticky image left, scrolling details right. On desktop the
-          row is widened (max-w-7xl) and the gap opened up so the image shifts into
+          row is widened (max-w-[1600px]) and the gap opened up so the image shifts into
           the empty left gutter and the buy column on the right has room to breathe
           (owner call 2026-09-12, desktop only — mobile is unchanged). */}
-      <div className="mx-auto flex max-w-7xl flex-col px-6 pb-24 lg:flex-row lg:items-start lg:gap-20 gap-8">
+      <div className="mx-auto flex max-w-[1600px] flex-col px-4 sm:px-6 pb-24 lg:flex-row lg:items-start lg:gap-10 xl:gap-20 gap-8">
 
         {/* LEFT — sticky gallery.
             Below lg: full-bleed by cancelling the row's px-6 (-mx-6). This used to
             be left-1/2 + w-screen, but 100vw includes a desktop scrollbar, so
             browsers 768–1023px wide scrolled sideways by the scrollbar's width.
             Desktop: pins to viewport while the right column scrolls past. */}
-        <div className="relative -mx-6 overflow-hidden lg:mx-0 lg:w-[52%] lg:overflow-visible lg:sticky lg:top-28 lg:self-start lg:h-fit">
+        <div className="relative -mx-4 sm:-mx-6 overflow-hidden lg:mx-0 lg:w-[52%] lg:overflow-visible lg:sticky lg:top-28 lg:self-start lg:h-fit">
           {/* Every image the product actually has (4 per product from Wix), not a
               padded placeholder set. `images` is optional on Product, so mock-mode
               products fall back to their single image. */}
           <ProductGallery
-            images={product.images?.length ? product.images : [product.image]}
+            images={gallery}
             productName={product.name}
             discountPercent={discountPercent}
           />
@@ -321,15 +344,20 @@ export default async function ProductDetailPage({
             </span>
             <span className="underline-offset-2 hover:underline">Be the first to review</span>
           </a>
-          <a
-            href="#product-videos"
-            className="mt-2 inline-flex items-center gap-1.5 self-start rounded-full border border-midnight-navy/15 px-3 py-1 text-xs font-medium text-midnight-navy/75 hover:border-champagne-gold"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M7 4.5v15l13-7.5z" />
-            </svg>
-            Watch videos
-          </a>
+          {reels.length > 0 && (
+            <a
+              href="#product-videos"
+              className="mt-2 inline-flex items-center gap-1.5 self-start rounded-full border border-midnight-navy/15 px-3 py-1 text-xs font-medium text-midnight-navy/75 hover:border-champagne-gold"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M7 4.5v15l13-7.5z" />
+              </svg>
+              {(() => {
+                const own = reels.filter((r) => r.product?.length).length;
+                return own > 0 ? `Watch ${own} video${own === 1 ? "" : "s"} of this piece` : "Watch videos";
+              })()}
+            </a>
+          )}
 
           {/* Why it's real — as chips. */}
           <ul className="mt-3 flex flex-wrap gap-2">
@@ -394,8 +422,13 @@ export default async function ProductDetailPage({
             ))}
           </ul>
 
-          {/* Spend ladder (applied automatically in the bag) + pay-online deal. */}
-          <ProductOffers price={product.price} productId={product.id} />
+          {/* The running offers (lib/commerce/offers), read against this piece + the bag. */}
+          <ProductOffers
+            price={product.price}
+            productId={product.id}
+            productName={product.name}
+            comboPieces={comboPieces}
+          />
 
           {/* Primary action — quantity selector + Add to Cart / Buy Now. */}
           <ProductCtas product={product} />
@@ -428,22 +461,8 @@ export default async function ProductDetailPage({
             )}
           </div>
 
-          {/* Gifting cue + a second opinion. Wrap is added in the bag. */}
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2.5 rounded-xl border border-champagne-gold/30 px-3 py-2.5">
-              <svg {...iconProps} width={20} height={20} className="flex-shrink-0 text-champagne-gold">
-                <path d="M3 8h18v4H3zM5 12v9h14v-9M12 8v13M12 8C10.5 5 7 3.5 6.5 6S9 8 12 8zM12 8c1.5-3 5-4.5 5.5-2S15 8 12 8z" />
-              </svg>
-              <span className="text-xs leading-tight">
-                <span className="block font-semibold text-midnight-navy">Gifting it?</span>
-                <span className="text-midnight-navy/55">
-                  Wrap + note {formatPrice(GIFT_WRAP_FEE)} in your bag · FREE on{" "}
-                  {formatPrice(FREE_GIFT_WRAP_MINIMUM)}+
-                </span>
-              </span>
-            </div>
-            <ShareButton productName={product.name} />
-          </div>
+          {/* A second opinion. */}
+          <ShareButton productName={product.name} className="mt-4 w-full" />
 
           {/* Pieces to add, right where the decision is made. */}
           <PairItWith items={pairs} />
@@ -518,8 +537,16 @@ export default async function ProductDetailPage({
           {/* Cleanse → set your intention → wear it. */}
           <RitualSteps />
 
-          {/* Video wall — brand reels as placeholders until customer videos arrive. */}
-          <ProductVideos />
+          {/* Reels of THIS piece first (lib/media), then OJARA-wide trust reels —
+              each opens with sound and Add to bag. */}
+          <ShoppableReels
+            reels={reels}
+            catalog={catalog}
+            id="product-videos"
+            eyebrow="Watch before you buy"
+            title={reels.some((r) => r.product?.length) ? `See the ${product.name} in action` : "Unboxed and explained"}
+            className="mt-8"
+          />
 
           {/* Accordions — description, shipping */}
           <RitualAccordion product={product} />

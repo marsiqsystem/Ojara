@@ -490,7 +490,7 @@ export default function AuthDrawer({
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-champagne-gold/30 px-8 py-6">
+        <div className="flex items-center justify-between border-b border-champagne-gold/30 px-5 py-6 sm:px-8">
           <span className="font-heading text-lg uppercase tracking-[0.3em] text-champagne-gold">
             Ojara
           </span>
@@ -516,7 +516,7 @@ export default function AuthDrawer({
           </button>
         </div>
 
-        <div data-lenis-prevent className="flex-1 overflow-y-auto px-8 py-10">
+        <div data-lenis-prevent className="flex-1 overflow-y-auto px-5 py-10 sm:px-8">
           <p className="text-[0.65rem] uppercase tracking-[0.4em] text-champagne-gold font-semibold">
             ✦ {copy.eyebrow}
           </p>
@@ -696,7 +696,7 @@ export default function AuthDrawer({
           </div>
         </div>
 
-        <p className="border-t border-champagne-gold/30 px-8 py-5 text-center text-[0.65rem] uppercase tracking-[0.25em] text-ivory/80">
+        <p className="border-t border-champagne-gold/30 px-5 py-5 sm:px-8 text-center text-[0.65rem] uppercase tracking-[0.25em] text-ivory/80">
           ✦ Secure &amp; encrypted
         </p>
       </aside>

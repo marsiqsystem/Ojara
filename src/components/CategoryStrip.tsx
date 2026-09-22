@@ -13,8 +13,8 @@ export default async function CategoryStrip() {
   const categories = await getCategories();
 
   return (
-    <section className="border-b border-champagne-gold/20 bg-ivory px-6 py-12 sm:py-16">
-      <div className="mx-auto max-w-7xl">
+    <section className="border-b border-champagne-gold/20 bg-ivory px-4 sm:px-6 py-12 sm:py-16">
+      <div className="mx-auto max-w-[1600px]">
         {/* Header row */}
         <div className="mb-8 flex items-end justify-between">
           <div>

@@ -74,7 +74,7 @@ export default function BrandTags() {
     // A slim trust strip directly under the hero (the Viora home order): the
     // promises that hold on every order, answered before the first product.
     <section aria-label="Why shop with OJARA" className="border-b border-champagne-gold/25 bg-ivory">
-      <ul className="mx-auto flex max-w-7xl snap-x gap-6 overflow-x-auto px-6 py-4 hide-scrollbar md:justify-between">
+      <ul className="mx-auto flex max-w-[1600px] snap-x gap-6 overflow-x-auto px-4 sm:px-6 py-4 hide-scrollbar md:justify-between">
         {tags.map((tag) => (
           <li key={tag.title} className="flex shrink-0 snap-start items-center gap-2.5">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-champagne-gold/10 text-champagne-gold [&_svg]:h-5 [&_svg]:w-5">

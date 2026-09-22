@@ -167,7 +167,7 @@ export default function StickyAddToBag({ product }: { product: Product }) {
       open={confirmOpen}
       onClose={() => setConfirmOpen(false)}
       abandonedItems={abandonedItems}
-      currentProductPrice={product.price}
+      currentProduct={{ name: product.name, price: product.price, quantity: 1 }}
       onDecision={handleConfirmDecision}
     />
     </>

@@ -123,7 +123,7 @@ export default async function JournalArticlePage({
       <JsonLd id="ld-article" data={blogPostingSchema(post)} />
       <JsonLd id="ld-article-breadcrumb" data={breadcrumbSchema(crumbs)} />
 
-      <article className="mx-auto max-w-2xl px-6 py-16 sm:py-24">
+      <article className="mx-auto max-w-2xl px-4 sm:px-6 py-16 sm:py-24">
         <BackButton fallbackHref="/journal" />
 
         <header className="mt-10 mb-8">

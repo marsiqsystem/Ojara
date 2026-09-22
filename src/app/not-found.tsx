@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <section className="flex min-h-[80vh] items-center justify-center bg-midnight-navy px-6 py-24 text-ivory">
+    <section className="flex min-h-[80vh] items-center justify-center bg-midnight-navy px-4 sm:px-6 py-24 text-ivory">
       <div className="mx-auto max-w-xl text-center">
         <span className="text-xs uppercase tracking-[0.5em] text-champagne-gold">
           Lost in the Ether
