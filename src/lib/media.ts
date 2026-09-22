@@ -9,7 +9,7 @@
 // Two honesty rules:
 //   1. `offers` lists every offer a piece PROMISES (in its artwork or voice-
 //      over). allOffersLive() hides it until each one is honoured at checkout —
-//      e.g. the "₹599 Money Magnet" reel waits for Buy 2 Get 1 (lib/commerce/offers).
+//      e.g. a reel promising Buy 2 Get 1 waits for it (lib/commerce/offers).
 //   2. `kind` says who is on screen. "creator" = a creator/actor video OJARA
 //      made; never labelled as a customer review. Only "customer" may be — and
 //      there are none yet.
@@ -17,6 +17,8 @@
 // Left out on purpose: `ojara_aaa` (Money Magnet, but it cuts in a podcast clip of
 // actor Ravi Kishan — using a celebrity implies an endorsement OJARA may not
 // have rights to). Add it here only once the owner confirms the rights.
+// Removed at the owner's request, 2026-09-22: `mm-599` (also quoted ₹599; the
+// bracelet sells at ₹899) and `natural-offer`.
 // ============================================================================
 
 import { allOffersLive, type OfferKey } from "./commerce/offers";
@@ -119,22 +121,6 @@ export const REELS: Reel[] = [
     talking: false,
     product: ["money", "magnet"],
     tags: ["wealth"],
-  }),
-  reel("mm-599", {
-    title: "Money Magnet at ₹599 each — buy 2, get 1 free",
-    alt: "A creator explains the buy 2 get 1 free offer on Money Magnet bracelets",
-    kind: "creator",
-    talking: true,
-    product: ["money", "magnet"],
-    offers: ["b2g1"],
-    tags: ["wealth", "offer"],
-  }),
-  reel("natural-offer", {
-    title: "Natural crystals at a price that makes sense",
-    alt: "A creator talks about natural crystals at OJARA prices",
-    kind: "creator",
-    talking: true,
-    tags: ["offer", "trust"],
   }),
   reel("unboxing", {
     title: "Unboxing an OJARA order",
