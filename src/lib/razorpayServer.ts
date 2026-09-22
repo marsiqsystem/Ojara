@@ -7,7 +7,7 @@ import { RAZORPAY_ENABLED } from "@/lib/commerce/config";
 //
 // `verifyPrepaidPayment` exists because /api/checkout used to take a
 // `razorpayPaymentId` from the browser on trust: any string marked the Wix order
-// PAID and knocked ₹50 off, even with prepaid switched off. The only proof a
+// PAID and knocked the prepaid discount off, even with prepaid switched off. The only proof a
 // payment is real is Razorpay's own record of it, so that's what we read.
 // ============================================================================
 

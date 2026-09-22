@@ -2,10 +2,7 @@ import Link from "next/link";
 import FindYourStone from "@/components/FindYourStone";
 import { getAllProducts } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
-import { COUPON_TIERS, tierPercent } from "@/lib/commerce/pricing";
-
-// The first ladder step — the offer every visitor sees before they scroll.
-const FIRST_TIER = COUPON_TIERS[0];
+import { COMBO_PERCENT, WELCOME_CODE, WELCOME_PERCENT } from "@/lib/commerce/offers";
 
 export default async function Hero() {
   // "From ₹X" off the live catalogue, so the price promise is always true.
@@ -16,31 +13,28 @@ export default async function Hero() {
     // Shorter on phones (was 88vh) so the offer, the price and the first pieces
     // arrive sooner — the first screen should sell, not only set a mood.
     <section className="relative isolate flex min-h-[72vh] items-center justify-center overflow-hidden bg-midnight-navy sm:min-h-[88vh]">
-      {/* Cinematic background video — rising incense smoke */}
+      {/* Background: OJARA's own footage — bracelets and rings worn together
+          (public/media/reels/hero-loop.mp4, 11s, silent, ~1.4 MB). It replaced a
+          stock Pexels clip of incense smoke that showed none of the pieces. */}
       <video
         autoPlay
         loop
         muted
         playsInline
-        poster="https://images.unsplash.com/photo-1632980205460-e490e885e848?auto=format&fit=crop&w=1600&q=60"
+        poster="/media/reels/hero-loop.jpg"
         className="absolute inset-0 h-full w-full object-cover"
       >
-        <source
-          src="https://videos.pexels.com/video-files/35853514/15204260_1080_1920_30fps.mp4"
-          type="video/mp4"
-        />
+        <source src="/media/reels/hero-loop.mp4" type="video/mp4" />
       </video>
 
       {/* Overlay keeps the gold headline legible over the footage */}
       <div className="absolute inset-0 bg-midnight-navy/60" />
 
-      <div className="relative z-10 mx-auto flex max-w-5xl animate-fade-in-up flex-col items-center px-6 py-16 text-center sm:py-32">
+      <div className="relative z-10 mx-auto flex max-w-5xl animate-fade-in-up flex-col items-center px-4 sm:px-6 py-16 text-center sm:py-32">
         {/* The live offer, before anything else. */}
-        {FIRST_TIER && (
-          <span className="mb-5 rounded-full border border-champagne-gold/60 bg-midnight-navy/60 px-4 py-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold sm:mb-8 sm:text-xs">
-            {tierPercent(FIRST_TIER)}% OFF on {formatPrice(FIRST_TIER.minimum)}+ · No code needed
-          </span>
-        )}
+        <span className="mb-5 rounded-full border border-champagne-gold/60 bg-midnight-navy/60 px-4 py-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold sm:mb-8 sm:text-xs">
+          {WELCOME_PERCENT}% off your first order · Code {WELCOME_CODE}
+        </span>
 
         {/* Was "Magnetic Healing & Crystals". The brand sells gemstone bracelets and
             claims no therapeutic effect — see BrandStory for the same correction. */}
@@ -58,6 +52,9 @@ export default async function Hero() {
             Bracelets from {formatPrice(fromPrice)} · Cash on Delivery · Free delivery
           </p>
         )}
+        <p className="mt-2 text-xs tracking-wide text-ivory/75 sm:text-sm">
+          Buy a bracelet + a ring, get {COMBO_PERCENT}% off the ring
+        </p>
 
         <div className="mt-8 flex flex-col items-center gap-4 sm:mt-12 sm:flex-row sm:gap-5">
           <Link

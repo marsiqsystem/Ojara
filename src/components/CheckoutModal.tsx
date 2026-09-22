@@ -9,16 +9,12 @@ import { useCartStore } from "@/lib/store/useCartStore";
 import { useWixClient } from "@/hooks/useWixClient";
 import { formatPrice } from "@/lib/format";
 import {
-  FREE_GIFT_WRAP_MINIMUM,
-  GIFT_WRAP_FEE,
   PREPAID_DISCOUNT,
-  cartSubtotal,
   computeTotals,
-  giftWrapFeeFor,
   isTierCode,
-  tierPercent,
 } from "@/lib/commerce/pricing";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
+import { useWixOffers } from "@/lib/commerce/useWixOffers";
 import {
   BRAND_NAME,
   LOW_STOCK_THRESHOLD,
@@ -34,9 +30,8 @@ import { saveOrderSnapshot } from "@/lib/orderSnapshot";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { trackEvent, trackingContext } from "@/lib/analytics/capi";
 import { contentIds, toContents, toGa4Items } from "@/lib/analytics/content";
-import TierProgress from "@/components/TierProgress";
-import GiftWrapOption from "@/components/GiftWrapOption";
-import AddToCartButton from "@/components/AddToCartButton";
+import OfferProgress from "@/components/OfferProgress";
+import CheckoutOfferRails from "@/components/CheckoutOfferRails";
 
 // ============================================================================
 // Checkout — one page, rebuilt on the Viora pattern.
@@ -46,7 +41,7 @@ import AddToCartButton from "@/components/AddToCartButton";
 // courier run on it), pincode fills city + state and shows the delivery date,
 // email last with a typo check; details are remembered on this device; each
 // payment method shows what it costs; COD asks for a small commitment; the
-// ladder, an unlocking piece and gift wrap sit next to the real total; the pay
+// running offers and the piece that unlocks the next one sit next to the real total; the pay
 // bar is always in reach; and leaving gets one honest reminder of what's lost.
 //
 // The order path itself (Wix checkout → /api/checkout, Razorpay verify, Meta +
@@ -172,14 +167,12 @@ export default function CheckoutModal() {
   const clearCart = useCartStore((s) => s.clearCart);
   const open = useCartStore((s) => s.isCheckoutOpen);
   const onClose = useCartStore((s) => s.closeCheckout);
-  // Coupon + gift-wrap come from the cart store, so the shopper sees the same
+  // The coupon comes from the cart store, so the shopper sees the same
   // numbers they saw in the bag.
   const appliedCoupon = useCartStore((s) => s.appliedCoupon);
   const setAppliedCoupon = useCartStore((s) => s.setAppliedCoupon);
   const shopperChoseCoupon = useCartStore((s) => s.shopperChoseCoupon);
   const setShopperChoseCoupon = useCartStore((s) => s.setShopperChoseCoupon);
-  const giftWrap = useCartStore((s) => s.giftWrap);
-  const giftNote = useCartStore((s) => s.giftNote);
 
   // Details — phone first, email last. A returning shopper on this device gets
   // back what they typed last time (lazy init: read once, no effect needed).
@@ -235,11 +228,6 @@ export default function CheckoutModal() {
     [cartItems],
   );
 
-  // Products subtotal — what the ladder minimums and free gift wrap key off.
-  const productsSubtotal = cartSubtotal(lines);
-  // Free at the top ladder step; /api/checkout re-checks against Wix's subtotal.
-  const giftWrapFee = giftWrapFeeFor(giftWrap, productsSubtotal);
-
   // Live coupon — validated against Wix's engine. `email` lets Wix enforce
   // single-use-per-buyer.
   const couponLines = useMemo<CouponLine[]>(
@@ -258,11 +246,20 @@ export default function CheckoutModal() {
     pending: couponPending,
     apply: applyCouponLive,
     remove: removeCouponLive,
-  } = useLiveCoupon(couponLines, email.trim() || undefined, useCouponAutoRemoveHandler(toast));
+  } = useLiveCoupon(couponLines, email.trim() || undefined, useCouponAutoRemoveHandler(toast, true));
+  // Bracelet + ring / buy 2 get 1 — Wix applies these to the order itself, so
+  // the quoted total must carry Wix's own figure (a prepaid payment is checked
+  // against it).
+  const offers = useWixOffers(couponLines);
 
   const isPrepaid = paymentMethod === "PREPAID";
   const totalsFor = (prepaid: boolean) =>
-    computeTotals({ lines, isPrepaid: prepaid, wixReportedDiscount: couponDiscount, giftWrapFee });
+    computeTotals({
+      lines,
+      isPrepaid: prepaid,
+      wixReportedDiscount: couponDiscount,
+      offerDiscount: offers.total,
+    });
   const totals = totalsFor(isPrepaid);
   const prepaidTotal = totalsFor(true).total;
   const codTotal = totalsFor(false).total;
@@ -272,9 +269,10 @@ export default function CheckoutModal() {
     (sum, l) => sum + Math.max(0, (l.originalPrice ?? l.price) - l.price) * l.quantity,
     0,
   );
-  const totalSavings = mrpSavings + totals.couponDiscount + totals.prepaidDiscount;
+  const totalSavings =
+    mrpSavings + totals.offerDiscount + totals.couponDiscount + totals.prepaidDiscount;
   // What the same bag costs at full price — the anchor beside the real total.
-  const mrpTotal = lines.reduce((sum, l) => sum + (l.originalPrice ?? l.price) * l.quantity, 0) + giftWrapFee;
+  const mrpTotal = lines.reduce((sum, l) => sum + (l.originalPrice ?? l.price) * l.quantity, 0);
   const itemCount = lines.reduce((n, l) => n + l.quantity, 0);
   const lowStockLine = lines.find((l) => l.stockCount > 0 && l.stockCount <= LOW_STOCK_THRESHOLD);
   const firstName = fullName.trim().split(/\s+/)[0] || "";
@@ -289,12 +287,8 @@ export default function CheckoutModal() {
       validateFields({ phone, pincode, fullName, address, city, state: stateCode, email, paymentMethod, codCommitted }),
     ).length === 0;
 
-  // The one piece that best closes the gap to the next ladder step.
-  const unlockSuggestion = useUpsellSuggestions({
-    subtotal: productsSubtotal,
-    bag: cartItems.map((ci) => ci.product),
-    limit: 1,
-  }).find((s) => s.unlocksTier);
+  // Pieces that complete an offer (more bracelets → one free, a ring → 10% off it).
+  const { rails: offerRails } = useUpsellSuggestions({ bag: cartItems, limit: 6 });
 
   // Lock scroll (Lenis-aware) while open.
   useEffect(() => {
@@ -399,7 +393,6 @@ export default function CheckoutModal() {
     totals.couponDiscount > 0 && appliedCoupon
       ? `${appliedCoupon}: ${formatPrice(totals.couponDiscount)} off`
       : "",
-    giftWrap && productsSubtotal >= FREE_GIFT_WRAP_MINIMUM ? `FREE gift wrap (worth ${formatPrice(GIFT_WRAP_FEE)})` : "",
     lowStockLine ? `Only ${lowStockLine.stockCount} left of ${lowStockLine.name}` : "",
     pincodeStatus === "found" ? `Delivery ${deliveryWindowLabel()}` : "",
   ]
@@ -421,7 +414,7 @@ export default function CheckoutModal() {
   };
 
   const handleApplyCoupon = async () => {
-    // A typed code is the shopper's choice — the ladder stops managing the coupon.
+    // A typed code is the shopper's choice — the bag stops auto-applying WELCOME10.
     setShopperChoseCoupon(true);
     const { ok, error: cErr } = await applyCouponLive(couponInput);
     if (ok) {
@@ -453,14 +446,11 @@ export default function CheckoutModal() {
     summary: {
       subtotal: String(totals.subtotal),
       shipping: "0",
-      discount: String(totals.couponDiscount + totals.prepaidDiscount),
-      giftWrap: giftWrapFee ? String(giftWrapFee) : undefined,
+      discount: String(totals.offerDiscount + totals.couponDiscount + totals.prepaidDiscount),
       total: String(totals.total),
     },
     amount: totals.total.toFixed(2),
     couponCode: appliedCoupon || undefined,
-    giftWrap,
-    giftNote: giftWrap ? giftNote.trim() || undefined : undefined,
     stateName: nameOfState(stateCode),
   });
 
@@ -523,8 +513,6 @@ export default function CheckoutModal() {
         summary: payload.summary,
         amount: payload.amount,
         couponCode: payload.couponCode,
-        giftWrap: payload.giftWrap,
-        giftNote: payload.giftNote,
         // Lets the server fire its own Meta Purchase the moment the order exists.
         // It reuses event_id `purchase-<orderId>`, the same id the browser
         // Purchase uses, so Meta counts ONE conversion.
@@ -585,9 +573,7 @@ export default function CheckoutModal() {
       paymentMethod,
       items: lines.map((l) => ({ name: l.name, quantity: l.quantity, price: l.price, image: l.image })),
       subtotal: totals.subtotal,
-      discount: totals.couponDiscount + totals.prepaidDiscount,
-      giftWrap,
-      giftWrapFee: totals.giftWrapFee,
+      discount: totals.offerDiscount + totals.couponDiscount + totals.prepaidDiscount,
       total: totals.total,
     });
     clearCart();
@@ -847,12 +833,24 @@ export default function CheckoutModal() {
             <p className="bg-emerald-50 px-5 py-2 text-center text-sm font-semibold text-emerald-800">
               🎉 You&apos;re saving {formatPrice(Math.round(totalSavings))} on this order
               {appliedCoupon && isTierCode(appliedCoupon) && !shopperChoseCoupon && totals.couponDiscount > 0 && (
-                <span className="block text-xs font-medium text-emerald-700">{appliedCoupon} applied automatically</span>
+                <span className="block text-xs font-medium text-emerald-700">First-order {appliedCoupon} applied automatically</span>
               )}
             </p>
           )}
 
           <div className="space-y-7 p-5">
+            {/* Offers — what's applied, and the piece that earns the next one.
+                First, so it's seen before the form, not after it. */}
+            <section className="space-y-4">
+              <OfferProgress
+                lines={lines}
+                offers={offers.discounts}
+                welcomeDiscount={appliedCoupon && isTierCode(appliedCoupon) ? totals.couponDiscount : 0}
+                hide={offerRails.map((r) => r.nudge.offer)}
+              />
+              <CheckoutOfferRails rails={offerRails} />
+            </section>
+
             {/* Delivery details — phone first, email last */}
             <section className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-midnight-navy">Delivery details</h3>
@@ -1124,38 +1122,8 @@ export default function CheckoutModal() {
               )}
             </section>
 
-            {/* Offers & add-ons */}
+            {/* Other codes */}
             <section className="space-y-3">
-              <div className="rounded-xl border border-dashed border-champagne-gold/50 bg-champagne-gold/5 p-3">
-                <TierProgress subtotal={productsSubtotal} />
-              </div>
-
-              {unlockSuggestion?.unlocksTier && (
-                <div className="flex items-center gap-3 rounded-xl border border-champagne-gold/40 bg-white p-2.5">
-                  <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-sand">
-                    <Image src={unlockSuggestion.product.image} alt={unlockSuggestion.product.name} fill sizes="56px" className="object-cover" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[0.68rem] font-bold uppercase tracking-wider text-champagne-gold">
-                      Unlock {tierPercent(unlockSuggestion.unlocksTier)}% OFF
-                      {unlockSuggestion.unlocksTier.perk ? ` + ${unlockSuggestion.unlocksTier.perk}` : ""}
-                    </span>
-                    <span className="block truncate text-xs font-medium text-midnight-navy">{unlockSuggestion.product.name}</span>
-                    <span className="text-[0.7rem] text-midnight-navy/60">{formatPrice(unlockSuggestion.product.price)}</span>
-                  </span>
-                  <AddToCartButton
-                    product={unlockSuggestion.product}
-                    ariaLabel={`Add ${unlockSuggestion.product.name} to your order`}
-                    openBag={false}
-                    className="shrink-0 rounded-full bg-midnight-navy px-3 py-2 text-[0.68rem] font-semibold uppercase tracking-wide text-champagne-gold"
-                  >
-                    + Add
-                  </AddToCartButton>
-                </div>
-              )}
-
-              <GiftWrapOption subtotal={productsSubtotal} />
-
               {appliedCoupon && totals.couponDiscount > 0 ? (
                 <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2">
                   <p className="min-w-0 truncate text-xs font-semibold text-emerald-800">
@@ -1215,9 +1183,15 @@ export default function CheckoutModal() {
                 <span>Subtotal</span>
                 <span className="tabular-nums">{formatPrice(totals.subtotal)}</span>
               </div>
+              {offers.discounts.map((o) => (
+                <div key={o.name} className="flex justify-between gap-2 font-medium text-emerald-700">
+                  <span className="min-w-0">{o.name}</span>
+                  <span className="shrink-0 tabular-nums">− {formatPrice(o.amount)}</span>
+                </div>
+              ))}
               {totals.couponDiscount > 0 && (
                 <div className="flex justify-between font-medium text-emerald-700">
-                  <span>{isTierCode(appliedCoupon) ? "Offer" : "Coupon"} ({appliedCoupon})</span>
+                  <span>{isTierCode(appliedCoupon) ? "First-order discount" : "Coupon"} ({appliedCoupon})</span>
                   <span className="tabular-nums">− {formatPrice(totals.couponDiscount)}</span>
                 </div>
               )}
@@ -1225,16 +1199,6 @@ export default function CheckoutModal() {
                 <div className="flex justify-between font-medium text-emerald-700">
                   <span>Pay-online discount</span>
                   <span className="tabular-nums">− {formatPrice(totals.prepaidDiscount)}</span>
-                </div>
-              )}
-              {giftWrap && (
-                <div className="flex justify-between text-midnight-navy/75">
-                  <span>Gift wrap &amp; note</span>
-                  {totals.giftWrapFee > 0 ? (
-                    <span className="tabular-nums">+ {formatPrice(totals.giftWrapFee)}</span>
-                  ) : (
-                    <span className="font-semibold text-emerald-700">FREE</span>
-                  )}
                 </div>
               )}
               <div className="flex justify-between text-midnight-navy/75">
@@ -1271,14 +1235,15 @@ export default function CheckoutModal() {
             <button
               type="button"
               onClick={handlePayment}
-              // Blocked while a coupon is being (re)validated, so the amount shown
+              // Blocked while a coupon or the automatic offers are being
+              // (re)priced, so the amount shown
               // and charged is never a stale number.
-              disabled={processing || couponPending}
+              disabled={processing || couponPending || offers.pending}
               className="flex-1 cursor-pointer rounded-full bg-champagne-gold py-3.5 text-xs font-bold uppercase tracking-[0.15em] text-midnight-navy shadow-lg transition-all hover:bg-champagne-gold/85 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {processing
                 ? "Processing…"
-                : couponPending
+                : couponPending || offers.pending
                   ? "Updating total…"
                   : isPrepaid
                     ? `Pay ${formatPrice(totals.total)} securely`

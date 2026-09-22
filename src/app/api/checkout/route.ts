@@ -1,6 +1,6 @@
 import { NextResponse, after } from "next/server";
 import { UPSELL_ENABLED, WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
-import { GIFT_WRAP_FEE, PREPAID_DISCOUNT, giftWrapFeeFor } from "@/lib/commerce/pricing";
+import { PREPAID_DISCOUNT } from "@/lib/commerce/pricing";
 import { normalizeSubdivision } from "@/lib/commerce/indiaStates";
 import { clientIp, isRateLimited, isSameOrigin } from "@/lib/apiGuard";
 import {
@@ -136,14 +136,11 @@ export async function POST(req: Request) {
     const paymentMethod = details?.paymentMethod === "PREPAID" ? "PREPAID" : "COD";
     const razorpayPaymentId = normalizeText(details?.razorpayPaymentId);
 
-    // Gift wrap + note and the coupon code ride along so the owner sees them on
-    // the Wix order (gift wrap is otherwise invisible server-side).
-    const giftWrap = body?.giftWrap === true;
-    const giftNote = normalizeText(body?.giftNote);
+    // The coupon code rides along so the owner sees it on the Wix order.
     const couponCode = normalizeText(body?.couponCode).toUpperCase();
 
     // Sacred Bundle discount (₹). Not a Wix coupon — reconciled below as a
-    // GLOBAL custom discount, exactly like the prepaid −₹50. Clamped and
+    // GLOBAL custom discount, exactly like the prepaid −₹49. Clamped and
     // re-rounded server-side: this arrives from the browser, so it is treated as
     // a request, not as truth. BUNDLE_DISCOUNT_CAP is the ceiling any legitimate
     // 30%-of-three-items tier can reach. While the upsell is switched off no real
@@ -167,7 +164,7 @@ export async function POST(req: Request) {
     // ------------------------------------------------ Prepaid: prove the payment
     // A prepaid order is only ever built on a payment Razorpay itself reports as
     // successful and unused. The browser's word is not enough: this used to mark
-    // the Wix order PAID (and take ₹50 off) for any string it was sent. The
+    // the Wix order PAID (and take the prepaid discount off) for any string it was sent. The
     // amount is checked further down, once Wix has priced the checkout.
     let payment: VerifiedPayment | null = null;
     if (paymentMethod === "PREPAID") {
@@ -273,7 +270,6 @@ export async function POST(req: Request) {
         razorpayPaymentId: paidPaymentId || undefined,
         items,
         summary,
-        giftNote: giftWrap && giftNote ? giftNote : undefined,
         address: { line1: addressLine1, city, state, postalCode },
         phone,
       }).catch((e) => console.error("Mock order email failed:", e));
@@ -309,13 +305,7 @@ export async function POST(req: Request) {
         },
       },
       buyerInfo: { email },
-      // Lead the buyer note with the gift message so it's the first thing the
-      // owner reads on the Wix order — that's the whole point of collecting it.
       buyerNote:
-        (giftWrap && giftNote ? `🎁 GIFT NOTE: "${giftNote}"\n` : "") +
-        // A charged wrap adds its own fee line to the order (step 5); no fee line
-        // means it was free at the top ladder step. Wrap it either way.
-        (giftWrap ? "Gift wrap requested.\n" : "") +
         (paymentMethod === "COD"
           ? `Payment: Cash on Delivery (COD). Phone: ${phone}. Pincode: ${postalCode}.`
           : `Payment: Prepaid. Phone: ${phone}. Pincode: ${postalCode}.` +
@@ -335,8 +325,6 @@ export async function POST(req: Request) {
         ...(bundleDiscount > 0
           ? [{ title: "Sacred Bundle", value: `−₹${bundleDiscount}` }]
           : []),
-        ...(giftWrap ? [{ title: "Gift Wrap", value: "Yes" }] : []),
-        ...(giftWrap && giftNote ? [{ title: "Gift Note", value: giftNote }] : []),
       ],
     });
 
@@ -369,15 +357,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Gift wrap is free once the order reaches the top ladder step. Decided on
-    // Wix's own subtotal, never the browser's; if Wix didn't report one, charge
-    // the normal fee rather than guess the order qualified.
-    const wixSubtotal = Number(updatedCheckout?.priceSummary?.subtotal?.amount);
-    const giftWrapAmount = Number.isFinite(wixSubtotal)
-      ? giftWrapFeeFor(giftWrap, wixSubtotal)
-      : giftWrap
-        ? GIFT_WRAP_FEE
-        : 0;
     const prepaidDiscountAmount = payment ? PREPAID_DISCOUNT : 0;
 
     // 3b. Prepaid: the payment must cover THIS order, before any order exists.
@@ -385,8 +364,7 @@ export async function POST(req: Request) {
     // step 5 are applied on top exactly as the shopper was quoted.
     if (payment) {
       const expectedTotal =
-        Number(updatedCheckout?.priceSummary?.total?.amount) +
-        giftWrapAmount -
+        Number(updatedCheckout?.priceSummary?.total?.amount) -
         prepaidDiscountAmount -
         bundleDiscount;
       if (!paymentCoversTotal(payment.amount, expectedTotal)) {
@@ -440,8 +418,7 @@ export async function POST(req: Request) {
     // 5. Order adjustments via ONE draft-order edit (see §8 for the rationale).
     // Coupons are already applied natively on the checkout, so wixOrderTotal has
     // them. Two things Wix doesn't know about are reconciled here:
-    //   • gift wrap  — a real +₹149 charge (both COD and prepaid),
-    //   • prepaid −₹50 — the flat online-payment discount (prepaid only; it's not
+    //   • prepaid −₹49 — the flat online-payment discount (prepaid only; it's not
     //     a Wix coupon),
     //   • Sacred Bundle — the checkout upsell tier (10/15/30% of the added
     //     pieces). Also not a Wix coupon, so without this the shopper would be
@@ -451,7 +428,7 @@ export async function POST(req: Request) {
     let committedOrder: Record<string, unknown> | null = null;
     let discountApplied = false;
 
-    if (giftWrapAmount > 0 || prepaidDiscountAmount > 0 || bundleDiscount > 0) {
+    if (prepaidDiscountAmount > 0 || bundleDiscount > 0) {
       try {
         const draftRes = await wixClient.draftOrders.createDraftOrder({
           sourceOrderId: orderId,
@@ -460,24 +437,6 @@ export async function POST(req: Request) {
           draftRes?.calculatedDraftOrder?.draftOrder?._id ||
           draftRes?.draftOrder?._id;
         if (!draftId) throw new Error("Draft order id missing from response.");
-
-        if (giftWrapAmount > 0) {
-          // Embed a preview of the note in the fee name (Wix caps it at 50 chars)
-          // so it's visible right on the charge line; the full note lives in the
-          // buyer note + the "Gift Note" custom field.
-          const notePreview = giftNote
-            ? `: "${giftNote.slice(0, 30)}${giftNote.length > 30 ? "…" : ""}"`
-            : "";
-          await wixClient.draftOrders.createCustomAdditionalFees(draftId, {
-            customAdditionalFees: [
-              {
-                name: `Gift wrap${notePreview}`.slice(0, 50),
-                price: { amount: giftWrapAmount.toFixed(2) },
-                applyToDraftOrder: true,
-              },
-            ],
-          });
-        }
 
         if (prepaidDiscountAmount > 0 || bundleDiscount > 0) {
           await wixClient.draftOrders.createCustomDiscounts(draftId, {
@@ -511,7 +470,7 @@ export async function POST(req: Request) {
             sendNotificationsToBuyer: false,
             sendNotificationsToBusiness: false,
           },
-          reason: "Gift wrap / online payment / Sacred Bundle adjustment",
+          reason: "Online payment / Sacred Bundle adjustment",
         });
 
         committedOrder = commitRes?.orderAfterCommit || null;
@@ -520,8 +479,7 @@ export async function POST(req: Request) {
           | undefined;
         const fallbackTotal =
           Number.isFinite(wixOrderTotal)
-            ? wixOrderTotal +
-              giftWrapAmount -
+            ? wixOrderTotal -
               prepaidDiscountAmount -
               bundleDiscount
             : (payment?.amount ?? NaN);
@@ -617,7 +575,6 @@ export async function POST(req: Request) {
         shipping: ps?.shipping?.amount || undefined,
         tax: ps?.tax?.amount || undefined,
         discount: ps?.discount?.amount || undefined,
-        giftWrap: giftWrapAmount > 0 ? String(giftWrapAmount) : undefined,
         total:
           ps?.total?.amount ||
           (Number.isFinite(emailAmount) ? emailAmount.toFixed(2) : undefined),
@@ -645,7 +602,6 @@ export async function POST(req: Request) {
         razorpayPaymentId: paidPaymentId || undefined,
         items,
         summary,
-        giftNote: giftWrap && giftNote ? giftNote : undefined,
         address: { line1: addressLine1, city, state, postalCode },
         phone,
       };

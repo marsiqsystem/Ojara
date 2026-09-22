@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { formatPrice } from "@/lib/format";
-import { tierPercent } from "@/lib/commerce/pricing";
-import { useAvailableTiers } from "@/lib/commerce/useAutoTierCoupon";
+import { liveOffers } from "@/lib/commerce/offers";
 
 // The site's top offer bar. It used to be a marquee of one long run-on phrase —
-// on a phone only fragments were ever readable, and it asked shoppers to type
-// OJAS10. Now it shows ONE complete message at a time, and the ladder offers
-// say "no code needed" because the bag applies them itself.
+// on a phone only fragments were ever readable. Now it shows ONE complete
+// message at a time: the offers actually running (lib/commerce/offers), then the
+// standing promises.
 const ROTATE_MS = 4000;
 
 const STANDING_MESSAGES = [
@@ -20,12 +18,8 @@ const STANDING_MESSAGES = [
 export default function AnnouncementBar() {
   const [index, setIndex] = useState(0);
 
-  // Ladder steps Wix has refused drop out, as they do everywhere else.
   const messages = [
-    ...useAvailableTiers().map(
-      (t) =>
-        `${tierPercent(t)}% OFF${t.perk ? ` + ${t.perk}` : ""} on ${formatPrice(t.minimum)}+ · no code needed`,
-    ),
+    ...liveOffers().map((o) => (o.code ? `${o.title} · code ${o.code}` : o.title)),
     ...STANDING_MESSAGES,
   ];
 

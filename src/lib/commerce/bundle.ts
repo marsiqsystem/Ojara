@@ -15,7 +15,7 @@
 //
 //   The resulting rupee figure is passed to /api/checkout as `bundleDiscount`
 //   and written onto the Wix draft order as a GLOBAL custom discount, the same
-//   mechanism the prepaid −₹50 uses. Wix therefore bills exactly what the UI
+//   mechanism the prepaid −₹49 uses. Wix therefore bills exactly what the UI
 //   promised.
 // ============================================================================
 

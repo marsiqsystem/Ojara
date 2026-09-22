@@ -11,17 +11,16 @@
 //   • "No, just buy this one" — drop the other item(s), buy only this.
 //
 // Everything here is OJARA-native: brand colours (midnight-navy / champagne-gold
-// on ivory), rupee formatting via formatPrice(), and a coupon nudge driven off
-// the real COUPON_TIERS in commerce/pricing.ts — so thresholds/codes never drift
-// from the Wix dashboard mirror and this file needs no manual edits when the
-// owner changes a coupon.
+// on ivory), rupee formatting via formatPrice(), and an offer nudge driven off
+// the real automatic offers in commerce/offers.ts (bracelet + ring 10%, buy 2
+// get 1) — so it only ever promises what the bag will apply.
 // ============================================================================
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatPrice } from "@/lib/format";
-import { COUPON_TIERS } from "@/lib/commerce/pricing";
+import { estimateOffers } from "@/lib/commerce/offers";
 
 export type AbandonedCartItem = {
   id: string;
@@ -35,8 +34,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   abandonedItems: AbandonedCartItem[];
-  /** Price of the item being bought now (already × quantity). */
-  currentProductPrice: number;
+  /** The item being bought now — its name tells a bracelet from a ring. */
+  currentProduct: { name: string; price: number; quantity: number };
   // "yes" — keep the abandoned items + add the current product, then checkout.
   // "no"  — remove the abandoned items, buy only the current product.
   onDecision: (decision: "yes" | "no") => Promise<void> | void;
@@ -46,7 +45,7 @@ const BuyNowConfirmModal = ({
   open,
   onClose,
   abandonedItems,
-  currentProductPrice,
+  currentProduct,
   onDecision,
 }: Props) => {
   const [mounted, setMounted] = useState(false);
@@ -74,45 +73,19 @@ const BuyNowConfirmModal = ({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, busy]);
 
-  const abandonedSubtotal = useMemo(
-    () =>
-      abandonedItems.reduce(
-        (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
-        0,
-      ),
-    [abandonedItems],
-  );
-
-  const combinedSubtotal = abandonedSubtotal + currentProductPrice;
-
-  // Smart coupon nudge: is there a coupon the shopper unlocks by KEEPING the
-  // abandoned items — i.e. a tier whose minimum the combined cart clears but the
-  // current item alone does not? Scan the real COUPON_TIERS (only ones with a
-  // genuine minimum can be "unlocked" this way) and surface the biggest saving.
+  // Offer nudge: does KEEPING the other items unlock an automatic offer the
+  // current piece alone doesn't get (e.g. the bag's bracelet + this ring → 10%
+  // off the ring)? Only a real, positive difference is shown.
   const couponNudge = useMemo(() => {
-    const candidates = COUPON_TIERS.filter(
-      (t) =>
-        t.minimum > 0 &&
-        combinedSubtotal >= t.minimum &&
-        currentProductPrice < t.minimum,
-    )
-      .map((t) => {
-        const saving =
-          t.type === "FLAT" ? t.value : Math.round(combinedSubtotal * t.value);
-        const offer =
-          t.type === "FLAT"
-            ? `${formatPrice(t.value)} OFF`
-            : `${Math.round(t.value * 100)}% OFF`;
-        return {
-          code: t.code,
-          saving,
-          // The ladder applies itself in the bag, so there's no code to quote.
-          label: `Keep them and unlock ${offer}${t.perk ? ` + ${t.perk}` : ""} (≈ ${formatPrice(saving)} savings), applied automatically`,
-        };
-      })
-      .sort((a, b) => b.saving - a.saving);
-    return candidates[0] || null;
-  }, [combinedSubtotal, currentProductPrice]);
+    const together = estimateOffers([...abandonedItems, currentProduct]).total;
+    const alone = estimateOffers([currentProduct]).total;
+    const saving = together - alone;
+    if (saving <= 0) return null;
+    return {
+      saving,
+      label: `Keep them and save ≈ ${formatPrice(saving)} — the offer applies automatically`,
+    };
+  }, [abandonedItems, currentProduct]);
 
   const handle = async (decision: "yes" | "no") => {
     if (busy) return;

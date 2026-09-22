@@ -135,7 +135,7 @@ export default function ProductCtas({ product }: { product: Product }) {
 
   return (
     <div id="main-add-to-bag">
-      {/* Single / Pair / Trio — the spend ladder as ready-made choices. */}
+      {/* Buy 2 Get 1 as a ready-made choice (bracelets, once live in Wix). */}
       <BundleOptions product={product} qty={qty} maxQty={maxQty} onSelect={setQty} />
 
       {/* Quantity selector + stock status, sitting directly above the primary
@@ -207,7 +207,7 @@ export default function ProductCtas({ product }: { product: Product }) {
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         abandonedItems={abandonedItems}
-        currentProductPrice={product.price * qty}
+        currentProduct={{ name: product.name, price: product.price, quantity: qty }}
         onDecision={handleConfirmDecision}
       />
     </div>

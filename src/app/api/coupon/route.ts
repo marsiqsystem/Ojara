@@ -100,18 +100,26 @@ export async function POST(req: Request) {
     const applied: any[] = Array.isArray(result?.appliedDiscounts)
       ? result.appliedDiscounts
       : [];
-    const couponHit = applied.find(
+    // Wix returns ONE entry per discounted line — sum them all. Reading only the
+    // first entry under-priced every multi-piece bag (e.g. ₹90 off a ₹3,147 bag).
+    const couponHits = applied.filter(
       (d) =>
         d?.coupon &&
         (!d.coupon.code ||
           String(d.coupon.code).toUpperCase() === code.toUpperCase()),
     );
+    const couponHit = couponHits[0];
 
     if (!couponHit) {
       return NextResponse.json({ ok: true, valid: false, reason: "rejected" });
     }
 
-    const discount = Math.max(0, Math.round(toNumber(couponHit.coupon?.amount?.amount)));
+    const discount = Math.max(
+      0,
+      Math.round(
+        couponHits.reduce((sum, d) => sum + toNumber(d.coupon?.amount?.amount), 0),
+      ),
+    );
     if (discount <= 0) {
       // A ₹0 coupon (e.g. free-shipping, which the storefront can't model) is not
       // something we can safely price client-side — treat as not applicable here.

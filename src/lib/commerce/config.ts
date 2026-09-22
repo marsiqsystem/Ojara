@@ -45,7 +45,7 @@ export const RAZORPAY_ENABLED = !!(
 // The whole prepaid path (Razorpay order -> widget -> verify-signature ->
 // discount reconciliation) is intact; this flag only decides whether it's shown.
 // While OFF: "Pay Online" renders disabled as "Coming soon", COD is the only
-// selectable method, and the −₹50 prepaid incentive is hidden — in checkout and
+// selectable method, and the −₹49 prepaid incentive is hidden — in checkout and
 // on the product page's "Offers for you". Lives here so both read one switch.
 // ---------------------------------------------------------------------------
 export const PREPAID_ENABLED = !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;

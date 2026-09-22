@@ -33,17 +33,15 @@ interface CartState {
   isAuthOpen: boolean;
   // The piece most recently added, so the bag can mark it "Just added". Not persisted.
   lastAddedId: string;
-  // Coupon + gift-wrap live on the store so they survive the cart → checkout
+  // The coupon lives on the store so they survive the cart → checkout
   // hand-off (the checkout modal reads them) and a page refresh.
   appliedCoupon: string;
-  // True once the shopper types or removes a code themselves. The spend-ladder
+  // True once the shopper types or removes a code themselves. The WELCOME10
   // auto-apply (useAutoTierCoupon) then leaves the coupon alone.
   shopperChoseCoupon: boolean;
-  // Ladder codes Wix refused this visit (e.g. not created yet), so the auto-apply
-  // falls back a step instead of retrying. Deliberately not persisted.
+  // Auto codes Wix refused this visit (e.g. WELCOME10 already used), so the auto-apply
+  // doesn't keep retrying. Deliberately not persisted.
   unavailableTierCodes: string[];
-  giftWrap: boolean;
-  giftNote: string;
   addItem: (product: Product) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -57,8 +55,6 @@ interface CartState {
   setAppliedCoupon: (code: string) => void;
   setShopperChoseCoupon: (chose: boolean) => void;
   markTierCodeUnavailable: (code: string) => void;
-  setGiftWrap: (on: boolean) => void;
-  setGiftNote: (note: string) => void;
 }
 
 let syncTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -107,8 +103,6 @@ export const useCartStore = create<CartState>()(
       appliedCoupon: "",
       shopperChoseCoupon: false,
       unavailableTierCodes: [],
-      giftWrap: false,
-      giftNote: "",
 
       addItem: (product) =>
         set((state) => {
@@ -153,14 +147,12 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => {
         syncWixCart([]);
-        // A cleared cart drops its coupon + gift-wrap too — they don't belong to
-        // the next, empty order.
+        // A cleared cart drops its coupon too — it doesn't belong to the next,
+        // empty order.
         set({
           cartItems: [],
           appliedCoupon: "",
           shopperChoseCoupon: false,
-          giftWrap: false,
-          giftNote: "",
         });
       },
 
@@ -182,8 +174,6 @@ export const useCartStore = create<CartState>()(
             ? state
             : { unavailableTierCodes: [...state.unavailableTierCodes, code] },
         ),
-      setGiftWrap: (on) => set({ giftWrap: on }),
-      setGiftNote: (note) => set({ giftNote: note }),
     }),
     {
       name: "ojara-cart",
@@ -193,8 +183,6 @@ export const useCartStore = create<CartState>()(
         cartItems: state.cartItems,
         appliedCoupon: state.appliedCoupon,
         shopperChoseCoupon: state.shopperChoseCoupon,
-        giftWrap: state.giftWrap,
-        giftNote: state.giftNote,
       }),
     },
   ),

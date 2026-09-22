@@ -20,8 +20,6 @@ export interface OrderSnapshot {
   items: { name: string; quantity: number; price: number; image: string }[];
   subtotal: number;
   discount: number;
-  giftWrap: boolean;
-  giftWrapFee: number;
   total: number;
 }
 

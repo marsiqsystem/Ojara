@@ -50,7 +50,7 @@ export default function OrderConfirmation({
   const isCod = snapshot?.paymentMethod !== "PREPAID";
 
   return (
-    <div className="mx-auto max-w-xl px-5 py-12 sm:py-16">
+    <div className="mx-auto max-w-xl px-4 py-12 sm:py-16">
       {/* Confirmation */}
       <div className="text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
@@ -107,8 +107,7 @@ export default function OrderConfirmation({
                 Sent to {snapshot.email}. Check your spam folder if it isn&apos;t in your inbox.
               </Step>
               <Step n={2} title={`Packed & shipped ${dispatchTimeline(new Date(snapshot.placedAt)).shipLabel.toLowerCase()}`}>
-                Your pieces are cleansed and packed with care
-                {snapshot.giftWrap ? ", gift wrapped with your note" : ""}. Orders before 8 pm ship the
+                Your pieces are cleansed and packed with care. Orders before 8 pm ship the
                 same day (Monday–Saturday).
               </Step>
               <Step n={3} title="Shipped">
@@ -149,14 +148,6 @@ export default function OrderConfirmation({
                 <div className="flex justify-between font-medium text-emerald-700">
                   <span>Savings</span>
                   <span className="tabular-nums">− {formatPrice(snapshot.discount)}</span>
-                </div>
-              )}
-              {snapshot.giftWrap && (
-                <div className="flex justify-between text-midnight-navy/70">
-                  <span>Gift wrap &amp; note</span>
-                  <span className="tabular-nums">
-                    {snapshot.giftWrapFee > 0 ? `+ ${formatPrice(snapshot.giftWrapFee)}` : "FREE"}
-                  </span>
                 </div>
               )}
               <div className="flex justify-between text-midnight-navy/70">

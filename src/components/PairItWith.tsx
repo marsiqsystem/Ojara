@@ -19,11 +19,14 @@ export default function PairItWith({
   title = "Complete your ritual",
   subtitle = "Pieces worn with this one — and a step closer to your next offer.",
   className = "mt-8",
+  id,
 }: {
   items: Product[];
   title?: string;
   subtitle?: string;
   className?: string;
+  /** Anchor for "See rings"-style jumps. */
+  id?: string;
 }) {
   const hydrated = useCartHydrated();
   const cartItems = useCartStore((s) => s.cartItems);
@@ -35,7 +38,7 @@ export default function PairItWith({
   const inBag = new Set(hydrated ? cartItems.map((ci) => ci.product.id) : []);
 
   return (
-    <section aria-labelledby={titleId} data-pair-rail className={className}>
+    <section id={id} aria-labelledby={titleId} data-pair-rail className={className}>
       <h2
         id={titleId}
         className="text-xs font-semibold uppercase tracking-[0.25em] text-midnight-navy"
@@ -44,7 +47,7 @@ export default function PairItWith({
       </h2>
       {subtitle && <p className="mt-1 text-xs text-midnight-navy/60">{subtitle}</p>}
 
-      <div className="-mx-6 mt-3 flex snap-x scroll-px-6 gap-3 overflow-x-auto px-6 pb-1 hide-scrollbar lg:mx-0 lg:scroll-px-0 lg:px-0">
+      <div className="-mx-4 sm:-mx-6 mt-3 flex snap-x scroll-px-4 sm:scroll-px-6 gap-3 overflow-x-auto px-4 sm:px-6 pb-1 hide-scrollbar lg:mx-0 lg:scroll-px-0 lg:px-0">
         {items.map((item) => {
           const discount =
             item.originalPrice && item.originalPrice > item.price

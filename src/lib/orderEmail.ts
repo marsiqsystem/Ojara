@@ -46,12 +46,8 @@ export type OrderEmailParams = {
     shipping?: string;
     tax?: string;
     discount?: string;
-    /** Gift-wrap charge (₹), shown as its own line so the +fee is legible. */
-    giftWrap?: string;
     total?: string;
   };
-  /** The customer's handwritten gift note, echoed back so they see it was kept. */
-  giftNote?: string;
   address: { line1?: string; city?: string; state?: string; postalCode?: string };
   phone?: string;
 };
@@ -176,22 +172,9 @@ export const renderOrderEmail = (
     (s.discount && Number(s.discount) > 0
       ? summaryRow("Discount", `-${s.discount}`, { accent: true })
       : "") +
-    (s.giftWrap && Number(s.giftWrap) > 0
-      ? summaryRow("Gift wrap & note", `+${s.giftWrap}`)
-      : "") +
     summaryRow(isPrepaid ? "Total paid" : "Total to pay", s.total || params.amount, {
       bold: true,
     });
-
-  // Echo the handwritten note back so the buyer sees exactly what will be written
-  // on the card — the whole reason for the ₹149 add-on.
-  const giftNoteBlock =
-    params.giftNote && params.giftNote.trim()
-      ? `<div style="margin:12px 0 4px;padding:14px 16px;border:1px solid ${GOLD};border-radius:10px;background:${IVORY};">
-           <p style="margin:0 0 6px;color:${GOLD};font-size:12px;letter-spacing:1.5px;text-transform:uppercase;">✦ Your gift note</p>
-           <p style="margin:0;color:${INK};font-size:14px;font-style:italic;line-height:1.6;">“${escapeHtml(params.giftNote.trim())}”</p>
-         </div>`
-      : "";
 
   const subject = `Your ${BRAND_NAME} order ${params.orderNumber} is confirmed`;
 
@@ -233,7 +216,6 @@ export const renderOrderEmail = (
         <h2 style="margin:0 0 6px;font-size:15px;color:${GOLD};text-transform:uppercase;letter-spacing:.5px;">Order Summary</h2>
         <table style="width:100%;border-collapse:collapse;">${itemsRows}</table>
         <table style="width:100%;border-collapse:collapse;margin:14px 0 6px;">${summaryRows}</table>
-        ${giftNoteBlock}
 
         <table style="width:100%;border-collapse:collapse;margin-top:26px;">
           <tr>
@@ -307,13 +289,9 @@ export const renderOrderEmail = (
     s.shipping ? `Shipping: ${fmtINR(s.shipping)}` : "",
     s.tax ? `Tax: ${fmtINR(s.tax)}` : "",
     s.discount && Number(s.discount) > 0 ? `Discount: -${fmtINR(s.discount)}` : "",
-    s.giftWrap && Number(s.giftWrap) > 0 ? `Gift wrap & note: +${fmtINR(s.giftWrap)}` : "",
     `${isPrepaid ? "Total paid" : "Total to pay"}: ${fmtINR(
       s.total || params.amount,
     )}`,
-    params.giftNote && params.giftNote.trim()
-      ? `Your gift note: "${params.giftNote.trim()}"`
-      : "",
     `Payment method: ${paymentLabel}`,
     params.razorpayPaymentId ? `Payment ID: ${params.razorpayPaymentId}` : "",
     "",

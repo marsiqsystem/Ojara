@@ -5,10 +5,14 @@
 // dashboard. Read the rules below before changing anything.
 //
 //   • subtotal        — Σ price×qty. The ONLY number allowed to touch money.
-//   • prepaid −₹50    — flat online-payment discount. Client-side, STACKS on top
+//   • prepaid −₹49    — flat online-payment discount. Client-side, STACKS on top
 //                       of any coupon, and is NOT a Wix coupon (Wix can't model a
 //                       stacking flat discount — §8 reconciles it on the order).
-//   • coupon          — validated LIVE by Wix's engine via /api/coupon (the
+//   • offers          — Wix AUTOMATIC discount rules (bracelet + ring 10%, buy 2
+//                       get 1). No code: Wix applies them to the order itself, so
+//                       the bag asks Wix what they're worth (/api/offers,
+//                       useWixOffers). The offer list lives in ./offers.ts.
+//   • coupon         — validated LIVE by Wix's engine via /api/coupon (the
 //                       useLiveCoupon hook). The tiers below are now a FALLBACK
 //                       only: they power the "add ₹X to unlock" nudge and keep the
 //                       two legacy codes working if Wix is ever unreachable. Codes
@@ -17,7 +21,7 @@
 //                       fee struck off. Neither was ever charged, so it was an
 //                       invented saving. Shipping reads a plain "FREE"; don't add
 //                       a shown-then-waived fee back unless it's a real charge.
-//   • total          — max(0, subtotal − couponDiscount − prepaidDiscount).
+//   • total          — max(0, subtotal − offers − couponDiscount − prepaidDiscount).
 //                       THIS is what Razorpay charges.
 //
 // NOTE: since coupons are now validated live against Wix (/api/coupon), you no
@@ -26,11 +30,9 @@
 // code. Wix remains the authority on validity, expiry, minimums and per-buyer use.
 // ============================================================================
 
-/** Flat "pay online" discount. Stacks on any coupon. Not a Wix coupon. */
-export const PREPAID_DISCOUNT = 50;
-
-/** Luxury gift-wrap + handwritten note charge (₹). A real charge on the order. */
-export const GIFT_WRAP_FEE = 149;
+/** Flat "pay online" discount — the poster's "₹49 off on prepaid orders".
+ *  Stacks on any coupon. Not a Wix coupon. */
+export const PREPAID_DISCOUNT = 49;
 
 export type CouponType = "FLAT" | "PERCENT";
 
@@ -43,50 +45,32 @@ export interface CouponTier {
   value: number;
   /** Shopper-facing one-liner for the "unlock" nudge. */
   label: string;
-  /** Extra reward that comes with this step, shown beside the discount. */
-  perk?: string;
 }
 
-// ---- Spend ladder ------------------------------------------------------------
-// "Spend more, save more", applied AUTOMATICALLY in the bag (useAutoTierCoupon) —
-// nobody types a code. Wix allows one coupon per order, so the steps never stack:
-// the bag holds the best step the order qualifies for. Wix stays the authority
-// (minimum, expiry, limits); if it rejects a step, the bag falls back a step.
+// ---- Auto-applied code -------------------------------------------------------
+// The code the bag applies by itself (useAutoTierCoupon), so nobody has to find
+// or type it. Wix allows one coupon per order; a code the shopper types replaces
+// it. Wix stays the authority (limits, expiry): if it refuses the code the bag
+// drops it — quietly in the bag, with a word at checkout once the email is known.
 //
 // These MUST mirror coupons that exist in the Wix dashboard, codes matched
-// case-insensitively. Owner-approved ladder 2026-09-16:
+// case-insensitively. The offers running as of 2026-09-22 (owner's poster):
 //
-// OJAS10 — created in Wix on 2026-07-18: 10% off, minimum order subtotal ₹1,499
-//          (two pieces).
-// OJAS15 — TODO(owner): create in Wix — 15% off, minimum ₹2,499 (three pieces).
-//          Until it exists Wix rejects it and 3-piece bags quietly get OJAS10.
-//          FREE gift wrap at this step is a site rule, not part of the coupon —
-//          see FREE_GIFT_WRAP_MINIMUM (re-checked server-side in /api/checkout).
-// (AKSHAT30 — a Jul 27–Aug 10 2026 30%-off code — was removed after it expired.)
+// WELCOME10 — 10% off, first purchase (Wix: one use per customer, minimum ₹1).
+//             Wix stacks it on top of the automatic bracelet + ring 10%.
+//
+// The old spend ladder (OJAS10 10% @₹1,499 / OJAS15 15% @₹2,499) was never a
+// running offer and is gone. OJAS10 and FOUNDER15 still exist in Wix and work
+// when typed — /api/coupon validates any code live.
 export const COUPON_TIERS: CouponTier[] = [
   {
-    code: "OJAS10",
+    code: "WELCOME10",
     type: "PERCENT",
-    minimum: 1499,
+    minimum: 1,
     value: 0.1,
-    label: "10% off orders over ₹1,499",
-  },
-  {
-    code: "OJAS15",
-    type: "PERCENT",
-    minimum: 2499,
-    value: 0.15,
-    label: "15% off + FREE gift wrap on orders over ₹2,499",
-    perk: "FREE gift wrap",
+    label: "10% off your first order",
   },
 ];
-
-/** Gift wrap is free once the order reaches the top ladder step. */
-export const FREE_GIFT_WRAP_MINIMUM = COUPON_TIERS[COUPON_TIERS.length - 1].minimum;
-
-/** What gift wrap costs on an order with this products subtotal (0 when free / not chosen). */
-export const giftWrapFeeFor = (giftWrap: boolean, subtotal: number): number =>
-  giftWrap && subtotal < FREE_GIFT_WRAP_MINIMUM ? GIFT_WRAP_FEE : 0;
 
 /** Whole-number percent for display, e.g. 0.15 → 15. */
 export const tierPercent = (tier: CouponTier): number => Math.round(tier.value * 100);
@@ -155,8 +139,8 @@ export interface TotalsInput {
   wixReportedDiscount?: number;
   /** Coupon code currently on the cart, if any (used by the mirror fallback). */
   appliedCouponCode?: string;
-  /** Optional gift-wrap charge (₹). A real charge — added on top of the total. */
-  giftWrapFee?: number;
+  /** Wix automatic-offer savings on this cart (₹) — from useWixOffers. */
+  offerDiscount?: number;
   /**
    * Sacred Bundle discount (₹) earned in the checkout upsell. Like the prepaid
    * −₹50 this is NOT a Wix coupon and STACKS on top of one; /api/checkout
@@ -167,12 +151,12 @@ export interface TotalsInput {
 
 export interface Totals {
   subtotal: number;
+  /** Automatic offers (bracelet + ring, buy 2 get 1) that Wix applies itself. */
+  offerDiscount: number;
   couponDiscount: number;
   prepaidDiscount: number;
   /** Sacred Bundle discount folded into the total (0 when none earned). */
   bundleDiscount: number;
-  /** Gift-wrap charge folded into the total (0 when not selected). */
-  giftWrapFee: number;
   /** The real amount charged. Never negative. */
   total: number;
 }
@@ -185,7 +169,7 @@ export const computeTotals = ({
   isPrepaid,
   wixReportedDiscount,
   appliedCouponCode,
-  giftWrapFee = 0,
+  offerDiscount = 0,
   bundleDiscount = 0,
 }: TotalsInput): Totals => {
   const subtotal = cartSubtotal(lines);
@@ -200,16 +184,15 @@ export const computeTotals = ({
 
   const prepaidDiscount = isPrepaid ? PREPAID_DISCOUNT : 0;
   const bundle = Math.max(0, Math.round(bundleDiscount));
-  const wrap = Math.max(0, giftWrapFee);
-  const total =
-    Math.max(0, subtotal - couponDiscount - prepaidDiscount - bundle) + wrap;
+  const offers = Math.max(0, Math.round(offerDiscount));
+  const total = Math.max(0, subtotal - offers - couponDiscount - prepaidDiscount - bundle);
 
   return {
     subtotal,
+    offerDiscount: offers,
     couponDiscount,
     prepaidDiscount,
     bundleDiscount: bundle,
-    giftWrapFee: wrap,
     total,
   };
 };

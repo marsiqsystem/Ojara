@@ -12,23 +12,15 @@ import {
 } from "@/lib/store/useCartStore";
 import { formatPrice } from "@/lib/format";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
-import {
-  FREE_GIFT_WRAP_MINIMUM,
-  giftWrapFeeFor,
-  isTierCode,
-  tierPercent,
-} from "@/lib/commerce/pricing";
+import { isTierCode } from "@/lib/commerce/pricing";
+import { estimateOffers, WELCOME_PERCENT, type OfferNudge } from "@/lib/commerce/offers";
 import { LOW_STOCK_THRESHOLD, PREPAID_ENABLED } from "@/lib/commerce/config";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
-import {
-  useAutoTierCoupon,
-  useAvailableTiers,
-  useCouponAutoRemoveHandler,
-} from "@/lib/commerce/useAutoTierCoupon";
+import { useAutoTierCoupon, useCouponAutoRemoveHandler } from "@/lib/commerce/useAutoTierCoupon";
+import { useWixOffers } from "@/lib/commerce/useWixOffers";
 import { useUpsellSuggestions } from "@/lib/commerce/useUpsellSuggestions";
 import { deliveryWindowLabel } from "@/lib/deliveryEstimate";
-import TierProgress from "@/components/TierProgress";
-import GiftWrapOption from "@/components/GiftWrapOption";
+import OfferProgress from "@/components/OfferProgress";
 import PairItWith from "@/components/PairItWith";
 
 const LockIcon = () => (
@@ -39,10 +31,11 @@ const LockIcon = () => (
 
 /**
  * The bag — rebuilt on the Viora pattern. Opened by every add-to-bag button.
- * Real savings up top, the spend ladder (applied automatically), every piece
- * with its markdown and honest low stock, a warning before a removal costs a
- * discount (plus undo), pieces that unlock the next step, gift wrap, and one
- * pinned checkout button with the real total.
+ * Real savings up top, the running offers (WELCOME10 + Wix's automatic bracelet
+ * + ring / buy 2 get 1, all applied by themselves), every piece with its
+ * markdown and honest low stock, a warning before a removal costs an offer (plus
+ * undo), the piece that unlocks the next offer, and one pinned checkout button
+ * with the real total.
  */
 export default function CartDrawer() {
   const isCartOpen = useCartStore((s) => s.isCartOpen);
@@ -54,7 +47,6 @@ export default function CartDrawer() {
   const cartItemsRaw = useCartStore((s) => s.cartItems);
   const totalPriceRaw = useCartStore(selectTotalPrice);
   const lastAddedId = useCartStore((s) => s.lastAddedId);
-  const giftWrap = useCartStore((s) => s.giftWrap);
   const appliedCoupon = useCartStore((s) => s.appliedCoupon);
   const shopperChoseCoupon = useCartStore((s) => s.shopperChoseCoupon);
   const setShopperChoseCoupon = useCartStore((s) => s.setShopperChoseCoupon);
@@ -64,10 +56,9 @@ export default function CartDrawer() {
   const cartItems = hydrated ? cartItemsRaw : [];
   const subtotal = hydrated ? totalPriceRaw : 0;
 
-  // The spend ladder applies itself — this drawer is always mounted, so it owns
-  // the auto-apply for the whole site.
+  // WELCOME10 applies itself — this drawer is always mounted, so it owns the
+  // auto-apply for the whole site.
   useAutoTierCoupon();
-  const tiers = useAvailableTiers();
 
   const [confirmRemove, setConfirmRemove] = useState<{ id: string; losses: string[] } | null>(null);
   const [undo, setUndo] = useState<CartItem | null>(null);
@@ -98,44 +89,47 @@ export default function CartDrawer() {
     apply: applyCoupon,
     remove: removeCoupon,
   } = useLiveCoupon(couponLines, undefined, useCouponAutoRemoveHandler(toast));
+  // Bracelet + ring / buy 2 get 1 — Wix applies these itself, so ask Wix.
+  const offers = useWixOffers(couponLines);
 
   // ---- Money: only real figures ------------------------------------------
-  const giftWrapFee = giftWrapFeeFor(giftWrap, subtotal);
-  const total = Math.max(0, subtotal + giftWrapFee - couponDiscount);
+  const total = Math.max(0, subtotal - offers.total - couponDiscount);
   // Markdown from Wix's strikethrough prices + the applied offer.
   const mrpSavings = cartItems.reduce(
     (sum, ci) =>
       sum + Math.max(0, (ci.product.originalPrice ?? ci.product.price) - ci.product.price) * ci.quantity,
     0,
   );
-  const totalSavings = mrpSavings + couponDiscount;
-  const next = tiers.find((t) => subtotal < t.minimum);
+  const totalSavings = mrpSavings + offers.total + couponDiscount;
+  const offerLines = cartItems.map((ci) => ({
+    name: ci.product.name,
+    price: ci.product.price,
+    quantity: ci.quantity,
+  }));
   const firstLowStock = cartItems.find(
     (ci) => ci.product.stockCount > 0 && ci.product.stockCount <= LOW_STOCK_THRESHOLD,
   );
 
-  const bagProducts = cartItems.map((ci) => ci.product);
-  const suggestions = useUpsellSuggestions({ subtotal, bag: bagProducts, limit: 4 });
-  const unlocking = suggestions.some((s) => s.unlocksTier);
+  // A row of pieces for every offer within reach (more bracelets → one free, a
+  // ring → 10% off it); relevant picks when none is.
+  const { rails, picks } = useUpsellSuggestions({ bag: cartItems, limit: 6 });
+  const scrollToRail = (n: OfferNudge) =>
+    document.getElementById(`bag-rail-${n.offer}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  // What a removal would cost — only real, computable losses.
+  // What a removal would cost — only real, computable losses: a free bracelet
+  // or ring discount this piece keeps alive.
   const lossesIfRemoved = (ci: CartItem): string[] => {
-    const losses: string[] = [];
-    const after = subtotal - ci.product.price * ci.quantity;
-    const tierAt = (amount: number) => [...tiers].reverse().find((t) => amount >= t.minimum);
-    const now = tierAt(subtotal);
-    const then = tierAt(after);
-    if (now && now.code !== then?.code) {
-      losses.push(
-        then
-          ? `Your ${tierPercent(now)}% OFF drops to ${tierPercent(then)}%`
-          : `Your ${tierPercent(now)}% OFF${couponDiscount > 0 ? ` (${formatPrice(couponDiscount)})` : ""}`,
-      );
-    }
-    if (giftWrap && subtotal >= FREE_GIFT_WRAP_MINIMUM && after < FREE_GIFT_WRAP_MINIMUM) {
-      losses.push("FREE gift wrap");
-    }
-    return losses;
+    if (offers.discounts.length === 0) return [];
+    const now = estimateOffers(offerLines);
+    const after = estimateOffers(offerLines.filter((_, i) => cartItems[i].product.id !== ci.product.id));
+    return [
+      after.freeCount < now.freeCount
+        ? `Your free bracelet — buy 2, get 1 free (${formatPrice(now.free - after.free)} off)`
+        : "",
+      after.comboCount < now.comboCount
+        ? `10% off your ring — bracelet + ring offer (${formatPrice(now.combo - after.combo)} off)`
+        : "",
+    ].filter(Boolean);
   };
 
   const doRemove = (ci: CartItem) => {
@@ -168,7 +162,7 @@ export default function CartDrawer() {
     e.preventDefault();
     const code = promoCode.trim();
     if (!code) return;
-    // A typed code is the shopper's choice — the ladder stops managing the coupon.
+    // A typed code is the shopper's choice — the bag stops auto-applying WELCOME10.
     setShopperChoseCoupon(true);
     const { ok, error } = await applyCoupon(code);
     if (ok) {
@@ -230,7 +224,7 @@ export default function CartDrawer() {
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-midnight-navy/15 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-midnight-navy/15 px-4 sm:px-6 py-4">
           <h2 className="font-heading text-xl font-bold uppercase tracking-[0.2em] text-midnight-navy">
             Your Bag{itemCount > 0 && <span className="ml-2 text-sm font-normal tracking-normal text-midnight-navy/60">({itemCount})</span>}
           </h2>
@@ -248,7 +242,7 @@ export default function CartDrawer() {
 
         {cartItems.length === 0 ? (
           // ---- Empty bag -----------------------------------------------------
-          <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto px-6 py-8">
+          <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6 py-8">
             <div className="text-center">
               <p className="text-4xl" aria-hidden="true">🛍️</p>
               <p className="mt-2 font-heading text-2xl text-midnight-navy">Your bag is empty</p>
@@ -262,7 +256,7 @@ export default function CartDrawer() {
               </Link>
             </div>
             <PairItWith
-              items={suggestions.map((s) => s.product)}
+              items={picks}
               title="Popular right now"
               subtitle=""
               className="mt-10"
@@ -273,20 +267,25 @@ export default function CartDrawer() {
             <div data-lenis-prevent className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {/* Real savings — markdown + the applied offer. */}
               {totalSavings > 0 && (
-                <div className="bg-emerald-50 px-6 py-2.5 text-center">
+                <div className="bg-emerald-50 px-4 sm:px-6 py-2.5 text-center">
                   <p className="text-sm font-bold text-emerald-800">
                     🎉 You&apos;re saving {formatPrice(Math.round(totalSavings))}
                   </p>
                   {appliedCoupon && isTierCode(appliedCoupon) && !shopperChoseCoupon && couponDiscount > 0 && (
                     <p className="text-[0.7rem] font-medium text-emerald-700">
-                      {appliedCoupon} applied for you
+                      {WELCOME_PERCENT}% first-order discount ({appliedCoupon}) applied for you
                     </p>
                   )}
                 </div>
               )}
 
-              <div className="space-y-5 px-6 py-4">
-                <TierProgress subtotal={subtotal} />
+              <div className="space-y-5 px-4 sm:px-6 py-4">
+                <OfferProgress
+                  lines={offerLines}
+                  offers={offers.discounts}
+                  welcomeDiscount={appliedCoupon && isTierCode(appliedCoupon) ? couponDiscount : 0}
+                  onNudge={scrollToRail}
+                />
 
                 {undo && (
                   <div role="status" className="flex items-center justify-between rounded-lg bg-midnight-navy px-3 py-2 text-xs text-ivory">
@@ -390,19 +389,25 @@ export default function CartDrawer() {
                   })}
                 </ul>
 
-                {/* Pieces that close the gap to the next step, else relevant picks. */}
-                <PairItWith
-                  items={suggestions.map((s) => s.product)}
-                  title={
-                    next && unlocking
-                      ? `Add ${formatPrice(Math.ceil(next.minimum - subtotal))} more to unlock ${tierPercent(next)}% OFF`
-                      : "Complete your ritual"
-                  }
-                  subtitle={next && unlocking ? "Any of these gets you there." : ""}
-                  className=""
-                />
-
-                <GiftWrapOption subtotal={subtotal} />
+                {/* A row per offer within reach, else relevant picks. */}
+                {rails.length > 0 ? (
+                  rails.map(({ nudge, products }) => (
+                    <PairItWith
+                      key={nudge.offer}
+                      id={`bag-rail-${nudge.offer}`}
+                      items={products}
+                      title={nudge.message}
+                      subtitle={
+                        nudge.offer === "b2g1"
+                          ? `${nudge.detail} Or tap + on a bracelet in your bag.`
+                          : nudge.detail
+                      }
+                      className="scroll-mt-4"
+                    />
+                  ))
+                ) : (
+                  <PairItWith items={picks} title="Complete your ritual" subtitle="" className="" />
+                )}
 
                 {/* A separate code — offers already apply themselves. */}
                 <div>
@@ -454,20 +459,16 @@ export default function CartDrawer() {
                     <span>Subtotal</span>
                     <span className="tabular-nums">{formatPrice(subtotal)}</span>
                   </div>
+                  {offers.discounts.map((o) => (
+                    <div key={o.name} className="flex justify-between gap-2 font-medium text-emerald-700">
+                      <span className="min-w-0">{o.name}</span>
+                      <span className="shrink-0 tabular-nums">− {formatPrice(o.amount)}</span>
+                    </div>
+                  ))}
                   {couponDiscount > 0 && (
                     <div className="flex justify-between font-medium text-emerald-700">
-                      <span>{isTierCode(appliedCoupon) ? "Offer" : "Coupon"} ({appliedCoupon})</span>
+                      <span>{isTierCode(appliedCoupon) ? "First-order discount" : "Coupon"} ({appliedCoupon})</span>
                       <span className="tabular-nums">− {formatPrice(couponDiscount)}</span>
-                    </div>
-                  )}
-                  {giftWrap && (
-                    <div className="flex justify-between text-midnight-navy/75">
-                      <span>Gift wrap</span>
-                      {giftWrapFee === 0 ? (
-                        <span className="font-semibold text-emerald-700">FREE</span>
-                      ) : (
-                        <span className="tabular-nums">+ {formatPrice(giftWrapFee)}</span>
-                      )}
                     </div>
                   )}
                   <div className="flex justify-between text-midnight-navy/75">
@@ -486,7 +487,7 @@ export default function CartDrawer() {
             </div>
 
             {/* Pinned checkout bar — the real total, always in reach. */}
-            <div className="border-t border-midnight-navy/10 bg-ivory px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.06)]">
+            <div className="border-t border-midnight-navy/10 bg-ivory px-4 sm:px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.06)]">
               {firstLowStock && (
                 <p className="mb-2 text-center text-[0.7rem] font-semibold text-orange-700">
                   ⚠ Only {firstLowStock.product.stockCount} left of {firstLowStock.product.name} — check out to get yours

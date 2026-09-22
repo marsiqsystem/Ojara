@@ -43,11 +43,6 @@ const faqs: FaqItem[] = [
     answer:
       "We don't offer returns or refunds — we offer exchanges. If your piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging, and we'll help you swap it.",
   },
-  {
-    question: "Do you offer gift wrapping?",
-    answer:
-      "Every order arrives thoughtfully wrapped as a gift by default — no extra step required. If you'd like a personal note included, add it at checkout.",
-  },
 ];
 
 export default function FaqPage() {
@@ -56,7 +51,7 @@ export default function FaqPage() {
       {/* FAQPage structured data — the Q&As below are the visible source, so the
           schema and the page content always match (Google requires this). */}
       <JsonLd id="ld-faq" data={faqSchema(faqs)} />
-      <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16 sm:py-24">
         <BackButton fallbackHref="/" />
 
         <header className="mt-10 mb-12 text-center">

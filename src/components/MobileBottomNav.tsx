@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCartStore, selectTotalQuantity } from "@/lib/store/useCartStore";
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { WELCOME_CODE, WELCOME_PERCENT } from "@/lib/commerce/offers";
 
 const SearchOverlay = dynamic(() => import("@/components/SearchOverlay"), { ssr: false });
 
@@ -102,11 +103,10 @@ export default function MobileBottomNav() {
 
   return (
     <>
-      {/* Sticky banner. Was "FLAT ₹50 DISCOUNT ON PREPAID ORDERS" — pulled while
-          prepaid is disabled (see PREPAID_ENABLED in CheckoutModal). Restore it
-          when prepaid comes back. */}
+      {/* Sticky banner — the first-order offer everyone qualifies for (see
+          lib/commerce/offers). */}
       <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] left-0 w-full z-[70] bg-midnight-navy border-t border-champagne-gold/30 text-champagne-gold py-2 text-center text-[10px] sm:text-xs font-semibold tracking-widest uppercase md:hidden">
-        ✦ CASH ON DELIVERY · FREE PAN-INDIA SHIPPING ✦
+        ✦ {WELCOME_PERCENT}% OFF FIRST ORDER · CODE {WELCOME_CODE} ✦
       </div>
 
       <nav

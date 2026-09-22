@@ -1,84 +1,62 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { Product } from "@/lib/mockData";
-import type { CouponTier } from "./pricing";
 import { pickUpsellProducts } from "./bundle";
-import { useAvailableTiers } from "./useAutoTierCoupon";
+import { useCatalog } from "./useCatalog";
+import { bagMix, offerNudges, pieceKind, type OfferNudge } from "./offers";
 
-// One catalogue fetch per page load, shared by the bag and checkout.
-let catalogPromise: Promise<Product[]> | null = null;
-const loadCatalog = (): Promise<Product[]> => {
-  if (!catalogPromise) {
-    catalogPromise = fetch("/api/products")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((list) => (Array.isArray(list) ? (list as Product[]) : []))
-      .catch(() => {
-        catalogPromise = null; // let a later render retry
-        return [];
-      });
-  }
-  return catalogPromise;
-};
+/** One offer the bag is close to, and the pieces that get it there. */
+export interface OfferRail {
+  nudge: OfferNudge;
+  products: Product[];
+}
 
-export interface UpsellSuggestion {
-  product: Product;
-  /** The ladder step this piece alone takes the bag to, if any. */
-  unlocksTier: CouponTier | null;
+export interface UpsellSuggestions {
+  /** One row per offer within reach (buy 2 get 1 → bracelets, bracelet + ring → rings). */
+  rails: OfferRail[];
+  /** Relevant picks for when no offer is in reach (or the bag is empty). */
+  picks: Product[];
 }
 
 /**
  * Pieces worth adding to the bag, best first (the Viora bag/checkout pattern):
- * the cheapest pieces that on their own unlock the next ladder step, then pieces
- * from the same stone / intention family as the bag. In stock only, nothing
- * already in the bag. Empty until the catalogue has loaded.
+ * for every offer the bag is close to, the pieces that complete it — more
+ * bracelets for buy 2 get 1, a ring for bracelet + ring — ranked by the same
+ * stone / intention family as the bag. In stock only, nothing already in the
+ * bag. Empty until the catalogue has loaded.
  */
 export function useUpsellSuggestions({
-  subtotal,
   bag,
   limit,
 }: {
-  /** Products subtotal of the bag (₹). */
-  subtotal: number;
-  /** Products currently in the bag. */
-  bag: Product[];
+  /** Products currently in the bag, one entry per unit. */
+  bag: { product: Product; quantity: number }[];
+  /** Pieces per row. */
   limit: number;
-}): UpsellSuggestion[] {
-  const [catalog, setCatalog] = useState<Product[]>([]);
-  const tiers = useAvailableTiers();
+}): UpsellSuggestions {
+  const catalog = useCatalog();
 
-  useEffect(() => {
-    let alive = true;
-    loadCatalog().then((list) => {
-      if (alive) setCatalog(list);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
+  if (catalog.length === 0) return { rails: [], picks: [] };
 
-  if (catalog.length === 0) return [];
-
-  const next = tiers.find((t) => subtotal < t.minimum) ?? null;
-  const bagIds = bag.map((p) => p.id);
+  const nudges = offerNudges(
+    bagMix(bag.map((b) => ({ name: b.product.name, price: b.product.price, quantity: b.quantity }))),
+  );
+  const bagIds = bag.map((b) => b.product.id);
   // The bag's anchor for relevance: its most expensive piece.
   const primary = bag.reduce<Product | undefined>(
-    (best, p) => (!best || p.price > best.price ? p : best),
+    (best, b) => (!best || b.product.price > best.price ? b.product : best),
     undefined,
   );
 
   // Affinity order over every eligible piece (in stock, not in the bag).
   const ranked = pickUpsellProducts(primary, catalog, bagIds, catalog.length);
 
-  const unlockers = next
-    ? ranked
-        .filter((p) => subtotal + p.price >= next.minimum)
-        .sort((a, b) => a.price - b.price)
-    : [];
-  const rest = ranked.filter((p) => !unlockers.includes(p));
+  const rails = nudges
+    .map((nudge) => ({
+      nudge,
+      products: ranked.filter((p) => pieceKind(p) === nudge.add).slice(0, limit),
+    }))
+    .filter((r) => r.products.length > 0);
 
-  return [...unlockers, ...rest].slice(0, limit).map((product) => ({
-    product,
-    unlocksTier: next && subtotal + product.price >= next.minimum ? next : null,
-  }));
+  return { rails, picks: ranked.slice(0, limit) };
 }
