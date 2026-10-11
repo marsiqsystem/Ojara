@@ -104,8 +104,11 @@ export const useCartStore = create<CartState>()(
       shopperChoseCoupon: false,
       unavailableTierCodes: [],
 
-      addItem: (product) =>
+      addItem: (added) =>
         set((state) => {
+          // A grouped listing card carries every colour (variants) — keep only the piece.
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { variants, ...product } = added;
           const existing = state.cartItems.find(
             (item) => item.product.id === product.id,
           );

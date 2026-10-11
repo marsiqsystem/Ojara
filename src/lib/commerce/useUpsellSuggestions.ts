@@ -5,7 +5,7 @@ import { pickUpsellProducts } from "./bundle";
 import { useCatalog } from "./useCatalog";
 import { BUY2GET1_LIVE, bagMix, offerLineOf, offerNudges, pieceKind, type OfferNudge } from "./offers";
 import { formatPrice } from "@/lib/format";
-import { colourSiblings, lineOf, pieceTypeOf } from "@/lib/lines";
+import { colourSiblings, groupByDesign, lineOf, pieceTypeOf } from "@/lib/lines";
 
 /** One offer the bag is close to, and the pieces that get it there. */
 export interface OfferRail {
@@ -62,7 +62,9 @@ export function useUpsellSuggestions({
   );
 
   // Affinity order over every eligible piece (in stock, not in the bag).
-  const ranked = pickUpsellProducts(primary, catalog, bagIds, catalog.length);
+  // One entry per design; a design already in the bag is offered in another colour.
+  const listing = groupByDesign(catalog.filter((p) => !bagIds.includes(p.id)));
+  const ranked = pickUpsellProducts(primary, listing, bagIds, listing.length);
 
   // Adorn's buy 2 get 1: other colours of the sets already in the bag lead
   // ("Which one should I order? All of them").

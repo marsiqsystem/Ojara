@@ -2,7 +2,7 @@ import { getAllProducts } from "@/lib/catalog";
 import ProductCard from "@/components/ProductCard";
 import ScrollRail from "@/components/ScrollRail";
 
-import { lineOf } from "@/lib/lines";
+import { groupByDesign, lineOf } from "@/lib/lines";
 
 // Pieces whose names read as gifts (love, calm, the moon and pearls), first.
 const GIFT_TERMS = ["love", "rose quartz", "moonstone", "pearl", "amethyst", "citrine", "evil eye", "heart", "pendant", "earring", "set"];
@@ -18,7 +18,7 @@ const GIFT_CEILING = 1000;
  * turns, so a gemstone sits next to a pair of earrings.
  */
 export default async function GiftingSection() {
-  const products = (await getAllProducts()).filter((p) => p.stockCount > 0 && p.price < GIFT_CEILING);
+  const products = groupByDesign(await getAllProducts()).filter((p) => p.stockCount > 0 && p.price < GIFT_CEILING);
   const score = (name: string) => {
     const n = name.toLowerCase();
     const i = GIFT_TERMS.findIndex((t) => n.includes(t));

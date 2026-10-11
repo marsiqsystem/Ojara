@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getAllProducts } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
-import { LINES, lineOf, type Line } from "@/lib/lines";
+import { LINES, groupByDesign, lineOf, type Line } from "@/lib/lines";
 
 /**
  * "Two ways to wear OJARA" — the home page's fork, straight after the trust
@@ -15,7 +15,8 @@ import { LINES, lineOf, type Line } from "@/lib/lines";
  * new line is announced to everyone already shopping, at no cost to them.
  */
 export default async function LineDoors() {
-  const products = await getAllProducts();
+  // Counts designs, not colours.
+  const products = groupByDesign(await getAllProducts());
   const doors = (["intentions", "adorn"] as Line[]).map((key) => {
     const pieces = products.filter((p) => lineOf(p) === key && p.stockCount > 0);
     return {

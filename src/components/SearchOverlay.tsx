@@ -8,7 +8,7 @@ import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { formatPrice } from "@/lib/format";
 import { trackEvent } from "@/lib/analytics/capi";
 import type { Product } from "@/lib/catalog";
-import { fullNameOf } from "@/lib/lines";
+import { fullNameOf, groupByDesign } from "@/lib/lines";
 
 // Trending searches deep-link to the most relevant piece, shown when the field
 // is empty.
@@ -82,7 +82,8 @@ export default function SearchOverlay({
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return products.filter((p) => matches(p, q)).slice(0, 6);
+    // One hit per design: "jasmine" shows the set once; "pink" shows its pink colour.
+    return groupByDesign(products.filter((p) => matches(p, q))).slice(0, 6);
   }, [query, products]);
 
   const trimmed = query.trim();

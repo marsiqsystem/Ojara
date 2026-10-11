@@ -3,7 +3,7 @@ import type { Product } from "@/lib/mockData";
 import ProductCard from "@/components/ProductCard";
 import ScrollRail from "@/components/ScrollRail";
 import Link from "next/link";
-import { LINES, lineOf, pieceTypeOf } from "@/lib/lines";
+import { LINES, groupByDesign, lineOf, pieceTypeOf } from "@/lib/lines";
 
 // Rails by line and piece (lib/lines.ts): the Intentions bracelets and rings,
 // and Adorn's stone jewellery. A pair of earrings used to land in "Bracelets of
@@ -68,7 +68,8 @@ export default async function ProductGrid({
 }: {
   variant?: "rings" | "bracelets" | "both" | "adorn";
 }) {
-  const products = await getAllProducts();
+  // One card per design (colours become swatches on the card).
+  const products = groupByDesign(await getAllProducts());
   const intentions = products.filter((p) => lineOf(p) === "intentions");
   const rings = intentions.filter((p) => pieceTypeOf(p) === "ring");
   const bracelets = intentions.filter((p) => pieceTypeOf(p) !== "ring");

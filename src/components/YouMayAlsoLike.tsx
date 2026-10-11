@@ -1,5 +1,6 @@
 import type { Product } from "@/lib/mockData";
 import { getAllProducts } from "@/lib/catalog";
+import { colourSiblings, groupByDesign } from "@/lib/lines";
 import ProductCard from "@/components/ProductCard";
 import ScrollRail from "@/components/ScrollRail";
 import { ritualPairsFor } from "@/lib/commerce/bundle";
@@ -10,7 +11,10 @@ import { ritualPairsFor } from "@/lib/commerce/bundle";
  * "Complete Your Ritual" rail above already offered, so no piece appears twice.
  */
 export default async function YouMayAlsoLike({ product }: { product: Product }) {
-  const products = await getAllProducts();
+  const catalog = await getAllProducts();
+  // One entry per design, and never this piece's own other colours (the picker has them).
+  const siblings = new Set(colourSiblings(product, catalog).map((p) => p.id));
+  const products = groupByDesign(catalog.filter((p) => p.id === product.id || !siblings.has(p.id)));
   const shown = new Set([product.id, ...ritualPairsFor(product, products).map((p) => p.id)]);
   const currentIndex = products.findIndex((p) => p.id === product.id);
   const start = currentIndex === -1 ? 0 : currentIndex;

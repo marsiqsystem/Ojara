@@ -60,6 +60,9 @@ export interface Product {
   // Adorn only: the colour split off the Wix name ("Hayat Jewelry Set - AQUA"
   // → name "Hayat Jewelry Set", colour "Aqua"). See lib/lines fullNameOf.
   colour?: string;
+  // Listings only (lib/lines groupByDesign): every colour of this design, this
+  // piece included. Never set on a product page's own product.
+  variants?: Product[];
   // The Wix Stores catalog GUID, captured when the product is seeded into Wix.
   wixCatalogItemId?: string;
   // Wix collection GUIDs this product belongs to. Populated only in live mode

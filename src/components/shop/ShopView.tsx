@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Category, Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import { applyShopParams, shopHref, type ShopParams } from "@/lib/shopFilters";
-import { LINES, type Line } from "@/lib/lines";
+import { LINES, groupByDesign, type Line } from "@/lib/lines";
 import ProductCard from "@/components/ProductCard";
 import BackButton from "@/components/BackButton";
 import BrandTags from "@/components/BrandTags";
@@ -67,7 +67,8 @@ export default function ShopView({
   /** Crumbs between "Shop" and this page (e.g. the line on a category page). */
   crumbs?: { label: string; href: string }[];
 }) {
-  const result = applyShopParams(products, params);
+  // One card per design — a set's colours are swatches on it, not separate products.
+  const result = applyShopParams(groupByDesign(products), params);
   const filtered = !!(params.price || params.type || params.line);
   const count = result.items.length;
   const inStock = result.items.filter((p) => p.stockCount > 0).length;

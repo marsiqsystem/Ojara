@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getAllProducts } from "@/lib/catalog";
+import { groupByDesign } from "@/lib/lines";
 import { formatPrice } from "@/lib/format";
 import { summarizeBands } from "@/lib/priceBands";
 
 /** Shop by budget — takes "can I afford it?" off the table (the Viora home pattern). */
 export default async function ShopByPrice() {
-  const bands = summarizeBands(await getAllProducts());
+  const bands = summarizeBands(groupByDesign(await getAllProducts()));
   if (bands.length === 0) return null;
 
   return (

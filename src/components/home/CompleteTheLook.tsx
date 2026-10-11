@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getAllProducts } from "@/lib/catalog";
+import { groupByDesign } from "@/lib/lines";
 import { formatPrice } from "@/lib/format";
 import { lookPairs } from "@/lib/lookPairs";
 import AddBothButton from "./AddBothButton";
@@ -13,7 +14,7 @@ import AddBothButton from "./AddBothButton";
  * is the plain sum. Renders nothing until Adorn has pieces in stock.
  */
 export default async function CompleteTheLook() {
-  const pairs = lookPairs(await getAllProducts(), 3);
+  const pairs = lookPairs(groupByDesign(await getAllProducts()), 3);
   if (pairs.length === 0) return null;
 
   return (

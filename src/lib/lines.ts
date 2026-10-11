@@ -280,6 +280,30 @@ export const designNameOf = (p: Classifiable): string =>
  */
 export const fullNameOf = (p: Classifiable): string => (p.colour ? `${p.name} - ${p.colour}` : p.name);
 
+/**
+ * One entry per design for anything that LISTS products (grids, rails, counts,
+ * search): Wix holds each colour as its own product, but a shopper should meet
+ * "Jasmine Jewelry Set" once, with its colours as swatches (owner, 2026-10-12).
+ * The entry is the first in-stock colour, carrying every colour in `variants`
+ * (catalogue order). Pieces without colours pass through untouched, in place.
+ */
+export const groupByDesign = <P extends Classifiable & { id: string; stockCount: number }>(
+  products: readonly P[],
+): (P & { variants?: P[] })[] => {
+  const groups = new Map<string, P[]>();
+  for (const p of products) {
+    const key = colourLabelOf(p) ? `design:${designNameOf(p).toLowerCase()}` : `id:${p.id}`;
+    const list = groups.get(key);
+    if (list) list.push(p);
+    else groups.set(key, [p]);
+  }
+  return [...groups.values()].map((list) => {
+    if (list.length === 1) return list[0];
+    const lead = list.find((p) => p.stockCount > 0) ?? list[0];
+    return { ...lead, variants: list };
+  });
+};
+
 /** Every colour of this piece's design (itself included), or [] when it has none. */
 export const colourSiblings = <P extends Classifiable & { id: string }>(product: P, catalog: readonly P[]): P[] => {
   if (!colourLabelOf(product)) return [];

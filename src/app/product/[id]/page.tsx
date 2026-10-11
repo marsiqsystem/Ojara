@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllProducts, getCategories, getCategoryBySlug, getProductById } from "@/lib/catalog";
-import { LINES, OCCASIONS, colourLabelOf, colourSiblings, fullNameOf, lineOf, pieceTypeInfo, pieceTypeOf } from "@/lib/lines";
+import { LINES, OCCASIONS, colourLabelOf, colourSiblings, fullNameOf, groupByDesign, lineOf, pieceTypeInfo, pieceTypeOf } from "@/lib/lines";
 import Image from "next/image";
 import { crossLinePicks } from "@/lib/lookPairs";
 import { products, hasSpecificIntention } from "@/lib/mockData";
@@ -213,12 +213,15 @@ export default async function ProductDetailPage({
   // "Complete your ritual" (Intentions) / "Wear it with" (Adorn) — pieces
   // from the same line, same stone / colour family first.
   const catalog = await getAllProducts();
-  const pairs = ritualPairsFor(product, catalog);
   // Adorn designs come in several colours, each its own Wix product.
   const colours = colourSiblings(product, catalog);
+  // Rails list one entry per design, and never this piece's other colours
+  // (the picker above has them).
+  const listing = groupByDesign(catalog.filter((p) => !colours.some((c) => c.id === p.id && c.id !== product.id)));
+  const pairs = ritualPairsFor(product, listing);
   const ownColour = colourLabelOf(product);
   // "Complete the look" — the other line, colour-matched (lib/lookPairs).
-  const lookPicks = crossLinePicks(product, catalog, 6);
+  const lookPicks = crossLinePicks(product, listing, 6);
   // Bracelet + ring offer: the other kind of piece, best matches first, for the
   // row "Browse rings / bracelets" opens inside "Offers for you". Adorn has none.
   const comboKind = pieceKind(product) === "ring" ? "bracelet" : "ring";
@@ -226,7 +229,7 @@ export default async function ProductDetailPage({
     ? []
     : pickUpsellProducts(
         product,
-        catalog.filter((p) => pieceKind(p) === comboKind),
+        listing.filter((p) => pieceKind(p) === comboKind),
         [product.id],
         12,
       );
