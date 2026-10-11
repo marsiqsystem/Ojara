@@ -42,6 +42,7 @@ export default function ShippingReturnsPage() {
           body: [
             "We do not offer returns or refunds. If your piece isn't the right fit, you may request an exchange within 48 hours of delivery. Items must be unused and in their original packaging.",
             "To request an exchange, email ojara.jewel@gmail.com with your order number and a photo within 48 hours of delivery, and we'll guide you through the process.",
+            "Earrings and jewellery sets (OJARA Adorn): for hygiene, these can't be exchanged for a change of mind. If one arrives damaged or isn't what you ordered, email us within 48 hours of delivery with your order number and unboxing video and we'll replace it at no cost.",
           ],
         },
         {

@@ -1,6 +1,17 @@
 import { WIX_ENABLED } from "./commerce/config";
 import { matchesIntentionCollection } from "./commerce/bundle";
 import {
+  OCCASIONS,
+  PIECE_TYPE_INFO,
+  classifyLine,
+  classifyOccasions,
+  classifyPieceType,
+  colourOf,
+  lineOf,
+  type Line,
+} from "./lines";
+import { ADORN_PREVIEW_ON, ADORN_PREVIEW_PRODUCTS } from "./adornPreview";
+import {
   products as mockProducts,
   categories as mockCategories,
   getProductById as _getProductById,
@@ -99,8 +110,27 @@ const decodeEntities = (text: string): string =>
     return NAMED_ENTITIES[code.toLowerCase()] ?? match;
   });
 
+/**
+ * Stamp a product with its line, piece type and occasions (lib/lines.ts), read
+ * from its Wix collection slugs and its name.
+ */
+const withLine = <P extends Product>(product: P, collectionSlugs: readonly string[] = []): P => {
+  const pieceType = classifyPieceType(product.name, collectionSlugs);
+  const line = classifyLine(product.name, pieceType, collectionSlugs);
+  // Adorn: "Hayat Jewelry Set - AQUA" shows as "Hayat Jewelry Set" with the
+  // colour on the picker (owner, 2026-10-11). Orders still get both (fullNameOf).
+  const split = line === "adorn" && !product.colour ? colourOf(product.name) : undefined;
+  return {
+    ...product,
+    ...(split ? { name: split.design, colour: split.colour } : {}),
+    pieceType,
+    line,
+    occasions: line === "adorn" ? classifyOccasions(product.name, collectionSlugs) : [],
+  };
+};
+
 // Convert a Wix product to our Product interface
-function mapWixProduct(p: WixRawProduct): Product {
+function mapWixProduct(p: WixRawProduct, slugById: Record<string, string> = {}): Product {
   // Find matching mock product to preserve metadata (intentions, benefits, type, etc.)
   const slug = p.slug || "";
   const mockP = mockProducts.find((mp) => mp.id === slug || mp.wixCatalogItemId === p.id);
@@ -164,7 +194,8 @@ function mapWixProduct(p: WixRawProduct): Product {
         ? mockP.originalPrice
         : undefined;
 
-  return {
+  const collectionIds = p.collectionIds || [];
+  return withLine({
     id: slug || p.id,
     name: p.name || "",
     price: Number(price),
@@ -184,8 +215,8 @@ function mapWixProduct(p: WixRawProduct): Product {
     isBundle: mockP ? mockP.isBundle : false,
     wixCatalogItemId: p.id,
     // Wix-only; carried so getProductsByCategory can filter by collection.
-    collectionIds: p.collectionIds || [],
-  };
+    collectionIds,
+  }, collectionIds.map((id) => slugById[id]).filter(Boolean));
 }
 
 // Single cached read of the whole catalog. Everything below filters this in
@@ -223,20 +254,61 @@ const fetchWixProductsRaw = async (): Promise<WixRawProduct[]> => {
   return body.products ?? [];
 };
 
+// Every Wix collection, cached like the products. Products only carry
+// collection ids; the slugs are what tell lib/lines.ts "adorn", "earrings"…
+const fetchWixCollectionsRaw = async (): Promise<WixRawCollection[]> => {
+  const res = await fetch("https://www.wixapis.com/stores-reader/v1/collections/query", {
+    method: "POST",
+    headers: WIX_HEADERS(),
+    body: JSON.stringify({ query: {} }),
+    next: { revalidate: CATALOG_REVALIDATE },
+  });
+  if (!res.ok) {
+    console.error("Wix collections query failed:", res.status, await res.text());
+    return [];
+  }
+  const body = await res.json();
+  return body.collections ?? [];
+};
+
+const collectionSlugsById = async (): Promise<Record<string, string>> => {
+  try {
+    const cols = await fetchWixCollectionsRaw();
+    return Object.fromEntries(cols.filter((c) => c.slug).map((c) => [c.id, c.slug as string]));
+  } catch {
+    return {};
+  }
+};
+
+const mockCatalog = (): Product[] => mockProducts.map((p) => withLine(p));
+
+/**
+ * Local preview: sample Adorn pieces after the real catalogue, only while Wix
+ * has no Adorn piece of its own (lib/adornPreview.ts — never on Vercel).
+ */
+const withPreview = (products: Product[]): Product[] =>
+  ADORN_PREVIEW_ON && !products.some((p) => lineOf(p) === "adorn")
+    ? [...products, ...ADORN_PREVIEW_PRODUCTS.map((p) => withLine(p))]
+    : products;
+
 export const getAllProducts = async (): Promise<Product[]> => {
   if (!WIX_ENABLED) {
-    return mockProducts;
+    return withPreview(mockCatalog());
   }
 
   try {
-    const items = await fetchWixProductsRaw();
-    if (!items.length) return mockProducts;
-    return items.map(mapWixProduct);
+    const [items, slugById] = await Promise.all([fetchWixProductsRaw(), collectionSlugsById()]);
+    if (!items.length) return withPreview(mockCatalog());
+    return withPreview(items.map((p) => mapWixProduct(p, slugById)));
   } catch (e) {
     console.error("Wix fetch failed, falling back to mock catalog:", e);
-    return mockProducts;
+    return withPreview(mockCatalog());
   }
 };
+
+/** One line's pieces, in catalogue order. */
+export const getProductsByLine = async (line: Line): Promise<Product[]> =>
+  (await getAllProducts()).filter((p) => lineOf(p) === line);
 
 const ALLOWED_COLLECTIONS = [
   "all-products",
@@ -270,26 +342,17 @@ const fetchCollectionImages = async (): Promise<Record<string, string>> => {
   return byCollection;
 };
 
-export const getCategories = async (): Promise<Category[]> => {
+// The Intentions categories: the owner's Wix intention collections.
+const intentionCategories = async (): Promise<Category[]> => {
   if (!WIX_ENABLED) {
     return mockCategories.filter((c) => ALLOWED_COLLECTIONS.includes(c.slug));
   }
 
   try {
-    const res = await fetch("https://www.wixapis.com/stores-reader/v1/collections/query", {
-      method: "POST",
-      headers: WIX_HEADERS(),
-      body: JSON.stringify({ query: {} }),
-      next: { revalidate: CATALOG_REVALIDATE },
-    });
-
-    const body = await res.json();
-    if (!res.ok) {
-      console.error("Wix fetch collections failed:", JSON.stringify(body));
+    const rawItems = await fetchWixCollectionsRaw();
+    if (!rawItems.length) {
       return mockCategories.filter((c) => ALLOWED_COLLECTIONS.includes(c.slug));
     }
-
-    const rawItems = body.collections || [];
     const items: WixRawCollection[] = rawItems.filter((col: WixRawCollection) =>
       ALLOWED_COLLECTIONS.includes(col.slug ?? ""),
     );
@@ -334,14 +397,84 @@ export const getCategories = async (): Promise<Category[]> => {
   }
 };
 
+// Adorn pages, built from the catalogue rather than Wix collections, so a new
+// pair of earrings gets an "Earrings" page the moment it's added — no setup.
+const ADORN_TAGLINES: Partial<Record<string, string>> = {
+  earrings: "Studs for every day, jhumkas for every festival — stone-set earrings, light on the ears and on the wallet.",
+  necklace: "Fine chains, chokers and statement necklaces, set with stones that catch the light.",
+  pendant: "One stone on a fine chain — the easiest gift there is.",
+  set: "Necklace and earrings, already matched — the whole look in one order.",
+  ring: "Solitaires and cocktail rings that catch every light.",
+  bracelet: "Stone-set bracelets for a little sparkle at the wrist.",
+};
+
+const adornCategories = (products: Product[]): Category[] => {
+  const adorn = products.filter((p) => lineOf(p) === "adorn");
+  const cover = (list: Product[]) => (list.find((p) => p.stockCount > 0) ?? list[0])?.image;
+
+  // Earrings first — the most-bought stone-jewellery piece, and the easiest first buy.
+  const order = ["earrings", "set", "necklace", "pendant", "ring", "bracelet", "bangle", "anklet", "nose-pin"];
+  const types = [...PIECE_TYPE_INFO].sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  const byType = types.flatMap((t): Category[] => {
+    const list = adorn.filter((p) => p.pieceType === t.key);
+    if (!list.length) return [];
+    // "rings" / "bracelets" are the Intentions pages; Adorn's own get a prefix.
+    const slug = t.key === "ring" || t.key === "bracelet" ? `adorn-${t.slug}` : t.slug;
+    return [
+      {
+        slug,
+        label: t.plural,
+        title: `Stone ${t.plural}`,
+        tagline: ADORN_TAGLINES[t.key] ?? `Stone-set ${t.plural.toLowerCase()} from OJARA Adorn.`,
+        group: "adorn",
+        image: cover(list),
+        pieceType: t.key,
+      },
+    ];
+  });
+
+  // Occasion pages only once there are enough pieces to fill one.
+  const byOccasion = OCCASIONS.flatMap((o): Category[] => {
+    const list = adorn.filter((p) => p.occasions?.includes(o.key));
+    if (list.length < 2) return [];
+    return [
+      {
+        slug: `${o.key}-jewellery`,
+        label: o.label,
+        title: `${o.label} Jewellery`,
+        tagline: o.blurb,
+        group: "adorn",
+        image: cover(list),
+        occasion: o.key,
+      },
+    ];
+  });
+
+  return [...byType, ...byOccasion];
+};
+
+/** Intentions categories (Wix collections), then Adorn's piece and occasion pages. */
+export const getCategories = async (): Promise<Category[]> => {
+  const [intentions, products] = await Promise.all([intentionCategories(), getAllProducts()]);
+  return [...intentions, ...adornCategories(products)];
+};
+
 export const getCategoryBySlug = async (slug: string): Promise<Category | undefined> => {
   const list = await getCategories();
   return list.find((category) => category.slug === slug);
 };
 
+// A mock product, or (local preview only) a sample Adorn piece.
+const localProductById = (id: string): Product | undefined => {
+  const mock = _getProductById(id);
+  if (mock) return withLine(mock);
+  const sample = ADORN_PREVIEW_ON ? ADORN_PREVIEW_PRODUCTS.find((p) => p.id === id) : undefined;
+  return sample ? withLine(sample) : undefined;
+};
+
 export const getProductById = async (id: string): Promise<Product | undefined> => {
   if (!WIX_ENABLED) {
-    return _getProductById(id);
+    return localProductById(id);
   }
 
   try {
@@ -350,16 +483,29 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
     const items = await fetchWixProductsRaw();
     const hit =
       items.find((p) => p.slug === id) ?? items.find((p) => p.id === id);
-    return hit ? mapWixProduct(hit) : _getProductById(id);
+    return hit ? mapWixProduct(hit, await collectionSlugsById()) : localProductById(id);
   } catch (e) {
     console.error(`Wix product fetch failed for ${id}, falling back:`, e);
-    return _getProductById(id);
+    return localProductById(id);
   }
 };
 
 export const getProductsByCategory = async (category: Category): Promise<Product[]> => {
-  const all = await getAllProducts();
-  
+  const catalog = await getAllProducts();
+
+  if (category.group === "adorn") {
+    return catalog.filter(
+      (p) =>
+        lineOf(p) === "adorn" &&
+        (!category.pieceType || p.pieceType === category.pieceType) &&
+        (!category.occasion || !!p.occasions?.includes(category.occasion)),
+    );
+  }
+
+  // Intentions pages list Intentions pieces only — an "Evil Eye AD Bracelet"
+  // matches the protection stones by name but is fashion jewellery.
+  const all = catalog.filter((p) => lineOf(p) === "intentions");
+
   // Wix collection members first (the owner's curation), then pieces whose stones
   // match the intention. The Wix intention collections held one piece each
   // (2026-09-16), so the category pages the home page links to were near-empty.

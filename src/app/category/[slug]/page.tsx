@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { categories } from "@/lib/mockData";
 import { getCategories, getCategoryBySlug, getProductsByCategory } from "@/lib/catalog";
-import { parseShopParams } from "@/lib/shopFilters";
+import { parseShopParams, type RawShopParams } from "@/lib/shopFilters";
+import { LINES } from "@/lib/lines";
 import ShopView from "@/components/shop/ShopView";
 
 // Prerender a static page for every intention and every product type.
@@ -41,7 +42,7 @@ export default async function CategoryPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ sort?: string; price?: string; type?: string }>;
+  searchParams: Promise<RawShopParams>;
 }) {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
@@ -55,17 +56,30 @@ export default async function CategoryPage({
     getCategories(),
   ]);
 
+  // Each category belongs to one line; its pills stay within that line.
+  const line = category.group === "adorn" ? LINES.adorn : LINES.intentions;
+  const sameLine = (group: string) => (group === "adorn") === (line.key === "adorn");
+
   return (
     <ShopView
       basePath={`/category/${slug}`}
-      eyebrow={category.group === "intention" ? "Shop by intention" : "Shop by stone"}
+      line={line.key}
+      crumbs={[{ label: line.name, href: line.href }]}
+      eyebrow={
+        line.key === "adorn"
+          ? `OJARA Adorn · ${category.occasion ? "Shop by occasion" : "Stone jewellery"}`
+          : category.group === "intention"
+            ? "OJARA Intentions · Shop by intention"
+            : "OJARA Intentions · Shop by stone"
+      }
       title={category.label}
       intro={category.tagline}
       products={products}
-      categories={allCategories.filter((c) => c.slug !== "all-products")}
+      categories={allCategories.filter((c) => c.slug !== "all-products" && sameLine(c.group))}
       activeSlug={category.slug}
       params={parseShopParams(await searchParams)}
-      categoryName={category.label}
+      // Adorn cards badge by occasion; only Intentions falls back to the page name.
+      categoryName={line.key === "adorn" ? undefined : category.label}
     />
   );
 }

@@ -16,7 +16,7 @@ export default async function ShopByPrice() {
         <h2 id="shop-by-price" className="mt-2 font-heading text-3xl text-midnight-navy sm:text-4xl">
           Find your piece at your price
         </h2>
-        <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3">
+        <ul className={`mt-6 grid grid-cols-2 gap-3 sm:gap-5 ${bands.length >= 4 ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
           {bands.map(({ band, count, fromPrice, image }) => (
             <li key={band.key}>
               <Link

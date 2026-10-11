@@ -1,4 +1,5 @@
 import { getAllProducts } from "@/lib/catalog";
+import { colourLabelOf, fullNameOf, lineOf, pieceTypeInfo, pieceTypeOf, type Line, type PieceType } from "@/lib/lines";
 import {
   SITE_URL,
   SITE_NAME,
@@ -29,8 +30,25 @@ import {
 
 export const revalidate = 3600; // rebuild hourly
 
-const GOOGLE_PRODUCT_CATEGORY =
-  "Apparel & Accessories > Jewelry > Bracelets";
+// Google's taxonomy per piece (lib/lines). Was "Bracelets" for every item,
+// which filed the rings — and would have filed earrings — as bracelets.
+const GOOGLE_CATEGORY: Record<PieceType, string> = {
+  bracelet: "Apparel & Accessories > Jewelry > Bracelets",
+  bangle: "Apparel & Accessories > Jewelry > Bracelets",
+  ring: "Apparel & Accessories > Jewelry > Rings",
+  earrings: "Apparel & Accessories > Jewelry > Earrings",
+  necklace: "Apparel & Accessories > Jewelry > Necklaces",
+  pendant: "Apparel & Accessories > Jewelry > Charms & Pendants",
+  set: "Apparel & Accessories > Jewelry > Jewelry Sets",
+  anklet: "Apparel & Accessories > Jewelry > Anklets",
+  "nose-pin": "Apparel & Accessories > Jewelry > Body Jewelry",
+};
+
+/** "Intentions > Gemstone Bracelets" / "Adorn > Stone Earrings" — feeds Meta product sets too. */
+const productTypeFor = (p: { name: string; line?: Line; pieceType?: PieceType }) => {
+  const type = pieceTypeInfo(pieceTypeOf(p)).plural;
+  return lineOf(p) === "adorn" ? `Adorn > Stone ${type}` : `Intentions > Gemstone ${type}`;
+};
 
 // Wix product descriptions arrive as HTML; the catalog strips the tags but leaves
 // entities like &nbsp;. Decode the common ones first so the feed doesn't show a
@@ -101,7 +119,7 @@ export async function GET() {
 
       return `    <item>
       <g:id>${escapeXml(id)}</g:id>
-      <title>${escapeXml(p.name)}</title>
+      <title>${escapeXml(fullNameOf(p))}</title>${colourLabelOf(p) ? `\n      <g:color>${escapeXml(colourLabelOf(p)!)}</g:color>` : ""}
       <description>${description}</description>
       <link>${escapeXml(link)}</link>
       <g:image_link>${escapeXml(mainImage)}</g:image_link>${extraImages
@@ -111,8 +129,9 @@ export async function GET() {
       <g:availability>${availability}</g:availability>
       <g:price>${money(priceValue)}</g:price>${salePriceTag}
       <g:brand>${escapeXml(SITE_NAME)}</g:brand>
-      <g:google_product_category>${escapeXml(GOOGLE_PRODUCT_CATEGORY)}</g:google_product_category>
-      <g:product_type>Gemstone Bracelets</g:product_type>
+      <g:google_product_category>${escapeXml(GOOGLE_CATEGORY[pieceTypeOf(p)])}</g:google_product_category>
+      <g:product_type>${escapeXml(productTypeFor(p))}</g:product_type>
+      <g:custom_label_0>${lineOf(p)}</g:custom_label_0>
       <g:identifier_exists>no</g:identifier_exists>
       <g:shipping>
         <g:country>${COMMERCE_FACTS.shippingCountry}</g:country>

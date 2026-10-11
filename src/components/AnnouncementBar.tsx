@@ -12,7 +12,8 @@ const ROTATE_MS = 4000;
 
 const STANDING_MESSAGES = [
   "Free delivery across India · Cash on Delivery",
-  "100% original lab-certified crystals",
+  "Ships same day when you order by 8 pm",
+  "Lab-certified natural gemstones · Intentions",
 ];
 
 export default function AnnouncementBar() {

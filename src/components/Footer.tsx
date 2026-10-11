@@ -86,8 +86,8 @@ export default function Footer() {
               </p>
             </div>
             <p className="mt-4 text-sm leading-6 text-champagne-gold/90">
-              Natural crystal bracelets, cleansed and charged — worn as a daily
-              reminder of your intention.
+              Natural gemstone bracelets for what you carry, and stone jewellery
+              for how you shine.
             </p>
 
             {/* Social */}

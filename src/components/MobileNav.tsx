@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { toast } from "sonner";
 import type { Category } from "@/lib/catalog";
+import { LINES } from "@/lib/lines";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 
@@ -72,6 +73,14 @@ export default function MobileNav() {
     toast.success(`✦ ${label} unlocking for your account soon.`, {
       style: { background: "#071A47", color: "#F7F3EB", border: "none" },
     });
+
+  const shopLines = [
+    {
+      line: LINES.intentions,
+      items: categories.filter((c) => c.group !== "adorn" && c.slug !== "all-products"),
+    },
+    { line: LINES.adorn, items: categories.filter((c) => c.group === "adorn") },
+  ];
 
   // Primary destinations, in Viora's order.
   const primaryLinks = [
@@ -211,6 +220,48 @@ export default function MobileNav() {
         </div>
 
         <div data-lenis-prevent className="flex-1 overflow-y-auto">
+          {/* Shop first — the two lines, each with its own pages. Shoppers
+              open the menu to find something; the brand pages can wait. */}
+          <div className="space-y-3 border-b border-champagne-gold/25 px-4 py-4">
+            {shopLines.map(({ line, items }) => (
+              <div key={line.key} className="rounded-2xl bg-midnight-navy p-4 text-ivory">
+                <Link href={line.href} prefetch onClick={close} className="flex items-center justify-between gap-3">
+                  <span>
+                    <span className="block font-heading text-xl text-champagne-gold">{line.name}</span>
+                    <span className="block text-[0.7rem] leading-snug text-ivory/70">{line.descriptor}</span>
+                  </span>
+                  <span aria-hidden="true" className="text-champagne-gold">→</span>
+                </Link>
+                {items.length > 0 ? (
+                  <ul className="mt-3 flex flex-wrap gap-1.5">
+                    {items.map((category) => (
+                      <li key={category.slug}>
+                        <Link
+                          href={`/category/${category.slug}`}
+                          prefetch
+                          onClick={close}
+                          className="block rounded-full border border-champagne-gold/40 px-3 py-1.5 text-xs text-ivory/90 transition-colors hover:bg-champagne-gold hover:text-midnight-navy"
+                        >
+                          {category.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-champagne-gold/90">Coming soon — tap to get notified.</p>
+                )}
+              </div>
+            ))}
+            <Link
+              href="/collection"
+              prefetch
+              onClick={close}
+              className="block text-center text-xs font-semibold uppercase tracking-[0.2em] text-midnight-navy/70 hover:text-champagne-gold"
+            >
+              Shop everything →
+            </Link>
+          </div>
+
           {/* Primary + action rows */}
           <ul className="px-2 py-3">
             {primaryLinks.map((item) => (
@@ -242,26 +293,6 @@ export default function MobileNav() {
             ))}
           </ul>
 
-          {/* Collections */}
-          <div className="border-t border-champagne-gold/25 px-5 py-5">
-            <p className="mb-2 text-[0.65rem] uppercase tracking-[0.3em] text-midnight-navy/40">
-              Collections
-            </p>
-            <ul>
-              {categories.map((category) => (
-                <li key={category.slug}>
-                  <Link
-                    href={`/category/${category.slug}`}
-                    prefetch
-                    onClick={close}
-                    className="block py-2.5 text-sm text-midnight-navy/80 transition-colors hover:text-champagne-gold"
-                  >
-                    {category.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
             </div>
           </>,

@@ -59,7 +59,7 @@ export default function MobileBottomNav() {
       id: "shop",
       label: "Shop",
       href: "/collection",
-      match: (p) => p === "/collection" || p.startsWith("/category/"),
+      match: (p) => p === "/collection" || p === "/intentions" || p === "/adorn" || p.startsWith("/category/"),
       icon: (active) => (
         <svg {...iconProps} className={active ? "text-champagne-gold" : "text-midnight-navy"}>
           <rect x="3" y="3" width="7" height="7" rx="1.5" />

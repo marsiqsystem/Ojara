@@ -9,17 +9,32 @@ export const metadata: Metadata = {
   title: "FAQ",
   alternates: { canonical: "/faq" },
   description:
-    "Answers to common questions about OJARA crystals, orders, and care.",
+    "Answers to common questions about OJARA gemstones and stone jewellery, orders, and care.",
 };
 
 const faqs: FaqItem[] = [
   {
-    question: "Are your crystals genuine and ethically sourced?",
+    question: "What's the difference between Intentions and Adorn?",
     answer:
-      "Always. Every OJARA piece is a natural stone, sourced through trusted partners who honour fair, responsible mining practices. Each one is authenticated before it reaches you.",
+      "OJARA has two lines. Intentions are natural gemstone bracelets and rings, each worn for what its stone has long stood for. Adorn is stone jewellery — necklace sets with matching earrings, worn for how they look. Both go in the same bag, with free delivery and Cash on Delivery.",
   },
   {
-    question: "What does it mean that pieces are 'cleansed and charged'?",
+    question: "Are your Intentions crystals genuine and ethically sourced?",
+    answer:
+      "Always. Every Intentions piece is a natural stone, sourced through trusted partners who honour fair, responsible mining practices. Each one is authenticated before it reaches you.",
+  },
+  {
+    question: "Are Adorn stones natural gemstones?",
+    answer:
+      "No — and we say so on every Adorn page. Adorn is stone jewellery set with sparkling set stones, not natural gemstones. Where a piece's materials are listed, you'll find them under Product details; for anything else, write to ojara.jewel@gmail.com.",
+  },
+  {
+    question: "How do I care for Adorn jewellery?",
+    answer:
+      "Put it on last — after perfume, hairspray and lotion — and take it off first. Keep it away from water and sweat, wipe it with a soft dry cloth after wearing, and store each piece on its own so the stones don't scratch and the finish stays bright.",
+  },
+  {
+    question: "What does it mean that Intentions pieces are 'cleansed and charged'?",
     answer:
       "Before shipping, each piece is cleared of residual energy and set with intention — traditionally through sage smoke, sound, or moonlight — so it arrives ready to work with you rather than carrying the energy of everyone who handled it before.",
   },
@@ -41,7 +56,7 @@ const faqs: FaqItem[] = [
   {
     question: "What is your exchange policy?",
     answer:
-      "We don't offer returns or refunds — we offer exchanges. If your piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging, and we'll help you swap it.",
+      "We don't offer returns or refunds — we offer exchanges. If your piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging, and we'll help you swap it. Earrings and jewellery sets (OJARA Adorn) are the exception: for hygiene they can't be exchanged for a change of mind, but if one arrives damaged or isn't what you ordered, tell us within 48 hours with your unboxing video and we'll replace it.",
   },
 ];
 

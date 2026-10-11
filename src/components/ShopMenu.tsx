@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Category } from "@/lib/catalog";
+import { LINES } from "@/lib/lines";
 
 // Hover to open on pointer devices, click/Enter on touch and keyboard. Closing
 // is deliberately forgiving: a short delay on mouseleave so a diagonal path from
@@ -12,6 +13,8 @@ const CLOSE_DELAY_MS = 120;
 export default function ShopMenu() {
   const [open, setOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  // "Coming soon" only once we KNOW Adorn is empty — never in the first HTML.
+  const [loaded, setLoaded] = useState(false);
   // Horizontal nudge (px) applied on top of the centred position so the panel
   // stays fully on-screen on narrow windows. 0 on wide screens, so the layout is
   // identical to the original centred-under-SHOP look there.
@@ -41,6 +44,7 @@ export default function ShopMenu() {
         if (res.ok) {
           const list = await res.json();
           setCategories(list);
+          setLoaded(true);
         }
       } catch (e) {
         console.error("Failed to load categories in ShopMenu:", e);
@@ -101,6 +105,20 @@ export default function ShopMenu() {
     // categories affects the panel's width once loaded; re-clamp then.
   }, [open, categories]);
 
+  // "All Products" is the shop-all page, linked in the footer row.
+  const columns = [
+    {
+      line: LINES.intentions,
+      // By piece first (the commonest way in), then by intention.
+      items: [
+        { slug: "", label: "Bracelets", href: `${LINES.intentions.href}?type=bracelets` },
+        { slug: "", label: "Rings", href: `${LINES.intentions.href}?type=rings` },
+        ...categories.filter((c) => c.group !== "adorn" && c.slug !== "all-products"),
+      ],
+    },
+    { line: LINES.adorn, items: categories.filter((c) => c.group === "adorn") },
+  ];
+
   return (
     <div
       ref={wrapperRef}
@@ -151,39 +169,78 @@ export default function ShopMenu() {
             open ? "0px" : "-4px"
           })`,
         }}
-        className={`absolute left-1/2 top-full z-[100] w-[320px] max-w-[calc(100vw-1.5rem)] pt-4 transition-[opacity,transform] duration-300 ease-out ${
+        className={`absolute left-1/2 top-full z-[100] w-[560px] max-w-[calc(100vw-1.5rem)] pt-4 transition-[opacity,transform] duration-300 ease-out ${
           open ? "visible opacity-100" : "invisible opacity-0"
         }`}
       >
         <div className="rounded-2xl border border-champagne-gold/30 bg-midnight-navy/98 p-6 shadow-2xl shadow-black/40 backdrop-blur-sm">
-          <div>
-            <p className="mb-4 text-[0.65rem] uppercase tracking-[0.35em] text-champagne-gold/90">
-              Shop by Collection
-            </p>
-            <ul className="space-y-1">
-              {categories.map((category) => (
-                <li key={category.slug}>
-                  <Link
-                    href={`/category/${category.slug}`}
-                    prefetch
-                    onClick={() => setOpen(false)}
-                    className="block rounded-lg px-3 py-2 text-sm tracking-wide text-ivory transition-colors duration-300 ease-out hover:bg-champagne-gold/10 hover:text-champagne-gold"
-                  >
-                    ✦ {category.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          {/* Two lines, side by side: what it means / how it looks. Adorn's
+              column lists its piece and occasion pages once it has pieces;
+              before that it says it's coming, so the line is announced. */}
+          <div className="grid grid-cols-2 gap-6">
+            {columns.map((col) => (
+              <div key={col.line.key}>
+                <Link
+                  href={col.line.href}
+                  prefetch
+                  onClick={() => setOpen(false)}
+                  className="group block"
+                >
+                  <span className="block font-heading text-xl text-champagne-gold group-hover:text-ivory">
+                    {col.line.name}
+                  </span>
+                  <span className="mt-0.5 block text-[0.68rem] leading-snug text-ivory/60">
+                    {col.line.descriptor}
+                  </span>
+                </Link>
+                {col.items.length > 0 ? (
+                  <ul className="mt-3 space-y-0.5">
+                    {col.items.map((category) => (
+                      <li key={category.slug || category.label}>
+                        <Link
+                          href={"href" in category && category.href ? category.href : `/category/${category.slug}`}
+                          prefetch
+                          onClick={() => setOpen(false)}
+                          className="block rounded-lg px-2 py-1.5 text-sm tracking-wide text-ivory transition-colors duration-300 ease-out hover:bg-champagne-gold/10 hover:text-champagne-gold"
+                        >
+                          {category.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : loaded ? (
+                  <p className="mt-3 rounded-lg bg-champagne-gold/10 px-3 py-2 text-xs leading-5 text-ivory/80">
+                    Necklace &amp; earring sets — coming soon.
+                  </p>
+                ) : null}
+                <Link
+                  href={col.line.href}
+                  prefetch
+                  onClick={() => setOpen(false)}
+                  className="mt-3 inline-block text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold hover:text-ivory"
+                >
+                  {col.items.length > 0 || !loaded ? `All ${col.line.name} →` : "Get notified →"}
+                </Link>
+              </div>
+            ))}
           </div>
 
-          <div className="mt-5 border-t border-champagne-gold/30 pt-4">
+          <div className="mt-5 flex items-center justify-between gap-4 border-t border-champagne-gold/30 pt-4">
             <Link
               href="/collection"
               prefetch
               onClick={() => setOpen(false)}
               className="cursor-pointer text-xs uppercase tracking-[0.25em] text-champagne-gold underline-offset-8 transition-all duration-150 ease-out hover:text-ivory hover:underline active:scale-95"
             >
-              View the full collection →
+              Shop everything →
+            </Link>
+            <Link
+              href="/collection?sort=price-asc"
+              prefetch
+              onClick={() => setOpen(false)}
+              className="text-xs text-ivory/70 hover:text-champagne-gold"
+            >
+              Lowest price first
             </Link>
           </div>
         </div>

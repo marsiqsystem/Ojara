@@ -19,8 +19,8 @@ export default function TrustSection() {
             Certified, packed with care, easy to exchange
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-midnight-navy/70">
-            Every piece ships with its authenticity certificate. Pay on delivery, and if anything
-            is wrong with your order, we exchange it.
+            Every Intentions gemstone ships with its authenticity certificate. Pay on delivery, and
+            if anything is wrong with your order, we exchange it.
           </p>
         </div>
 

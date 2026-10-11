@@ -59,6 +59,7 @@ export function useWixOffers(lines: CouponLine[]): WixOffers {
         discounts = [
           ...(estimate.combo > 0 ? [{ name: "Bracelet + ring offer", amount: estimate.combo }] : []),
           ...(estimate.free > 0 ? [{ name: "Buy 2 Get 1 Free", amount: estimate.free }] : []),
+          ...(estimate.adornFree > 0 ? [{ name: "Buy 2 Get 1 Free · jewellery", amount: estimate.adornFree }] : []),
         ];
       }
       if (cancelled || myReq !== reqId.current) return;

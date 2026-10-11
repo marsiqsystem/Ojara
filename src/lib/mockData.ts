@@ -1,3 +1,5 @@
+import type { Line, Occasion, PieceType } from "@/lib/lines";
+
 // Shoppers arrive by *intention* ("I need money luck", "shield my aura")
 // or by *stone* ("citrine bracelet"). Both are modelled so /category/[slug] can
 // serve either entry point from the same product list.
@@ -48,6 +50,16 @@ export interface Product {
   stockCount: number;
   // Marks curated multi-piece sets so the UI can badge them distinctly.
   isBundle?: boolean;
+  // Which line and what kind of piece (lib/lines.ts). Set by catalog.ts from
+  // Wix collections + the name; absent on older bag entries, so always read
+  // them through lineOf() / pieceTypeOf(), which fall back to the name.
+  line?: Line;
+  pieceType?: PieceType;
+  // Adorn only: what it's for (festive, everyday, party).
+  occasions?: Occasion[];
+  // Adorn only: the colour split off the Wix name ("Hayat Jewelry Set - AQUA"
+  // → name "Hayat Jewelry Set", colour "Aqua"). See lib/lines fullNameOf.
+  colour?: string;
   // The Wix Stores catalog GUID, captured when the product is seeded into Wix.
   wixCatalogItemId?: string;
   // Wix collection GUIDs this product belongs to. Populated only in live mode
@@ -68,9 +80,14 @@ export interface Category {
   // Page heading — the fuller, search-intent-matching phrasing.
   title: string;
   tagline: string;
-  group: "intention" | "type";
+  // "adorn" = an Adorn page built from the catalogue itself (Earrings,
+  // Necklaces…, or an occasion) — see getCategories in catalog.ts.
+  group: "intention" | "type" | "adorn";
   // Representative product image for the category strip on the home page.
   image?: string;
+  // Adorn pages: which pieces they list.
+  pieceType?: PieceType;
+  occasion?: Occasion;
 }
 
 // Drives both the Shop mega menu and the /category/[slug] routes.

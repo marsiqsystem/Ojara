@@ -1,7 +1,7 @@
 "use client";
 
 import { useCartStore, useCartHydrated } from "@/lib/store/useCartStore";
-import { bagMix, liveOffers, nextOfferNudge } from "@/lib/commerce/offers";
+import { bagMix, liveOffers, nextOfferNudge, offerLineOf } from "@/lib/commerce/offers";
 
 /**
  * The running offers as one full-width row inside the product grid. With a bag
@@ -16,7 +16,7 @@ export default function OffersTile() {
   const hasBag = hydrated && cartItems.length > 0;
   const nudge = hasBag
     ? nextOfferNudge(
-        bagMix(cartItems.map((ci) => ({ name: ci.product.name, price: ci.product.price, quantity: ci.quantity }))),
+        bagMix(cartItems.map((ci) => offerLineOf(ci.product, ci.quantity))),
       )
     : null;
 

@@ -2,25 +2,37 @@ import { getAllProducts } from "@/lib/catalog";
 import ProductCard from "@/components/ProductCard";
 import ScrollRail from "@/components/ScrollRail";
 
+import { lineOf } from "@/lib/lines";
+
 // Pieces whose names read as gifts (love, calm, the moon and pearls), first.
-const GIFT_TERMS = ["love", "rose quartz", "moonstone", "pearl", "amethyst", "citrine", "evil eye"];
+const GIFT_TERMS = ["love", "rose quartz", "moonstone", "pearl", "amethyst", "citrine", "evil eye", "heart", "pendant", "earring", "set"];
 const GIFT_PICKS = 8;
+/** "Gifts under ₹999" — a ceiling a gift-giver can say yes to without thinking. */
+const GIFT_CEILING = 1000;
 
 /**
  * Gifting on the home page. It used to show the first two products as "Gift Box"
  * sets "complete with a handwritten intention card" — neither was true: there
- * are no gift boxes and no gift wrap. It is now a rail of in-stock pieces that
- * make natural gifts, each addable in one tap.
+ * are no gift boxes and no gift wrap. It is now a rail of in-stock pieces under
+ * ₹999 that make natural gifts, each addable in one tap — both lines, taking
+ * turns, so a gemstone sits next to a pair of earrings.
  */
 export default async function GiftingSection() {
-  const products = (await getAllProducts()).filter((p) => p.stockCount > 0);
+  const products = (await getAllProducts()).filter((p) => p.stockCount > 0 && p.price < GIFT_CEILING);
   const score = (name: string) => {
     const n = name.toLowerCase();
     const i = GIFT_TERMS.findIndex((t) => n.includes(t));
     return i === -1 ? GIFT_TERMS.length : i;
   };
-  const picks = [...products].sort((a, b) => score(a.name) - score(b.name)).slice(0, GIFT_PICKS);
+  const ranked = [...products].sort((a, b) => score(a.name) - score(b.name));
+  const intentions = ranked.filter((p) => lineOf(p) === "intentions");
+  const adorn = ranked.filter((p) => lineOf(p) === "adorn");
+  const picks = Array.from({ length: Math.max(intentions.length, adorn.length) }, (_, i) => [adorn[i], intentions[i]])
+    .flat()
+    .filter((p): p is (typeof ranked)[number] => !!p)
+    .slice(0, GIFT_PICKS);
   if (picks.length === 0) return null;
+  const twoLines = adorn.length > 0;
 
   return (
     <section id="gifting" className="scroll-mt-24 border-y border-champagne-gold/30 bg-midnight-navy px-4 sm:px-6 py-16 text-ivory sm:py-24">
@@ -28,10 +40,12 @@ export default async function GiftingSection() {
         <div className="mb-10 text-center">
           <span className="text-xs uppercase tracking-[0.4em] text-champagne-gold">Gifting made easy</span>
           <h2 className="mt-4 font-heading text-3xl uppercase tracking-[0.12em] text-champagne-gold sm:text-4xl">
-            Give the Gift of Intention
+            Gifts Under ₹999
           </h2>
           <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-ivory/75">
-            Pieces that make natural gifts — add one to your bag in a tap.
+            {twoLines
+              ? "A gemstone with a meaning to share, or a little sparkle — delivered free, Cash on Delivery."
+              : "Gemstone pieces with a meaning to share — delivered free, Cash on Delivery."}
           </p>
         </div>
 

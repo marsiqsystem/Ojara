@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { productForReel, reelsForProduct, reelsForTags, type Reel } from "@/lib/media";
 import { useCatalog } from "@/lib/commerce/useCatalog";
 import ReelPlayer from "@/components/media/ReelPlayer";
+import { OCCASIONS, PIECE_TYPE_INFO, classifyLine, classifyPieceType } from "@/lib/lines";
 
 // ============================================================================
 // Floating reel — a small muted reel looping in the bottom-right corner of every
@@ -34,12 +35,27 @@ function positionFor(pathname: string) {
   return "bottom-[calc(108px+env(safe-area-inset-bottom))] md:bottom-6";
 }
 
+// Adorn (stone jewellery) pages play Adorn reels; gemstone reels ("natural",
+// "certified") never show there.
+const ADORN_CATEGORY_SLUGS = new Set([
+  ...PIECE_TYPE_INFO.filter((t) => t.key !== "ring" && t.key !== "bracelet").map((t) => t.slug),
+  "adorn-rings",
+  "adorn-bracelets",
+  ...OCCASIONS.map((o) => `${o.key}-jewellery`),
+]);
+
 /** Reels for this page. Product slugs carry the product's name words. */
 function reelsFor(pathname: string): Reel[] {
+  const adornPage =
+    pathname === "/adorn" ||
+    (pathname.startsWith("/category/") && ADORN_CATEGORY_SLUGS.has(pathname.slice("/category/".length)));
+  if (adornPage) return reelsForTags(["lifestyle"], 8, "adorn");
   if (pathname.startsWith("/product/")) {
     const slugWords = decodeURIComponent(pathname.slice("/product/".length)).replace(/[-_]+/g, " ");
-    const own = reelsForProduct(slugWords, 8);
+    const line = classifyLine(slugWords, classifyPieceType(slugWords));
+    const own = reelsForProduct(slugWords, 8, line);
     if (own.length) return own;
+    if (line === "adorn") return reelsForTags(["lifestyle"], 8, "adorn");
   }
   return reelsForTags(["wealth", "trust"], 8);
 }

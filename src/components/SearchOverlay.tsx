@@ -8,6 +8,7 @@ import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { formatPrice } from "@/lib/format";
 import { trackEvent } from "@/lib/analytics/capi";
 import type { Product } from "@/lib/catalog";
+import { fullNameOf } from "@/lib/lines";
 
 // Trending searches deep-link to the most relevant piece, shown when the field
 // is empty.
@@ -21,7 +22,7 @@ const trending = [
 // full name, or any WORD of the name starting with the query — so "citr", "lapis"
 // or the second word ("eye", "bracelet") all surface the right piece.
 function matches(product: Product, q: string): boolean {
-  const name = product.name.toLowerCase();
+  const name = fullNameOf(product).toLowerCase();
   if (name.includes(q)) return true;
   return name.split(/\s+/).some((word) => word.startsWith(q));
 }
@@ -195,7 +196,7 @@ export default function SearchOverlay({
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-heading text-base text-ivory">
-                          {product.name}
+                          {fullNameOf(product)}
                         </p>
                         <p className="mt-0.5 text-sm text-champagne-gold">
                           {formatPrice(product.price)}

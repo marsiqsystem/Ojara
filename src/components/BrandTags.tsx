@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
+import type { Line } from "@/lib/lines";
 
 // The "brand tags" band (owner call, 2026-09-12): a thin trust strip spelling
 // out the core promises the brand makes on every order. Since the sales rebuild
 // it sits directly under the hero. Copy mirrors the AnnouncementBar
 // (free pan-India shipping, COD, lab-certified) plus the 48-hour exchange window
-// used across the shipping/returns pages.
+// used across the shipping/returns pages, and the real dispatch cutoff
+// (COMMERCE_FACTS: 8 pm IST, Mon–Sat).
 interface BrandTag {
   title: string;
   description: string;
@@ -38,7 +40,7 @@ const tags: BrandTag[] = [
   },
   {
     title: "48-Hour Easy Exchange",
-    description: "Changed your mind? Swap within 48 hours.",
+    description: "Changed your mind about a bracelet or ring? Swap it within 48 hours.",
     icon: (
       <svg {...iconProps}>
         <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5" />
@@ -58,8 +60,18 @@ const tags: BrandTag[] = [
     ),
   },
   {
-    title: "100% Original & Lab-Certified",
-    description: "Authentic natural crystals, verified.",
+    title: "Ships Same Day",
+    description: "Order by 8 pm, Mon–Sat — packed today.",
+    icon: (
+      <svg {...iconProps}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+    ),
+  },
+  {
+    title: "Lab-Certified Gemstones",
+    description: "Every Intentions stone, verified natural.",
     icon: (
       <svg {...iconProps}>
         <path d="M12 3l7 3v5c0 4.2-2.9 7.6-7 8.7C7.9 18.6 5 15.2 5 11V6l7-3Z" />
@@ -69,13 +81,18 @@ const tags: BrandTag[] = [
   },
 ];
 
-export default function BrandTags() {
+// The certificate is an Intentions promise — stone jewellery (Adorn) is not
+// natural gemstone, so Adorn pages never show it.
+const CERTIFIED = "Lab-Certified Gemstones";
+
+export default function BrandTags({ line }: { line?: Line } = {}) {
+  const shown = line === "adorn" ? tags.filter((t) => t.title !== CERTIFIED) : tags;
   return (
     // A slim trust strip directly under the hero (the Viora home order): the
     // promises that hold on every order, answered before the first product.
     <section aria-label="Why shop with OJARA" className="border-b border-champagne-gold/25 bg-ivory">
       <ul className="mx-auto flex max-w-[1600px] snap-x gap-6 overflow-x-auto px-4 sm:px-6 py-4 hide-scrollbar md:justify-between">
-        {tags.map((tag) => (
+        {shown.map((tag) => (
           <li key={tag.title} className="flex shrink-0 snap-start items-center gap-2.5">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-champagne-gold/10 text-champagne-gold [&_svg]:h-5 [&_svg]:w-5">
               {tag.icon}

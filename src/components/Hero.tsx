@@ -3,11 +3,16 @@ import FindYourStone from "@/components/FindYourStone";
 import { getAllProducts } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
 import { COMBO_PERCENT, WELCOME_CODE, WELCOME_PERCENT } from "@/lib/commerce/offers";
+import { LINES, lineOf } from "@/lib/lines";
 
 export default async function Hero() {
   // "From ₹X" off the live catalogue, so the price promise is always true.
   const inStock = (await getAllProducts()).filter((p) => p.stockCount > 0);
-  const fromPrice = inStock.length ? Math.min(...inStock.map((p) => p.price)) : 0;
+  const lowest = (list: typeof inStock) => (list.length ? Math.min(...list.map((p) => p.price)) : 0);
+  const fromPrice = lowest(inStock.filter((p) => lineOf(p) === "intentions"));
+  // Adorn joins the hero the moment it has a piece in stock.
+  const adornFrom = lowest(inStock.filter((p) => lineOf(p) === "adorn"));
+  const twoLines = adornFrom > 0;
 
   return (
     // Shorter on phones (was 88vh) so the offer, the price and the first pieces
@@ -37,36 +42,73 @@ export default async function Hero() {
         </span>
 
         {/* Was "Magnetic Healing & Crystals". The brand sells gemstone bracelets and
-            claims no therapeutic effect — see BrandStory for the same correction. */}
+            claims no therapeutic effect — see BrandStory for the same correction.
+            With Adorn live, the headline names both reasons to buy, in the
+            brand's own "Wear Your Intention" voice. */}
         <h1 className="max-w-4xl text-4xl font-normal uppercase leading-[1.15] tracking-widest text-champagne-gold drop-shadow-[0_4px_10px_rgba(230,205,152,0.15)] sm:text-6xl md:text-7xl">
-          Magnify Your Intentions
+          {twoLines ? (
+            <>
+              Wear Your Intention.
+              <span className="block">Wear Your Shine.</span>
+            </>
+          ) : (
+            "Magnify Your Intentions"
+          )}
         </h1>
-
         <p className="mt-5 max-w-xl text-sm leading-7 tracking-wide text-ivory/85 sm:mt-8 sm:text-base sm:leading-8 md:text-lg">
-          Handcrafted bracelets of natural gemstones — worn as a daily reminder of
-          the intention you carry.
+          {twoLines
+            ? "Natural gemstone bracelets for what you carry — and stone jewellery for how you show up."
+            : "Handcrafted bracelets of natural gemstones — worn as a daily reminder of the intention you carry."}
         </p>
-
         {fromPrice > 0 && (
           <p className="mt-4 text-sm font-semibold tracking-wide text-ivory">
-            Bracelets from {formatPrice(fromPrice)} · Cash on Delivery · Free delivery
+            {twoLines
+              ? `Bracelets from ${formatPrice(fromPrice)} · Stone jewellery from ${formatPrice(adornFrom)}`
+              : `Bracelets from ${formatPrice(fromPrice)} · Cash on Delivery · Free delivery`}
           </p>
         )}
         <p className="mt-2 text-xs tracking-wide text-ivory/75 sm:text-sm">
-          Buy a bracelet + a ring, get {COMBO_PERCENT}% off the ring
+          {twoLines
+            ? "Free delivery · Cash on Delivery · One bag for both"
+            : `Buy a bracelet + a ring, get ${COMBO_PERCENT}% off the ring`}
         </p>
-
-        <div className="mt-8 flex flex-col items-center gap-4 sm:mt-12 sm:flex-row sm:gap-5">
-          <Link
-            href="#collection"
-            className="cursor-pointer inline-flex items-center justify-center rounded-full border border-champagne-gold bg-champagne-gold px-8 py-3.5 text-xs font-normal uppercase tracking-[0.25em] text-midnight-navy transition-all duration-150 ease-out hover:bg-transparent hover:text-champagne-gold active:scale-95 sm:px-10 sm:text-sm"
-          >
-            Shop bracelets
-          </Link>
-
-          {/* Personalisation quiz — owns its own modal state */}
-          <FindYourStone />
+        <div className="mt-8 flex w-full flex-col items-center gap-3 sm:mt-12 sm:w-auto sm:flex-row sm:gap-5">
+          {twoLines ? (
+            <>
+              <Link
+                href={LINES.intentions.href}
+                className="cursor-pointer inline-flex w-full max-w-xs items-center justify-center rounded-full border border-champagne-gold bg-champagne-gold px-8 py-3.5 text-xs font-normal uppercase tracking-[0.25em] text-midnight-navy transition-all duration-150 ease-out hover:bg-transparent hover:text-champagne-gold active:scale-95 sm:w-auto sm:px-10 sm:text-sm"
+              >
+                Shop Intentions
+              </Link>
+              <Link
+                href={LINES.adorn.href}
+                className="cursor-pointer inline-flex w-full max-w-xs items-center justify-center rounded-full border border-champagne-gold bg-midnight-navy/40 px-8 py-3.5 text-xs font-normal uppercase tracking-[0.25em] text-champagne-gold transition-all duration-150 ease-out hover:bg-champagne-gold hover:text-midnight-navy active:scale-95 sm:w-auto sm:px-10 sm:text-sm"
+              >
+                Shop Adorn
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="#collection"
+                className="cursor-pointer inline-flex items-center justify-center rounded-full border border-champagne-gold bg-champagne-gold px-8 py-3.5 text-xs font-normal uppercase tracking-[0.25em] text-midnight-navy transition-all duration-150 ease-out hover:bg-transparent hover:text-champagne-gold active:scale-95 sm:px-10 sm:text-sm"
+              >
+                Shop bracelets
+              </Link>
+              {/* Personalisation quiz — owns its own modal state */}
+              <FindYourStone />
+            </>
+          )}
         </div>
+        {!twoLines && (
+          <Link
+            href={LINES.adorn.href}
+            className="mt-6 text-xs tracking-wide text-ivory/80 underline decoration-champagne-gold/60 underline-offset-4 hover:text-champagne-gold"
+          >
+            New: OJARA Adorn, stone jewellery — coming soon
+          </Link>
+        )}
       </div>
     </section>
   );

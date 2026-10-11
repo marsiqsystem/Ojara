@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getAllProducts, getCategoryBySlug, getProductById } from "@/lib/catalog";
+import { getAllProducts, getCategories, getCategoryBySlug, getProductById } from "@/lib/catalog";
+import { LINES, OCCASIONS, colourLabelOf, colourSiblings, fullNameOf, lineOf, pieceTypeInfo, pieceTypeOf } from "@/lib/lines";
+import Image from "next/image";
+import { crossLinePicks } from "@/lib/lookPairs";
 import { products, hasSpecificIntention } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import RitualAccordion from "@/components/RitualAccordion";
@@ -24,7 +27,7 @@ import StickyAddToBag from "@/components/StickyAddToBag";
 import BackButton from "@/components/BackButton";
 import { whatsappLink, SITE_URL } from "@/lib/commerce/config";
 import { pickUpsellProducts, ritualPairsFor } from "@/lib/commerce/bundle";
-import { pieceKind } from "@/lib/commerce/offers";
+import { ADORN_B2G1_LIVE, pieceKind } from "@/lib/commerce/offers";
 import { productSpecs } from "@/lib/productSpecs";
 
 // ============================================================================
@@ -80,6 +83,21 @@ const heroAssurances = [
   },
 ];
 
+// Adorn (stone jewellery) chips: never "natural" or "lab-certified". Skin and
+// finish facts appear only when the piece's own description states them
+// (productSpecs "Wear" row); the rest are store-wide facts.
+const chipIcon = (
+  <svg {...iconProps} width={14} height={14}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </svg>
+);
+const adornAssurances = (wear: string | undefined) =>
+  [
+    ...(wear ? wear.split(" · ") : []).map((label) => ({ label, icon: chipIcon })),
+    { label: "Free delivery", icon: chipIcon },
+    { label: "Cash on Delivery", icon: chipIcon },
+  ].slice(0, 3);
+
 // Store-wide promises that hold for every order (see /shipping-returns).
 const trustItems = [
   {
@@ -121,15 +139,15 @@ export async function generateMetadata({
 
   const url = `/product/${id}`;
   const images = (product.images?.length ? product.images : [product.image]).map(
-    (src) => ({ url: src, alt: product.name }),
+    (src) => ({ url: src, alt: fullNameOf(product) }),
   );
 
   return {
-    title: product.name,
+    title: fullNameOf(product),
     description: product.description,
     alternates: { canonical: url },
     openGraph: {
-      title: `${product.name} | OJARA`,
+      title: `${fullNameOf(product)} | OJARA`,
       description: product.description,
       url,
       type: "website",
@@ -137,7 +155,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: "summary_large_image",
-      title: `${product.name} | OJARA`,
+      title: `${fullNameOf(product)} | OJARA`,
       description: product.description,
       images: images.map((i) => i.url),
     },
@@ -156,13 +174,22 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  // Breadcrumb up into the category this piece was most likely found through.
-  const primaryCategory = await getCategoryBySlug(product.intentions[0]);
+  // Which line this piece is (lib/lines): Adorn gets the stone-jewellery page —
+  // no intention, ritual or natural-stone copy, its own specs and chips.
+  const line = LINES[lineOf(product)];
+  const isAdorn = line.key === "adorn";
+
+  // Breadcrumb up into the category this piece was most likely found through:
+  // its intention collection, or for Adorn its piece page (Earrings…).
+  const primaryCategory = isAdorn
+    ? (await getCategories()).find((c) => c.group === "adorn" && c.pieceType === pieceTypeOf(product))
+    : await getCategoryBySlug(product.intentions[0]);
 
   // Structured breadcrumb mirroring the visible trail below (Home / Shop / …).
   const breadcrumbCrumbs = [
     { name: "Home", url: "/" },
     { name: "Shop", url: "/collection" },
+    { name: line.name, url: line.href },
     ...(primaryCategory
       ? [{ name: primaryCategory.label, url: `/category/${primaryCategory.slug}` }]
       : []),
@@ -178,39 +205,52 @@ export default async function ProductDetailPage({
   // Tick bullets under the price: stated specs first, then a fact true of every order.
   const highlights = [
     ...productSpecs(product)
-      .filter((row) => row.label !== "Piece")
+      .filter((row) => row.label !== "Piece" && row.label !== "Wear")
       .map((row) => (row.label === "Bead size" ? `${row.value} beads` : row.value)),
     "Free delivery across India · Cash on Delivery",
   ].slice(0, 3);
 
-  // "Complete your ritual" — pieces from the same stone / intention family.
+  // "Complete your ritual" (Intentions) / "Wear it with" (Adorn) — pieces
+  // from the same line, same stone / colour family first.
   const catalog = await getAllProducts();
   const pairs = ritualPairsFor(product, catalog);
+  // Adorn designs come in several colours, each its own Wix product.
+  const colours = colourSiblings(product, catalog);
+  const ownColour = colourLabelOf(product);
+  // "Complete the look" — the other line, colour-matched (lib/lookPairs).
+  const lookPicks = crossLinePicks(product, catalog, 6);
   // Bracelet + ring offer: the other kind of piece, best matches first, for the
-  // row "Browse rings / bracelets" opens inside "Offers for you".
+  // row "Browse rings / bracelets" opens inside "Offers for you". Adorn has none.
   const comboKind = pieceKind(product) === "ring" ? "bracelet" : "ring";
-  const comboPieces = pickUpsellProducts(
-    product,
-    catalog.filter((p) => pieceKind(p) === comboKind),
-    [product.id],
-    12,
-  );
+  const comboPieces = isAdorn
+    ? []
+    : pickUpsellProducts(
+        product,
+        catalog.filter((p) => pieceKind(p) === comboKind),
+        [product.id],
+        12,
+      );
+  const specs = productSpecs(product);
+  const assurances = isAdorn ? adornAssurances(specs.find((r) => r.label === "Wear")?.value) : heroAssurances;
+  const occasion = OCCASIONS.find((o) => o.key === product.occasions?.[0]);
 
   // Gallery: the Wix photos with this piece's own reel second (where shoppers look
   // first). Offer / exchange artwork stays OUT: it shows other bracelets, which on
   // this page reads as "which one am I buying?" (owner, 2026-09-22).
   const photos = product.images?.length ? product.images : [product.image];
-  const galleryReel = galleryReelFor(product.name);
+  const galleryReel = galleryReelFor(product.name, line.key);
   const gallery = [
     photos[0],
     ...(galleryReel ? [galleryReel.src] : []),
     ...photos.slice(1),
   ];
-  const reels = reelsForProduct(product.name, 8);
+  // This line's reels only — a gemstone reel ("you can see it's a natural
+  // crystal") never plays on a stone-jewellery page, nor the other way round.
+  const reels = reelsForProduct(product.name, 8, line.key);
 
   // Hidden until the owner sets WHATSAPP_NUMBER (commerce/config.ts).
   const whatsappHref = whatsappLink(
-    `Hi OJARA! I'd like to know more about the ${product.name}: ${SITE_URL}/product/${product.id}`,
+    `Hi OJARA! I'd like to know more about the ${fullNameOf(product)}: ${SITE_URL}/product/${product.id}`,
   );
 
   return (
@@ -251,6 +291,18 @@ export default async function ProductDetailPage({
               className="transition-colors duration-300 ease-out hover:text-midnight-navy"
             >
               Shop
+            </Link>
+          </li>
+          <li aria-hidden="true" className="text-champagne-gold">
+            /
+          </li>
+          <li>
+            <Link
+              href={line.href}
+              prefetch
+              className="transition-colors duration-300 ease-out hover:text-midnight-navy"
+            >
+              {line.name}
             </Link>
           </li>
           {/* Category crumb only when there's a real one. Products without a
@@ -309,8 +361,20 @@ export default async function ProductDetailPage({
 
         {/* RIGHT — the tall column that scrolls past the pinned image */}
         <div className="w-full lg:w-[48%] flex flex-col">
+          {/* Eyebrow — Adorn: the line, the occasion and the piece. */}
+          {isAdorn && (
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-champagne-gold/15 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold">
+                ✦ OJARA Adorn{occasion ? ` · ${occasion.label}` : ""}
+              </span>
+              <span className="inline-block rounded-full border border-champagne-gold/40 px-3 py-1 text-[0.65rem] uppercase tracking-[0.2em] text-champagne-gold">
+                {pieceTypeInfo(pieceTypeOf(product)).label}
+              </span>
+            </div>
+          )}
+
           {/* Eyebrow — what the piece is FOR, when it has a real intention. */}
-          {(hasSpecificIntention(product) || product.isBundle) && (
+          {!isAdorn && (hasSpecificIntention(product) || product.isBundle) && (
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {hasSpecificIntention(product) && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-champagne-gold/15 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-champagne-gold">
@@ -361,7 +425,7 @@ export default async function ProductDetailPage({
 
           {/* Why it's real — as chips. */}
           <ul className="mt-3 flex flex-wrap gap-2">
-            {heroAssurances.map((a) => (
+            {assurances.map((a) => (
               <li
                 key={a.label}
                 className="inline-flex items-center gap-1.5 rounded-full bg-sand/70 px-3 py-1 text-[0.7rem] font-medium tracking-wide text-midnight-navy/80"
@@ -409,6 +473,45 @@ export default async function ProductDetailPage({
             )}
           </div>
 
+          {/* Colour picker — each colour is its own Wix product, so each swatch is
+              a link to that piece (its own photos, price and stock). */}
+          {colours.length > 0 && (
+            <div className="mt-5">
+              <p className="text-sm text-midnight-navy/70">
+                Colour: <span className="font-semibold text-midnight-navy">{ownColour}</span>
+                <span className="text-midnight-navy/50"> · {colours.length} colours</span>
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {colours.map((c) => {
+                  const active = c.id === product.id;
+                  const label = colourLabelOf(c) ?? c.name;
+                  const soldOut = c.stockCount <= 0;
+                  return (
+                    <li key={c.id}>
+                      <Link
+                        href={`/product/${c.id}`}
+                        scroll={false}
+                        aria-current={active ? "page" : undefined}
+                        aria-label={`${label}${soldOut ? " (sold out)" : ""}`}
+                        title={label}
+                        className={`relative block h-16 w-14 overflow-hidden rounded-lg border-2 transition-colors ${
+                          active ? "border-midnight-navy" : "border-transparent hover:border-champagne-gold"
+                        } ${soldOut ? "opacity-40" : ""}`}
+                      >
+                        <Image src={c.image} alt="" fill sizes="56px" className="object-cover" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {ADORN_B2G1_LIVE && (
+                <p className="mt-2 text-xs font-semibold text-emerald-700">
+                  Pick any 3 colours or sets — the lowest-priced one is free.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Highlights — ticks for what this piece's own description states
               (lib/productSpecs.ts), plus free delivery, which is true of every order. */}
           <ul className="mt-4 space-y-1.5">
@@ -428,6 +531,8 @@ export default async function ProductDetailPage({
             productId={product.id}
             productName={product.name}
             comboPieces={comboPieces}
+            line={line.key}
+            pieceType={pieceTypeOf(product)}
           />
 
           {/* Primary action — quantity selector + Add to Cart / Buy Now. */}
@@ -437,7 +542,12 @@ export default async function ProductDetailPage({
           <div className="mt-6 rounded-xl border border-champagne-gold/25 bg-sand/30 p-4">
             <DeliveryTimeline />
             <ul className="mt-3 grid grid-cols-4 gap-1 border-t border-champagne-gold/20 pt-3">
-              {trustItems.map((t) => (
+              {/* Adorn: no change-of-mind exchange (earrings) — damage cover instead. */}
+              {trustItems
+                .map((t) =>
+                  isAdorn && t.label === "48-hr exchange" ? { ...t, label: "Damage cover", sub: "Replaced if damaged" } : t,
+                )
+                .map((t) => (
                 <li key={t.label} className="flex flex-col items-center gap-1 text-center">
                   <svg {...iconProps} width={20} height={20} className="text-champagne-gold">
                     {t.icon}
@@ -464,8 +574,33 @@ export default async function ProductDetailPage({
           {/* A second opinion. */}
           <ShareButton productName={product.name} className="mt-4 w-full" />
 
-          {/* Pieces to add, right where the decision is made. */}
-          <PairItWith items={pairs} />
+          {/* Pieces to add, right where the decision is made. Intentions: the
+              ritual row first (more bracelets earn buy 2 get 1), then Adorn.
+              Adorn: a gemstone bracelet first (a different kind of piece is an
+              easier second yes), then more stone jewellery. */}
+          {isAdorn ? (
+            <>
+              <PairItWith
+                items={lookPicks}
+                title="Complete the look"
+                subtitle="A natural gemstone bracelet to wear with it — same order, same free delivery."
+              />
+              <PairItWith
+                items={pairs}
+                title="Wear it with"
+                subtitle="More stone jewellery that goes with this piece."
+              />
+            </>
+          ) : (
+            <>
+              <PairItWith items={pairs} />
+              <PairItWith
+                items={lookPicks}
+                title="Complete the look"
+                subtitle="Stone jewellery to wear with it — same order, same free delivery."
+              />
+            </>
+          )}
 
           {/* Product details — only what this piece's own description states
               (see lib/productSpecs.ts), plus the natural-variation note the FAQ
@@ -475,7 +610,7 @@ export default async function ProductDetailPage({
               Product details
             </h2>
             <dl className="mt-3 divide-y divide-champagne-gold/20 border-y border-champagne-gold/20">
-              {productSpecs(product).map((row) => (
+              {specs.map((row) => (
                 <div key={row.label} className="flex items-baseline justify-between gap-6 py-2.5 text-sm">
                   <dt className="text-midnight-navy/60">{row.label}</dt>
                   <dd className="text-right font-medium text-midnight-navy">{row.value}</dd>
@@ -483,8 +618,9 @@ export default async function ProductDetailPage({
               ))}
             </dl>
             <p className="mt-3 text-xs leading-5 text-midnight-navy/60">
-              Each stone is natural, so colour, pattern and inclusions vary slightly from
-              piece to piece.
+              {isAdorn
+                ? "Care: put it on after perfume and lotion, keep it away from water, wipe it with a soft dry cloth and store it on its own so the finish stays bright."
+                : "Each stone is natural, so colour, pattern and inclusions vary slightly from piece to piece."}
             </p>
           </div>
 
@@ -534,8 +670,8 @@ export default async function ProductDetailPage({
             </div>
           )}
 
-          {/* Cleanse → set your intention → wear it. */}
-          <RitualSteps />
+          {/* Cleanse → set your intention → wear it. Intentions only. */}
+          {!isAdorn && <RitualSteps />}
 
           {/* Reels of THIS piece first (lib/media), then OJARA-wide trust reels —
               each opens with sound and Add to bag. */}
@@ -552,7 +688,7 @@ export default async function ProductDetailPage({
           <RitualAccordion product={product} />
 
           {/* Reviews — honest empty state + star/photo submission form */}
-          <ProductReviews productId={product.id} productName={product.name} />
+          <ProductReviews productId={product.id} productName={product.name} adorn={isAdorn} />
         </div>
       </div>
 

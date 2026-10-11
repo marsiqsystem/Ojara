@@ -68,6 +68,11 @@ export const metadata: Metadata = {
     "carnelian bracelet",
     "lapis lazuli bracelet",
     "healing crystals India",
+    "stone jewellery",
+    "necklace set with earrings",
+    "jewellery set for women",
+    "party wear necklace set",
+    "jewellery under 500",
   ],
   // NO canonical here. A root `canonical:"/"` is inherited by every child route
   // that doesn't override it and de-indexes the whole site (a bug we hit on the
@@ -77,16 +82,16 @@ export const metadata: Metadata = {
     type: "website",
     siteName: SITE_NAME,
     url: SITE_URL,
-    title: "OJARA | Magnify Your Intention",
+    title: "OJARA | Wear Your Intention. Wear Your Shine.",
     description:
-      "Bracelets of natural gemstones, cleansed and charged — worn as a daily reminder of your intention.",
+      "Natural gemstone bracelets worn for what they mean, and stone jewellery for how you shine. Free delivery across India, Cash on Delivery.",
     images: [{ url: DEFAULT_OG_IMAGE, alt: "OJARA" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "OJARA | Magnify Your Intention",
+    title: "OJARA | Wear Your Intention. Wear Your Shine.",
     description:
-      "Bracelets of natural gemstones, cleansed and charged — worn as a daily reminder of your intention.",
+      "Natural gemstone bracelets worn for what they mean, and stone jewellery for how you shine. Free delivery across India, Cash on Delivery.",
     images: [DEFAULT_OG_IMAGE],
   },
   icons: {

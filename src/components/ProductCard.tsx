@@ -3,6 +3,24 @@ import Link from "next/link";
 import type { Product } from "@/lib/mockData";
 import { formatPrice } from "@/lib/format";
 import AddToCartButton from "@/components/AddToCartButton";
+import { LOW_STOCK_THRESHOLD } from "@/lib/commerce/config";
+import { colourLabelOf, lineOf, pieceTypeInfo, pieceTypeOf, type Occasion } from "@/lib/lines";
+
+// Adorn is shopped by occasion, not intention — its badge says what it's for.
+const OCCASION_BADGE: Record<Occasion, string> = {
+  festive: "Festive",
+  everyday: "Everyday",
+  party: "Party Wear",
+};
+
+/** The card badge: occasion (or piece) for Adorn, intention for Intentions. */
+export const badgeFor = (product: Product, categoryName?: string): string => {
+  if (lineOf(product) === "adorn") {
+    const occasion = product.occasions?.[0];
+    return occasion ? OCCASION_BADGE[occasion] : pieceTypeInfo(pieceTypeOf(product)).plural;
+  }
+  return getDynamicBadge(product.name, categoryName ?? product.intention);
+};
 
 // Badge lookup, most specific phrase first — "evil eye" has to beat the generic
 // "protection" rule, and "green aventurine" has to beat "green". Matching is a
@@ -65,7 +83,9 @@ export default function ProductCard({
   // Curated `intention` stands in as the category fallback when the caller has
   // no collection name, so the six hand-written products keep their own copy
   // rather than being flattened to a keyword guess.
-  const badge = getDynamicBadge(product.name, categoryName ?? product.intention);
+  const badge = badgeFor(product, categoryName);
+  // Real stock from Wix — shown only when it's genuinely low.
+  const lowStock = product.stockCount > 0 && product.stockCount <= LOW_STOCK_THRESHOLD;
   return (
     <article
       className={`group flex flex-col overflow-hidden rounded-2xl bg-sand shadow-sm transition-all duration-500 md:hover:-translate-y-1 md:hover:shadow-2xl md:hover:shadow-champagne-gold/20 ${className}`}
@@ -87,6 +107,16 @@ export default function ProductCard({
           <span className="absolute left-2 top-2 rounded-full bg-midnight-navy/90 px-2.5 py-1 text-[0.6rem] uppercase tracking-[0.15em] text-champagne-gold backdrop-blur-sm sm:left-4 sm:top-4 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.2em]">
             {badge}
           </span>
+          {lowStock && (
+            <span className="absolute bottom-2 left-2 rounded-full bg-white/95 px-2.5 py-1 text-[0.6rem] font-bold text-rose-700 shadow-sm sm:bottom-4 sm:left-4 sm:text-xs">
+              Only {product.stockCount} left
+            </span>
+          )}
+          {product.stockCount === 0 && (
+            <span className="absolute bottom-2 left-2 rounded-full bg-midnight-navy/85 px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-wider text-ivory sm:bottom-4 sm:left-4 sm:text-xs">
+              Sold out
+            </span>
+          )}
           {product.isBundle && (
             <span className="absolute right-2 top-2 rounded-full bg-champagne-gold px-2.5 py-1 text-[0.6rem] uppercase tracking-[0.15em] text-midnight-navy shadow-sm sm:right-4 sm:top-4 sm:px-4 sm:py-1.5 sm:text-xs sm:tracking-[0.2em]">
               Set
@@ -98,6 +128,10 @@ export default function ProductCard({
           <h3 className="line-clamp-2 text-sm leading-snug text-midnight-navy sm:text-xl sm:leading-normal">
             {product.name}
           </h3>
+          {/* Adorn: the colour sits under the design name, not in it. */}
+          {colourLabelOf(product) && (
+            <p className="mt-0.5 text-xs text-midnight-navy/60 sm:text-sm">{colourLabelOf(product)}</p>
+          )}
         </div>
       </Link>
 

@@ -65,9 +65,12 @@ function Stars({
 export default function ProductReviews({
   productId,
   productName,
+  adorn = false,
 }: {
   productId: string;
   productName: string;
+  /** Stone jewellery — no "cleansed and charged" promise. */
+  adorn?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(0);
@@ -149,8 +152,10 @@ export default function ProductReviews({
       <div className="mt-5 rounded-2xl border border-champagne-gold/25 bg-sand/30 px-4 sm:px-6 py-8 text-center">
         <p className="mx-auto max-w-md font-heading text-base leading-7 text-midnight-navy/75">
           ✦ OJARA is a new chapter. Our reviews are yet to be written — but the
-          promise already stands: every bracelet is checked, cleansed, and charged
-          before it reaches you.
+          promise already stands:{" "}
+          {adorn
+            ? "every piece is checked and packed with care before it reaches you."
+            : "every bracelet is checked, cleansed, and charged before it reaches you."}
         </p>
         <div className="mx-auto my-5 h-px w-16 bg-champagne-gold/40" />
         <p className="mx-auto max-w-md text-sm leading-6 text-midnight-navy/60">

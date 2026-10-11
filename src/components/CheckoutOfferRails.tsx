@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { formatPrice } from "@/lib/format";
-import type { OfferRail } from "@/lib/commerce/useUpsellSuggestions";
+import type { LookRail, OfferRail } from "@/lib/commerce/useUpsellSuggestions";
+import type { Product } from "@/lib/mockData";
 import AddToCartButton from "@/components/AddToCartButton";
 
 /**
@@ -11,17 +12,28 @@ import AddToCartButton from "@/components/AddToCartButton";
  * buy 2 get 1, a ring for bracelet + ring). Adding stays in checkout: the order
  * list, the offers and the total update in place.
  */
-export default function CheckoutOfferRails({ rails }: { rails: OfferRail[] }) {
-  if (rails.length === 0) return null;
+export default function CheckoutOfferRails({
+  rails,
+  look = null,
+}: {
+  rails: OfferRail[];
+  /** "Complete the look" — the other line, after the offer rows. */
+  look?: LookRail | null;
+}) {
+  const rows = [
+    ...rails.map(({ nudge, products }) => ({ key: nudge.offer, title: nudge.message, detail: nudge.detail, products })),
+    ...(look ? [{ key: "look", title: look.title, detail: look.subtitle, products: look.products }] : []),
+  ];
+  if (rows.length === 0) return null;
 
   return (
     <div className="space-y-4">
-      {rails.map(({ nudge, products }) => (
-        <section key={nudge.offer} aria-label={nudge.message}>
-          <p className="text-xs font-bold text-midnight-navy">{nudge.message}</p>
-          <p className="text-[0.7rem] text-midnight-navy/60">{nudge.detail}</p>
+      {rows.map(({ key, title, detail, products }) => (
+        <section key={key} aria-label={title}>
+          <p className="text-xs font-bold text-midnight-navy">{title}</p>
+          <p className="text-[0.7rem] text-midnight-navy/60">{detail}</p>
           <div className="-mx-5 mt-2 flex snap-x scroll-px-5 gap-2.5 overflow-x-auto px-5 pb-1 hide-scrollbar">
-            {products.map((p) => (
+            {products.map((p: Product) => (
               <div
                 key={p.id}
                 className="w-28 shrink-0 snap-start overflow-hidden rounded-lg border border-champagne-gold/30 bg-white"

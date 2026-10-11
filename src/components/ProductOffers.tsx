@@ -8,14 +8,17 @@ import { formatPrice } from "@/lib/format";
 import { PREPAID_ENABLED } from "@/lib/commerce/config";
 import { PREPAID_DISCOUNT } from "@/lib/commerce/pricing";
 import {
+  ADORN_B2G1_LIVE,
   BUY2GET1_LIVE,
   COMBO_PERCENT,
   WELCOME_CODE,
   WELCOME_PERCENT,
   bagMix,
+  offerLineOf,
   pieceKind,
 } from "@/lib/commerce/offers";
 import { useAvailableTiers } from "@/lib/commerce/useAutoTierCoupon";
+import type { Line, PieceType } from "@/lib/lines";
 
 /**
  * "Offers for you" on the product page — the Viora pattern, filled with the
@@ -30,10 +33,15 @@ export default function ProductOffers({
   productId,
   productName,
   comboPieces,
+  line,
+  pieceType,
 }: {
   price: number;
   productId: string;
   productName: string;
+  /** The piece's line + type (lib/lines) — Adorn gets no bracelet/ring offers. */
+  line?: Line;
+  pieceType?: PieceType;
   /** Pieces of the other kind (rings for a bracelet page), best matches first. */
   comboPieces: Product[];
 }) {
@@ -44,14 +52,17 @@ export default function ProductOffers({
   // WELCOME10 drops out once Wix has refused it this visit (already used).
   const welcomeAvailable = useAvailableTiers().some((t) => t.code === WELCOME_CODE);
 
-  const kind = pieceKind({ name: productName });
+  const kind = pieceKind({ name: productName, line, pieceType });
+  // Adorn (stone jewellery) isn't in Wix's Bracelets / Rings rules: it gets its
+  // own buy 2 get 1, first order and prepaid.
+  const showCombo = kind !== "adorn";
   const other = kind === "ring" ? "bracelet" : "ring";
   // The rest of the bag, not counting this piece.
   const bag = bagMix(
     hydrated
       ? cartItems
           .filter((ci) => ci.product.id !== productId)
-          .map((ci) => ({ name: ci.product.name, price: ci.product.price, quantity: ci.quantity }))
+          .map((ci) => offerLineOf(ci.product, ci.quantity))
       : [],
   );
   const bagHasOther = kind === "ring" ? bag.bracelets > 0 : bag.rings > 0;
@@ -64,8 +75,11 @@ export default function ProductOffers({
   const comboRingPrice = Number.isFinite(ringPrice) ? Math.round(ringPrice * (1 - COMBO_PERCENT / 100)) : 0;
   const welcomePrice = Math.round(price * (1 - WELCOME_PERCENT / 100));
 
-  const showBuy2 = BUY2GET1_LIVE && kind === "bracelet";
-  const offerCount = 2 + (PREPAID_ENABLED ? 1 : 0) + (showBuy2 ? 1 : 0) - (welcomeAvailable ? 0 : 1);
+  const showBuy2 = (BUY2GET1_LIVE && kind === "bracelet") || (ADORN_B2G1_LIVE && kind === "adorn");
+  const inBag = kind === "adorn" ? bag.adorn : bag.bracelets;
+  const offerCount =
+    (welcomeAvailable ? 1 : 0) + (showCombo ? 1 : 0) + (PREPAID_ENABLED ? 1 : 0) + (showBuy2 ? 1 : 0);
+  if (offerCount === 0) return null;
 
   return (
     <section aria-labelledby="offers-title" className="mt-6">
@@ -107,6 +121,7 @@ export default function ProductOffers({
         )}
 
         {/* Bracelet + ring — Wix applies it automatically. */}
+        {showCombo && (
         <div className="rounded-xl border-2 border-dashed border-champagne-gold/60 bg-champagne-gold/5 p-3">
           <div className="flex items-baseline justify-between gap-2">
             <p className="text-[0.7rem] font-bold uppercase tracking-wider text-champagne-gold">
@@ -151,9 +166,10 @@ export default function ProductOffers({
             </button>
           )}
         </div>
+        )}
 
         {/* The other kind of piece, inline — adding one unlocks the offer. */}
-        {browsing && !bagHasOther && (
+        {showCombo && browsing && !bagHasOther && (
           <PairItWith
             items={comboPieces}
             title={kind === "ring" ? `Pick a bracelet — ${COMBO_PERCENT}% off this ring` : `Pick a ring — ${COMBO_PERCENT}% off it`}
@@ -166,12 +182,18 @@ export default function ProductOffers({
         {showBuy2 && (
           <div className="rounded-xl border-2 border-dashed border-champagne-gold/60 bg-champagne-gold/5 p-3">
             <p className="text-[0.7rem] font-bold uppercase tracking-wider text-champagne-gold">
-              Buy 2 Get 1 Free · bracelets
+              Buy 2 Get 1 Free · {kind === "adorn" ? "jewellery sets" : "bracelets"}
             </p>
             <p className="mt-1.5 text-sm text-midnight-navy">
-              {bag.bracelets % 3 === 2
-                ? <b className="text-emerald-700">✓ Add this to the 2 bracelets in your bag — the lowest-priced of the 3 is free</b>
-                : "Pick any 3 bracelets — the lowest-priced one is free."}
+              {inBag % 3 === 2 ? (
+                <b className="text-emerald-700">
+                  ✓ Add this to the 2 {kind === "adorn" ? "pieces" : "bracelets"} in your bag — the lowest-priced of the 3 is free
+                </b>
+              ) : kind === "adorn" ? (
+                "Pick any 3 — another colour counts. The lowest-priced one is free."
+              ) : (
+                "Pick any 3 bracelets — the lowest-priced one is free."
+              )}
             </p>
           </div>
         )}

@@ -23,7 +23,7 @@ const values: ValueProp[] = [
   {
     title: "Handcrafted Excellence",
     description:
-      "Each piece is set by hand in small batches, finished with the care of a single maker.",
+      "Each Intentions piece is set by hand in small batches, finished with the care of a single maker.",
     icon: (
       <svg {...iconProps}>
         <path d="M12 3 4 8v8l8 5 8-5V8l-8-5Z" />
@@ -34,7 +34,7 @@ const values: ValueProp[] = [
   {
     title: "Natural Gemstones",
     description:
-      "Ethically sourced crystals, chosen for their clarity, colour, and quiet character.",
+      "Every Intentions stone is natural and ethically sourced, chosen for its clarity, colour, and quiet character.",
     icon: (
       <svg {...iconProps}>
         <path d="M6 3h12l3 6-9 12L3 9l3-6Z" />
@@ -45,7 +45,7 @@ const values: ValueProp[] = [
   {
     title: "Meaningful Energy",
     description:
-      "Every stone carries an intention — worn close, to hold what matters near.",
+      "Every Intentions stone carries an intention — worn close, to hold what matters near.",
     icon: (
       <svg {...iconProps}>
         <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />

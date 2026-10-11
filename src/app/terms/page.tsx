@@ -25,7 +25,8 @@ export default function TermsPage() {
         {
           heading: "Products & Pricing",
           body: [
-            "Our crystals and spiritual objects are natural products. Colour, shape, size, and inclusions vary from piece to piece — this is part of their character, not a defect.",
+            "Our Intentions crystals and spiritual objects are natural products. Colour, shape, size, and inclusions vary from piece to piece — this is part of their character, not a defect.",
+            "Our Adorn pieces are stone jewellery set with set stones — not natural gemstones. Where a piece's stone, finish and base metal are known, its product page lists them. Plated finishes can soften with wear and with exposure to water, perfume and sweat; the care guide on each page helps them last.",
             "We make every effort to display our products and prices accurately. We reserve the right to correct any errors and to modify prices at any time before you place an order.",
           ],
         },
@@ -46,6 +47,7 @@ export default function TermsPage() {
           body: [
             "We do not offer returns or refunds. If your piece isn't the right fit, you may request an exchange within 48 hours of delivery, provided the item is unused and in its original packaging.",
             "To start an exchange, email ojara.jewel@gmail.com with your order number and a photo within 48 hours of delivery. Requests made after 48 hours cannot be accepted. Damaged or incorrect items are handled separately — see our Shipping & Exchanges page.",
+            "Earrings and jewellery sets (OJARA Adorn) cannot be exchanged for a change of mind, for hygiene reasons. A damaged or incorrect Adorn piece is replaced if reported within 48 hours of delivery with the unboxing video.",
           ],
         },
         {

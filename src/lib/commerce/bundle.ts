@@ -20,6 +20,7 @@
 // ============================================================================
 
 import type { Product } from "@/lib/mockData";
+import { lineOf } from "@/lib/lines";
 
 /** How many upsell slots the ladder has. Progress bar + tiers assume 3. */
 export const BUNDLE_SLOTS = 3;
@@ -155,9 +156,15 @@ export const pickUpsellProducts = (
   if (!primary) return pool.slice(0, limit);
 
   const primaryGroups = new Set(groupsFor(primary.name));
+  const primaryLine = lineOf(primary);
 
+  // Same line first (a ritual pairs with gemstones, a look with stone
+  // jewellery — the other line has its own "Complete the look" row), then
+  // shared stone / intention family.
   const scored = pool.map((p) => {
-    const shared = groupsFor(p.name).filter((g) => primaryGroups.has(g)).length;
+    const shared =
+      (lineOf(p) === primaryLine ? 100 : 0) +
+      groupsFor(p.name).filter((g) => primaryGroups.has(g)).length;
     return { product: p, shared };
   });
 

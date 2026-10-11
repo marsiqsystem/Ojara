@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
+import { fullNameOf } from "@/lib/lines";
 import AddToCartButton from "@/components/AddToCartButton";
 import BuyNowConfirmModal, {
   type AbandonedCartItem,
@@ -37,7 +38,7 @@ export default function ProductCtas({ product }: { product: Product }) {
       .filter((item) => item.product.id !== product.id)
       .map((item) => ({
         id: item.product.id,
-        name: item.product.name,
+        name: fullNameOf(item.product),
         price: item.product.price,
         quantity: item.quantity,
         image: item.product.image,
@@ -61,7 +62,7 @@ export default function ProductCtas({ product }: { product: Product }) {
           content_ids: [contentId(product)],
           contents: toContents([{ ...product, quantity: qty }]),
           num_items: qty,
-          content_name: product.name,
+          content_name: fullNameOf(product),
           content_type: "product",
         },
         items: toGa4Items([{ ...product, quantity: qty }]),
@@ -74,7 +75,7 @@ export default function ProductCtas({ product }: { product: Product }) {
     // one IC per checkout regardless of which button got the shopper there.
 
     toast.success("✦ Item secured! Proceeding to checkout...", {
-      description: product.name,
+      description: fullNameOf(product),
       style: {
         background: "#10b981",
         color: "#ffffff",
@@ -207,7 +208,7 @@ export default function ProductCtas({ product }: { product: Product }) {
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         abandonedItems={abandonedItems}
-        currentProduct={{ name: product.name, price: product.price, quantity: qty }}
+        currentProduct={{ name: fullNameOf(product), price: product.price, quantity: qty }}
         onDecision={handleConfirmDecision}
       />
     </div>

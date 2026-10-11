@@ -15,7 +15,8 @@ import {
 } from "@/lib/commerce/pricing";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import { useWixOffers } from "@/lib/commerce/useWixOffers";
-import { estimateOffers } from "@/lib/commerce/offers";
+import { estimateOffers, offerLineOf } from "@/lib/commerce/offers";
+import { fullNameOf, isAdorn } from "@/lib/lines";
 import {
   BRAND_NAME,
   LOW_STOCK_THRESHOLD,
@@ -222,7 +223,10 @@ export default function CheckoutModal() {
     () =>
       cartItems.map(({ product, quantity }) => ({
         id: product.id,
-        name: product.name,
+        name: fullNameOf(product),
+        // So the offer maths never counts Adorn as a bracelet (lib/lines).
+        line: product.line,
+        pieceType: product.pieceType,
         price: product.price,
         originalPrice: product.originalPrice,
         stockCount: product.stockCount,
@@ -301,7 +305,7 @@ export default function CheckoutModal() {
     if (undoTimer.current) clearTimeout(undoTimer.current);
   }, []);
   const offerLinesOf = (items: typeof cartItems) =>
-    items.map((ci) => ({ name: ci.product.name, price: ci.product.price, quantity: ci.quantity }));
+    items.map((ci) => offerLineOf(ci.product, ci.quantity));
   const removeLine = (productId: string) => {
     const item = cartItems.find((ci) => ci.product.id === productId);
     if (!item) return;
@@ -310,6 +314,7 @@ export default function CheckoutModal() {
     const after = estimateOffers(offerLinesOf(rest));
     const lost = [
       after.freeCount < before.freeCount ? "your free bracelet" : "",
+      after.adornFreeCount < before.adornFreeCount ? "your free set" : "",
       after.comboCount < before.comboCount ? "10% off your ring" : "",
     ].filter(Boolean);
     removeItem(productId);
@@ -335,7 +340,7 @@ export default function CheckoutModal() {
   };
 
   // Pieces that complete an offer (more bracelets → one free, a ring → 10% off it).
-  const { rails: offerRails } = useUpsellSuggestions({ bag: cartItems, limit: 6 });
+  const { rails: offerRails, look } = useUpsellSuggestions({ bag: cartItems, limit: 6 });
 
   // Lock scroll (Lenis-aware) while open.
   useEffect(() => {
@@ -860,7 +865,7 @@ export default function CheckoutModal() {
             {undoLine && (
               <div role="status" className="mx-5 mb-3 flex items-center justify-between gap-3 rounded-lg bg-midnight-navy px-3 py-2 text-xs text-ivory">
                 <span className="min-w-0">
-                  <span className="block truncate">Removed {undoLine.item.product.name}</span>
+                  <span className="block truncate">Removed {fullNameOf(undoLine.item.product)}</span>
                   {undoLine.lost.length > 0 && (
                     <span className="block text-champagne-gold">You no longer get {undoLine.lost.join(" or ")}</span>
                   )}
@@ -936,7 +941,7 @@ export default function CheckoutModal() {
                 welcomeDiscount={appliedCoupon && isTierCode(appliedCoupon) ? totals.couponDiscount : 0}
                 hide={offerRails.map((r) => r.nudge.offer)}
               />
-              <CheckoutOfferRails rails={offerRails} />
+              <CheckoutOfferRails rails={offerRails} look={look} />
             </section>
 
             {/* Delivery details — phone first, email last */}
@@ -1347,7 +1352,8 @@ export default function CheckoutModal() {
           </div>
           <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[0.68rem] text-midnight-navy/55">
             <LockIcon className="h-3.5 w-3.5" />
-            {isPrepaid ? "Secured by Razorpay" : "Pay on delivery"} · 48-hr exchange ·{" "}
+            {isPrepaid ? "Secured by Razorpay" : "Pay on delivery"} ·{" "}
+            {cartItems.some((ci) => !isAdorn(ci.product)) ? "48-hr exchange" : "Damage cover"} ·{" "}
             {pincodeStatus === "found" ? `Arrives ${deliveryWindowLabel()}` : "Free delivery across India"}
           </p>
         </div>

@@ -19,9 +19,15 @@
 // have rights to). Add it here only once the owner confirms the rights.
 // Removed at the owner's request, 2026-09-22: `mm-599` (also quoted ₹599; the
 // bracelet sells at ₹899) and `natural-offer`.
+//
+// The two lines never share reels: every gemstone reel says "natural" or
+// "certificate", which is untrue of Adorn's stone jewellery, and an Adorn reel on
+// a bracelet page sells the wrong thing. `line` (default Intentions) keeps them
+// apart; each page asks for its own line's reels.
 // ============================================================================
 
 import { allOffersLive, type OfferKey } from "./commerce/offers";
+import type { Line } from "./lines";
 
 export type ReelKind = "brand" | "creator" | "customer";
 
@@ -52,6 +58,8 @@ export interface Reel {
   offers?: OfferKey[];
   /** Topics, for picking reels for a page that has no product of its own. */
   tags: ("wealth" | "calm" | "protection" | "love" | "trust" | "unboxing" | "offer" | "combo" | "lifestyle")[];
+  /** Which line it shows (default Intentions). */
+  line?: Line;
 }
 
 const reel = (id: string, r: Omit<Reel, "id" | "src" | "preview" | "poster">): Reel => ({
@@ -167,10 +175,146 @@ export const REELS: Reel[] = [
     talking: false,
     tags: ["unboxing", "trust"],
   }),
+
+  // ---- Adorn (stone jewellery), the owner's shoot of 2026-10-11 ----------------
+  // Published silent: the source clips carry music of unknown licence (the same
+  // call as worn-together). None claims "natural" or "certified". Designs match
+  // by name word ("kiara" → every Kiara colour).
+  reel("adorn-which-one", {
+    title: "“Which one should I order?” — all of them",
+    alt: "Stone necklace sets in different colours, worn side by side",
+    kind: "brand",
+    talking: false,
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("kiara-this-one", {
+    title: "Kiara — which colour is yours?",
+    alt: "The Kiara necklace set on a stand in green, wine and blue",
+    kind: "brand",
+    talking: false,
+    product: ["kiara"],
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("noor-pov-order", {
+    title: "POV: you ordered from OJARA",
+    alt: "The Noor necklace set and earrings on a stand, in changing light",
+    kind: "brand",
+    talking: false,
+    product: ["noor"],
+    tags: ["unboxing"],
+    line: "adorn",
+  }),
+  reel("adorn-worn-night", {
+    title: "Worn: a drop necklace after dark",
+    alt: "A drop necklace and earrings worn, lit by a single light",
+    kind: "brand",
+    talking: false,
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("hayat-colours", {
+    title: "Hayat — aqua, pink and green",
+    alt: "The Hayat bib necklace set on a stand in aqua, pink and green",
+    kind: "brand",
+    talking: false,
+    product: ["hayat"],
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("aurelia-colours", {
+    title: "Aurelia — every colour, up close",
+    alt: "The Aurelia drop necklace and earrings on a stand in aqua, wine and green",
+    kind: "brand",
+    talking: false,
+    product: ["aurelia"],
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("zoya-layers", {
+    title: "Zoya — two layers of sparkle",
+    alt: "The two-layer Zoya necklace set on a stand, turning in the light",
+    kind: "brand",
+    talking: false,
+    product: ["zoya"],
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("jasmine-gloves", {
+    title: "Jasmine — the necklace and studs, up close",
+    alt: "The Jasmine necklace and marquise studs held in a gloved hand",
+    kind: "brand",
+    talking: false,
+    product: ["jasmine"],
+    tags: ["unboxing"],
+    line: "adorn",
+  }),
+  reel("kiara-in-hand", {
+    title: "Kiara, in the hand — true size",
+    alt: "Kiara necklaces and earrings held in the palm to show their size",
+    kind: "brand",
+    talking: false,
+    product: ["kiara"],
+    tags: ["trust"],
+    line: "adorn",
+  }),
+  reel("noor-sunlight", {
+    title: "Noor in sunlight — necklace, earrings and ring",
+    alt: "Noor sets laid flat in sunlight in red, green and blue",
+    kind: "brand",
+    talking: false,
+    product: ["noor"],
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("adorn-reveal", {
+    title: "The reveal",
+    alt: "A woman tears away a paper to reveal a stone drop earring",
+    kind: "brand",
+    talking: false,
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("kiara-flatlay", {
+    title: "Kiara — blue, pink and green",
+    alt: "Kiara necklaces laid flat among flowers",
+    kind: "brand",
+    talking: false,
+    product: ["kiara"],
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("noor-colours", {
+    title: "Noor — the full set",
+    alt: "The Noor necklace, earrings and ring on a stand",
+    kind: "brand",
+    talking: false,
+    product: ["noor"],
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
+  reel("adorn-forgot-something", {
+    title: "“Miss, you forgot something!”",
+    alt: "A necklace set handed over on its stand",
+    kind: "brand",
+    talking: false,
+    tags: ["unboxing"],
+    line: "adorn",
+  }),
+  reel("adorn-bust-pink", {
+    title: "Two sets, two moods",
+    alt: "A red cascade set and a green drop set on stands",
+    kind: "brand",
+    talking: false,
+    tags: ["lifestyle"],
+    line: "adorn",
+  }),
 ];
 
-/** Reels whose every promised offer is live. */
-export const liveReels = (): Reel[] => REELS.filter((r) => allOffersLive(r.offers ?? []));
+/** Reels whose every promised offer is live, from one line. */
+export const liveReels = (line: Line = "intentions"): Reel[] =>
+  REELS.filter((r) => (r.line ?? "intentions") === line && allOffersLive(r.offers ?? []));
 
 const words = (name: string) => name.toLowerCase().split(/[^a-z]+/).filter(Boolean);
 
@@ -186,16 +330,17 @@ export const reelShowsProduct = (r: Reel, productName: string): boolean => {
  * about OJARA in general (never another product's reels — a Citrine video on the
  * Amethyst page is noise). Capped at `limit`.
  */
-export const reelsForProduct = (productName: string, limit = 6): Reel[] => {
-  const live = liveReels();
+export const reelsForProduct = (productName: string, limit = 6, line: Line = "intentions"): Reel[] => {
+  const live = liveReels(line);
   const own = live.filter((r) => reelShowsProduct(r, productName));
-  const general = live.filter((r) => !r.product?.length && r.tags.includes("trust"));
+  // Adorn: then every general Adorn reel (worn, unboxed) — all on-brand there.
+  const general = live.filter((r) => !r.product?.length && (line === "adorn" || r.tags.includes("trust")));
   return [...own, ...general].slice(0, limit);
 };
 
 /** Reels for a topic (home, a category page): tagged reels first, then trust. */
-export const reelsForTags = (tags: Reel["tags"], limit = 8): Reel[] => {
-  const live = liveReels();
+export const reelsForTags = (tags: Reel["tags"], limit = 8, line: Line = "intentions"): Reel[] => {
+  const live = liveReels(line);
   const tagged = live.filter((r) => r.tags.some((t) => tags.includes(t)));
   const rest = live.filter((r) => !tagged.includes(r) && r.tags.includes("trust"));
   return [...tagged, ...rest].slice(0, limit);
@@ -308,8 +453,8 @@ export const productForReel = <P extends { name: string; stockCount: number }>(
  * The reel for a product's gallery (2nd slot): its own silent brand film if it
  * has one — it reads as product footage — else its first own reel.
  */
-export const galleryReelFor = (productName: string): Reel | undefined => {
-  const own = liveReels().filter((r) => reelShowsProduct(r, productName));
+export const galleryReelFor = (productName: string, line: Line = "intentions"): Reel | undefined => {
+  const own = liveReels(line).filter((r) => reelShowsProduct(r, productName));
   return own.find((r) => r.kind === "brand" && !r.talking) ?? own[0];
 };
 

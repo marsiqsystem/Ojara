@@ -4,12 +4,14 @@ import { getCategories } from "@/lib/catalog";
 import ScrollRail from "@/components/ScrollRail";
 
 // Viora-style category strip — horizontal scrollable row with rounded images
-// and labels. Shows all 9 categories (4 intentions + 5 types) so the shopper
-// can navigate by either mental model: "I need protection" or "I want a bracelet."
+// and labels. Intentions collections first ("I need protection"), then Adorn's
+// piece and occasion pages ("I want earrings", "something festive").
 const img = (id: string) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=300&q=80`;
 
 export default async function CategoryStrip() {
+  // Every Intentions collection, then Adorn's piece and occasion pages
+  // (getCategories adds those only once Adorn has pieces).
   const categories = await getCategories();
 
   return (
@@ -22,7 +24,9 @@ export default async function CategoryStrip() {
               Categories
             </h2>
             <p className="mt-1 text-sm text-midnight-navy/60">
-              Browse every OJARA collection.
+              {categories.some((c) => c.group === "adorn")
+                ? "Gemstones by intention, stone jewellery by piece and occasion."
+                : "Browse every OJARA collection."}
             </p>
           </div>
           <Link

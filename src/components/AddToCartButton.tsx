@@ -2,6 +2,7 @@
 
 import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
+import { fullNameOf } from "@/lib/lines";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { trackEvent } from "@/lib/analytics/capi";
 import { contentId, toContents, toGa4Items } from "@/lib/analytics/content";
@@ -43,13 +44,13 @@ export default function AddToCartButton({
         content_ids: [contentId(product)],
         contents: toContents([{ ...product, quantity }]),
         num_items: quantity,
-        content_name: product.name,
+        content_name: fullNameOf(product),
         content_type: "product",
       },
       items: toGa4Items([{ ...product, quantity }]),
     });
     toast.success("✦ Added to Cart successfully!", {
-      description: product.name,
+      description: fullNameOf(product),
       style: {
         background: "#10b981",
         color: "#ffffff",

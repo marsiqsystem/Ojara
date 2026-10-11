@@ -17,6 +17,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const staticEntries: MetadataRoute.Sitemap = [
     { url: absoluteUrl("/"), lastModified: now, changeFrequency: "daily", priority: 1 },
+    // The two lines and the shop-all page — the main ways into the catalogue.
+    { url: absoluteUrl("/intentions"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    { url: absoluteUrl("/adorn"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    { url: absoluteUrl("/collection"), lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: absoluteUrl("/our-story"), lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: absoluteUrl("/journal"), lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: absoluteUrl("/faq"), lastModified: now, changeFrequency: "monthly", priority: 0.5 },

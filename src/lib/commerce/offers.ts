@@ -15,6 +15,10 @@
 //   4. Bracelet + ring — a Wix AUTOMATIC "buy X get Y": buy 1 bracelet, get 10%
 //      off 1 ring. The 10% comes off the RING only, once per bracelet + ring pair
 //      (owner OK'd, 2026-09-22). No code.
+//   5. Buy 2 Adorn pieces, get 1 free — owner's call 2026-10-11, for the
+//      jewellery sets. A separate Wix AUTOMATIC "buy X get Y" on the Adorn
+//      category (the lowest-priced of every 3 free). Bracelets and Adorn never
+//      count towards each other. Off (ADORN_B2G1_LIVE) until Wix has the rule.
 //
 // Wix applies 2 and 4 to the order itself, and stacks WELCOME10 on top (owner
 // OK'd stacking, 2026-09-22). The bag therefore asks Wix what they're worth
@@ -25,6 +29,7 @@
 
 import { PREPAID_ENABLED } from "./config";
 import { COUPON_TIERS, PREPAID_DISCOUNT } from "./pricing";
+import { lineOf, pieceTypeOf, type Classifiable } from "@/lib/lines";
 
 /** "Buy 2 get 1 free" on bracelets — live in Wix as an AUTOMATIC discount. */
 export const BUY2GET1_LIVE = true;
@@ -36,7 +41,14 @@ export const BUY2GET1_LIVE = true;
  */
 export const BUY2GET1_RINGS_LIVE = false;
 
-export type OfferKey = "welcome" | "combo" | "b2g1" | "b2g1Rings" | "prepaid";
+/**
+ * Buy 2 get 1 free on Adorn (jewellery sets). Flip to true only after Wix's
+ * automatic rule on the Adorn category exists AND a read-only /api/offers
+ * check of 3 sets returns the free one.
+ */
+export const ADORN_B2G1_LIVE = false;
+
+export type OfferKey = "welcome" | "combo" | "b2g1" | "b2g1Rings" | "b2g1Adorn" | "prepaid";
 
 /** Is this offer honoured at checkout right now? Artwork naming it hides until it is. */
 export const isOfferLive = (key: OfferKey): boolean => {
@@ -48,6 +60,8 @@ export const isOfferLive = (key: OfferKey): boolean => {
       return BUY2GET1_LIVE;
     case "b2g1Rings":
       return BUY2GET1_RINGS_LIVE;
+    case "b2g1Adorn":
+      return ADORN_B2G1_LIVE;
     case "prepaid":
       return PREPAID_ENABLED;
   }
@@ -60,32 +74,55 @@ export const WELCOME_CODE = COUPON_TIERS[0]?.code ?? "WELCOME10";
 export const WELCOME_PERCENT = Math.round((COUPON_TIERS[0]?.value ?? 0.1) * 100);
 export const COMBO_PERCENT = 10;
 
-export type PieceKind = "bracelet" | "ring";
+/**
+ * How a piece counts for the automatic offers. Wix's rules key on categories:
+ * Bracelets and Rings hold the gemstone (Intentions) pieces, Adorn the stone
+ * jewellery. An Adorn piece never counts as a bracelet or ring (no bracelet
+ * B2G1, no ring 10%) — only towards its own buy 2 get 1. Keep Adorn pieces OUT
+ * of Wix's Bracelets / Rings categories so Wix agrees.
+ */
+export type PieceKind = "bracelet" | "ring" | "adorn";
 
-/** Same test as the shop's Bracelets / Rings filter (lib/shopFilters). */
-export const pieceKind = (p: { name: string }): PieceKind =>
-  /\bring\b/i.test(p.name) ? "ring" : "bracelet";
+export const pieceKind = (p: Classifiable): PieceKind => {
+  if (lineOf(p) === "adorn") return "adorn";
+  return pieceTypeOf(p) === "ring" ? "ring" : "bracelet";
+};
 
-export interface OfferLine {
-  name: string;
+export interface OfferLine extends Classifiable {
   price: number;
   quantity: number;
 }
 
+/** An OfferLine from a bag entry — carries the line so Adorn is never miscounted. */
+export const offerLineOf = (
+  product: Classifiable & { price: number },
+  quantity: number,
+): OfferLine => ({
+  name: product.name,
+  line: product.line,
+  pieceType: product.pieceType,
+  price: product.price,
+  quantity,
+});
+
 export interface BagMix {
   bracelets: number;
   rings: number;
+  /** Adorn pieces — their own buy 2 get 1; they also steer "complete the look". */
+  adorn: number;
 }
 
 export const bagMix = (lines: OfferLine[]): BagMix =>
   lines.reduce<BagMix>(
     (mix, l) => {
       const n = Math.max(0, Math.floor(l.quantity || 0));
-      if (pieceKind(l) === "ring") mix.rings += n;
-      else mix.bracelets += n;
+      const kind = pieceKind(l);
+      if (kind === "ring") mix.rings += n;
+      else if (kind === "bracelet") mix.bracelets += n;
+      else mix.adorn += n;
       return mix;
     },
-    { bracelets: 0, rings: 0 },
+    { bracelets: 0, rings: 0, adorn: 0 },
   );
 
 export interface OfferEstimate {
@@ -97,6 +134,10 @@ export interface OfferEstimate {
   free: number;
   /** Bracelets that come free. */
   freeCount: number;
+  /** Value of the free Adorn pieces (₹); 0 while ADORN_B2G1_LIVE is false. */
+  adornFree: number;
+  /** Adorn pieces that come free. */
+  adornFreeCount: number;
   total: number;
 }
 
@@ -122,12 +163,15 @@ export const estimateOffers = (lines: OfferLine[]): OfferEstimate => {
   const freeCount = BUY2GET1_LIVE ? Math.floor(mix.bracelets / 3) : 0;
   const free = units("bracelet").slice(0, freeCount).reduce((s, p) => s + p, 0);
 
-  return { combo, comboCount, free, freeCount, total: combo + free };
+  const adornFreeCount = ADORN_B2G1_LIVE ? Math.floor(mix.adorn / 3) : 0;
+  const adornFree = units("adorn").slice(0, adornFreeCount).reduce((s, p) => s + p, 0);
+
+  return { combo, comboCount, free, freeCount, adornFree, adornFreeCount, total: combo + free + adornFree };
 };
 
 export interface OfferNudge {
   /** Which offer adding this piece earns. */
-  offer: "b2g1" | "combo";
+  offer: "b2g1" | "b2g1Adorn" | "combo";
   /** What to add. */
   add: PieceKind;
   /** How many to add. */
@@ -166,6 +210,27 @@ export const offerNudges = (mix: BagMix): OfferNudge[] => {
           },
     );
   }
+  // Adorn: the same buy 2 get 1, counted on its own pieces ("pick 3 colours").
+  const toFreeAdorn = 3 - (mix.adorn % 3);
+  if (ADORN_B2G1_LIVE && mix.adorn > 0 && toFreeAdorn <= 2) {
+    nudges.push(
+      toFreeAdorn === 1
+        ? {
+            offer: "b2g1Adorn",
+            add: "adorn",
+            count: 1,
+            message: "Add 1 more set — get 1 free",
+            detail: "Buy 2, get 1 free on jewellery: the lowest-priced of your 3 pieces is on us.",
+          }
+        : {
+            offer: "b2g1Adorn",
+            add: "adorn",
+            count: 2,
+            message: "Add 2 more sets — 1 is free",
+            detail: "Buy 2, get 1 free on jewellery: 3 pieces for the price of 2. Another colour counts.",
+          },
+    );
+  }
   if (mix.bracelets > mix.rings) {
     nudges.push({
       offer: "combo",
@@ -190,7 +255,7 @@ export const offerNudges = (mix: BagMix): OfferNudge[] => {
 export const nextOfferNudge = (mix: BagMix): OfferNudge | null => offerNudges(mix)[0] ?? null;
 
 export interface OfferCard {
-  key: "welcome" | "b2g1" | "combo" | "prepaid";
+  key: "welcome" | "b2g1" | "b2g1Adorn" | "combo" | "prepaid";
   /** Short headline, e.g. "Buy 2 Get 1 Free". */
   title: string;
   /** One line under it. */
@@ -212,7 +277,16 @@ export const liveOffers = (): OfferCard[] => [
         {
           key: "b2g1" as const,
           title: "Buy 2 Get 1 Free",
-          detail: "On bracelets — the third one is on us",
+          detail: "On gemstone bracelets — the third one is on us",
+        },
+      ]
+    : []),
+  ...(ADORN_B2G1_LIVE
+    ? [
+        {
+          key: "b2g1Adorn" as const,
+          title: "Buy 2 Get 1 Free · jewellery sets",
+          detail: "Pick any 3 sets or colours — the lowest-priced one is on us",
         },
       ]
     : []),
@@ -228,6 +302,6 @@ export const liveOffers = (): OfferCard[] => [
   {
     key: "combo",
     title: `Bracelet + ring: ${COMBO_PERCENT}% off the ring`,
-    detail: "Buy a bracelet with a ring — no code needed",
+    detail: "A gemstone bracelet with a gemstone ring — no code needed",
   },
 ];

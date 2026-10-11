@@ -63,9 +63,12 @@ export default function OfferProgress({
         <ul className={`space-y-2 ${applied.length > 0 ? "mt-2 border-t border-champagne-gold/30 pt-2" : ""}`}>
           {nudges.map((n) => (
             <li key={n.offer} className="flex items-center gap-2.5">
-              {n.offer === "b2g1" ? (
-                // Buy 2 get 1 progress: the bracelets towards the next free one.
-                <span className="flex shrink-0 gap-1" aria-label={`${3 - n.count} of 3 bracelets`}>
+              {n.offer === "b2g1" || n.offer === "b2g1Adorn" ? (
+                // Buy 2 get 1 progress: the pieces towards the next free one.
+                <span
+                  className="flex shrink-0 gap-1"
+                  aria-label={`${3 - n.count} of 3 ${n.add === "adorn" ? "pieces" : "bracelets"}`}
+                >
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
@@ -87,7 +90,7 @@ export default function OfferProgress({
                   onClick={() => onNudge(n)}
                   className="shrink-0 cursor-pointer rounded-full bg-midnight-navy px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wider text-champagne-gold"
                 >
-                  {n.add === "ring" ? "See rings" : "See bracelets"}
+                  {n.add === "ring" ? "See rings" : n.add === "adorn" ? "See sets" : "See bracelets"}
                 </button>
               )}
             </li>

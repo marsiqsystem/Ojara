@@ -13,7 +13,8 @@ import {
 import { formatPrice } from "@/lib/format";
 import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { isTierCode } from "@/lib/commerce/pricing";
-import { estimateOffers, WELCOME_PERCENT, type OfferNudge } from "@/lib/commerce/offers";
+import { estimateOffers, offerLineOf, WELCOME_PERCENT, type OfferNudge } from "@/lib/commerce/offers";
+import { colourLabelOf, fullNameOf, isAdorn } from "@/lib/lines";
 import { LOW_STOCK_THRESHOLD, PREPAID_ENABLED } from "@/lib/commerce/config";
 import { useLiveCoupon, type CouponLine } from "@/lib/commerce/useLiveCoupon";
 import { useAutoTierCoupon, useCouponAutoRemoveHandler } from "@/lib/commerce/useAutoTierCoupon";
@@ -77,7 +78,7 @@ export default function CartDrawer() {
     () =>
       (hydrated ? cartItemsRaw : []).map((ci) => ({
         id: ci.product.id,
-        name: ci.product.name,
+        name: fullNameOf(ci.product),
         price: ci.product.price,
         quantity: ci.quantity,
         wixCatalogItemId: ci.product.wixCatalogItemId,
@@ -101,18 +102,16 @@ export default function CartDrawer() {
     0,
   );
   const totalSavings = mrpSavings + offers.total + couponDiscount;
-  const offerLines = cartItems.map((ci) => ({
-    name: ci.product.name,
-    price: ci.product.price,
-    quantity: ci.quantity,
-  }));
+  const offerLines = cartItems.map((ci) => offerLineOf(ci.product, ci.quantity));
+  // Adorn has no change-of-mind exchange (earrings) — an Adorn-only bag says so.
+  const exchangeNote = cartItems.some((ci) => !isAdorn(ci.product)) ? "48-hr exchange" : "Damage cover";
   const firstLowStock = cartItems.find(
     (ci) => ci.product.stockCount > 0 && ci.product.stockCount <= LOW_STOCK_THRESHOLD,
   );
 
   // A row of pieces for every offer within reach (more bracelets → one free, a
   // ring → 10% off it); relevant picks when none is.
-  const { rails, picks } = useUpsellSuggestions({ bag: cartItems, limit: 6 });
+  const { rails, look, picks } = useUpsellSuggestions({ bag: cartItems, limit: 6 });
   const scrollToRail = (n: OfferNudge) =>
     document.getElementById(`bag-rail-${n.offer}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -125,6 +124,9 @@ export default function CartDrawer() {
     return [
       after.freeCount < now.freeCount
         ? `Your free bracelet — buy 2, get 1 free (${formatPrice(now.free - after.free)} off)`
+        : "",
+      after.adornFreeCount < now.adornFreeCount
+        ? `Your free set — buy 2, get 1 free (${formatPrice(now.adornFree - after.adornFree)} off)`
         : "",
       after.comboCount < now.comboCount
         ? `10% off your ring — bracelet + ring offer (${formatPrice(now.combo - after.combo)} off)`
@@ -289,7 +291,7 @@ export default function CartDrawer() {
 
                 {undo && (
                   <div role="status" className="flex items-center justify-between rounded-lg bg-midnight-navy px-3 py-2 text-xs text-ivory">
-                    <span className="truncate">Removed {undo.product.name}</span>
+                    <span className="truncate">Removed {fullNameOf(undo.product)}</span>
                     <button type="button" onClick={undoRemove} className="ml-3 cursor-pointer font-bold uppercase tracking-wider text-champagne-gold">
                       Undo
                     </button>
@@ -317,6 +319,9 @@ export default function CartDrawer() {
                               <p className="text-[0.65rem] font-bold uppercase tracking-wider text-emerald-700">✓ Just added</p>
                             )}
                             <p className="line-clamp-2 text-sm font-medium text-midnight-navy">{p.name}</p>
+                            {colourLabelOf(p) && (
+                              <p className="text-xs text-midnight-navy/60">Colour: {colourLabelOf(p)}</p>
+                            )}
                             <p className="mt-1 flex items-baseline gap-2">
                               <span className="text-sm font-bold text-midnight-navy">{formatPrice(p.price)}</span>
                               {p.originalPrice && p.originalPrice > p.price && (
@@ -389,6 +394,12 @@ export default function CartDrawer() {
                   })}
                 </ul>
 
+                {/* The other line — earrings for a bracelet bag, a bracelet
+                    for an earrings bag. Leads when no offer is in reach. */}
+                {look && rails.length === 0 && (
+                  <PairItWith items={look.products} title={look.title} subtitle={look.subtitle} className="" />
+                )}
+
                 {/* A row per offer within reach, else relevant picks. */}
                 {rails.length > 0 ? (
                   rails.map(({ nudge, products }) => (
@@ -405,8 +416,12 @@ export default function CartDrawer() {
                       className="scroll-mt-4"
                     />
                   ))
-                ) : (
-                  <PairItWith items={picks} title="Complete your ritual" subtitle="" className="" />
+                ) : look ? null : (
+                  <PairItWith items={picks} title="You may also love" subtitle="" className="" />
+                )}
+
+                {look && rails.length > 0 && (
+                  <PairItWith items={look.products} title={look.title} subtitle={look.subtitle} className="" />
                 )}
 
                 {/* A separate code — offers already apply themselves. */}
@@ -490,7 +505,7 @@ export default function CartDrawer() {
             <div className="border-t border-midnight-navy/10 bg-ivory px-4 sm:px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_16px_rgba(0,0,0,0.06)]">
               {firstLowStock && (
                 <p className="mb-2 text-center text-[0.7rem] font-semibold text-orange-700">
-                  ⚠ Only {firstLowStock.product.stockCount} left of {firstLowStock.product.name} — check out to get yours
+                  ⚠ Only {firstLowStock.product.stockCount} left of {fullNameOf(firstLowStock.product)} — check out to get yours
                 </p>
               )}
               <button
@@ -502,7 +517,7 @@ export default function CartDrawer() {
                 Checkout · {formatPrice(total)}
               </button>
               <p className="mt-2 text-center text-[0.68rem] text-midnight-navy/55">
-                {PREPAID_ENABLED ? "UPI · Cards · Cash on Delivery" : "Cash on Delivery"} · Free delivery · 48-hr exchange
+                {PREPAID_ENABLED ? "UPI · Cards · Cash on Delivery" : "Cash on Delivery"} · Free delivery · {exchangeNote}
               </p>
             </div>
           </>

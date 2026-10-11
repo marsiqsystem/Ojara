@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCartStore, useCartHydrated } from "@/lib/store/useCartStore";
-import { bagMix, liveOffers, nextOfferNudge } from "@/lib/commerce/offers";
+import { bagMix, liveOffers, nextOfferNudge, offerLineOf } from "@/lib/commerce/offers";
 
 /**
  * "Offers running now" on the home page — the owner's offer poster as cards:
@@ -18,7 +18,7 @@ export default function OffersBanner() {
 
   const nudge = hydrated && cartItems.length > 0
     ? nextOfferNudge(
-        bagMix(cartItems.map((ci) => ({ name: ci.product.name, price: ci.product.price, quantity: ci.quantity }))),
+        bagMix(cartItems.map((ci) => offerLineOf(ci.product, ci.quantity))),
       )
     : null;
 

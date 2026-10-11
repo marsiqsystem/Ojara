@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Product } from "@/lib/mockData";
+import { fullNameOf } from "@/lib/lines";
 import { formatPrice } from "@/lib/format";
 import BuyNowConfirmModal, {
   type AbandonedCartItem,
@@ -48,7 +49,7 @@ export default function StickyAddToBag({ product }: { product: Product }) {
       .filter((item) => item.product.id !== product.id)
       .map((item) => ({
         id: item.product.id,
-        name: item.product.name,
+        name: fullNameOf(item.product),
         price: item.product.price,
         quantity: item.quantity,
         image: item.product.image,
@@ -69,7 +70,7 @@ export default function StickyAddToBag({ product }: { product: Product }) {
           content_ids: [contentId(product)],
           contents: toContents([product]),
           num_items: 1,
-          content_name: product.name,
+          content_name: fullNameOf(product),
           content_type: "product",
         },
         items: toGa4Items([product]),
@@ -78,7 +79,7 @@ export default function StickyAddToBag({ product }: { product: Product }) {
     // NOTE: InitiateCheckout is NOT fired here — CheckoutModal owns it (one IC
     // per checkout opened, whichever button opened it).
     toast.success("✦ Item secured! Proceeding to checkout...", {
-      description: product.name,
+      description: fullNameOf(product),
       style: { background: "#10b981", color: "#ffffff", border: "none" },
     });
     openCheckout();
@@ -130,7 +131,7 @@ export default function StickyAddToBag({ product }: { product: Product }) {
 
         {/* Name + price */}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-ivory">{product.name}</p>
+          <p className="truncate text-sm font-medium text-ivory">{fullNameOf(product)}</p>
           <p className="flex items-baseline gap-1.5">
             <span className="text-sm font-bold text-champagne-gold">
               {formatPrice(product.price)}
@@ -167,7 +168,7 @@ export default function StickyAddToBag({ product }: { product: Product }) {
       open={confirmOpen}
       onClose={() => setConfirmOpen(false)}
       abandonedItems={abandonedItems}
-      currentProduct={{ name: product.name, price: product.price, quantity: 1 }}
+      currentProduct={{ name: fullNameOf(product), price: product.price, quantity: 1 }}
       onDecision={handleConfirmDecision}
     />
     </>

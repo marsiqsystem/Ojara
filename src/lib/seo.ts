@@ -1,5 +1,6 @@
 import { SITE_URL, BRAND_NAME, SUPPORT_EMAIL } from "@/lib/commerce/config";
 import type { Product } from "@/lib/mockData";
+import { fullNameOf } from "@/lib/lines";
 
 // Central SEO constants + JSON-LD builders. SITE_URL already resolves to the live
 // domain (https://www.ojara.co.in) in production — see commerce/config.ts.
@@ -8,7 +9,7 @@ export { SITE_URL };
 export const SITE_NAME = BRAND_NAME; // "OJARA"
 
 export const SITE_DESCRIPTION =
-  "OJARA makes bracelets of natural gemstones — Black Tourmaline and evil eye for protection, Citrine for abundance, Carnelian for courage, Lapis Lazuli for clarity. Each piece is cleansed and charged before it reaches you.";
+  "OJARA makes jewellery in two lines. Intentions: natural gemstone bracelets and rings — Black Tourmaline and evil eye for protection, Citrine for abundance, Carnelian for courage, Lapis Lazuli for clarity — each cleansed before it reaches you. Adorn: stone jewellery — necklace sets with matching earrings for festive days and every day.";
 
 // OJARA's real social profiles. Add a Facebook/Pinterest URL here once confirmed —
 // sameAs feeds Google's entity graph and AI answer engines.
@@ -152,7 +153,7 @@ const returnPolicy = () => ({
 export const productSchema = (product: Product) => ({
   "@context": "https://schema.org",
   "@type": "Product",
-  name: product.name,
+  name: fullNameOf(product),
   description: product.description,
   image: (product.images?.length ? product.images : [product.image]).map(toAbsolute),
   brand: { "@type": "Brand", name: SITE_NAME },

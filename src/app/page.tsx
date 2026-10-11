@@ -15,6 +15,8 @@ import ShoppableReels from "@/components/media/ShoppableReels";
 import ComboFeature from "@/components/media/ComboFeature";
 import TrustSection from "@/components/media/TrustSection";
 import { reelsForTags } from "@/lib/media";
+import LineDoors from "@/components/home/LineDoors";
+import CompleteTheLook from "@/components/home/CompleteTheLook";
 
 // Self-canonical for the homepage. The root layout deliberately sets no canonical
 // (see layout.tsx), so the home route declares its own here.
@@ -23,9 +25,10 @@ export const metadata: Metadata = {
 };
 
 // Home, in the order a first-time visitor needs it (the Viora rebuild): the offer
-// and a price, the offers as the owner's artwork, reasons to trust, ways in
-// (category, then the pieces), proof (creators wearing and unboxing them, each
-// reel one tap from the bag), budget, what more buys, rings + the bracelet-and-
+// and a price, the offers as the owner's artwork, reasons to trust, the two
+// lines as two doors (Intentions / Adorn), ways in (category, then the pieces), proof (creators wearing and unboxing them, each
+// reel one tap from the bag), Adorn's stone jewellery and "Complete the look"
+// (a bracelet + a colour-matched Adorn piece), budget, what more buys, rings + the bracelet-and-
 // ring offer, gifting, confidence (certificate, packing, exchange), the story.
 // Media and which offers each piece promises: lib/media.ts.
 //
@@ -40,6 +43,8 @@ export default function Home() {
 
 
       <BrandTags />
+      {/* The fork: Intentions (meaning) or Adorn (sparkle). */}
+      <LineDoors />
       <CategoryStrip />
       <ProductGrid variant="bracelets" />
       <div className="bg-ivory px-4 sm:px-6 py-12 sm:py-16">
@@ -56,6 +61,21 @@ export default function Home() {
           />
         </div>
       </div>
+      {/* Adorn's pieces, then where the two lines meet. Both render nothing
+          until Adorn has stock. */}
+      <ProductGrid variant="adorn" />
+      {/* Adorn on camera — opens with "Which one should I order? All of them". */}
+      <div className="bg-ivory px-4 sm:px-6 pb-12 sm:pb-16">
+        <div className="mx-auto max-w-[1600px]">
+          <ShoppableReels
+            reels={reelsForTags(["lifestyle", "unboxing", "trust"], 10, "adorn")}
+            eyebrow="OJARA Adorn, on camera"
+            title="Which one would you pick?"
+            subtitle="Every set on the stand, in the hand and worn — tap a reel, add it without leaving the video."
+          />
+        </div>
+      </div>
+      <CompleteTheLook />
       <ShopByPrice />
       <OffersBanner />
       <ProductGrid variant="rings" />
