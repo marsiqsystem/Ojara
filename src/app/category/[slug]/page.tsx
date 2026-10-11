@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { categories } from "@/lib/mockData";
 import { getCategories, getCategoryBySlug, getProductsByCategory } from "@/lib/catalog";
 import { parseShopParams, type RawShopParams } from "@/lib/shopFilters";
 import { LINES } from "@/lib/lines";
 import ShopView from "@/components/shop/ShopView";
 
-// Prerender a static page for every intention and every product type.
-export function generateStaticParams() {
-  return categories.map((category) => ({ slug: category.slug }));
-}
+// Rendered per request, NOT prerendered: the page reads ?sort / ?price /
+// ?type (searchParams), and a statically generated page that reads them fails
+// with DYNAMIC_SERVER_USAGE — every /category page returned 500 on Vercel.
+// The catalogue itself stays cached (catalog.ts, 5 minutes).
 
 export async function generateMetadata({
   params,
