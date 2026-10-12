@@ -18,7 +18,9 @@
 //   5. Buy 2 Adorn pieces, get 1 free — owner's call 2026-10-11, for the
 //      jewellery sets. A separate Wix AUTOMATIC "buy X get Y" on the Adorn
 //      category (the lowest-priced of every 3 free). Bracelets and Adorn never
-//      count towards each other. Off (ADORN_B2G1_LIVE) until Wix has the rule.
+//      count towards each other. Live since 2026-10-12: Wix rule "Buy 2 Get 1
+//      Free — Jewellery Sets" on the Jewellery Set category (checked read-only:
+//      3 sets → cheapest free, 6 → 2 free, 2 sets + a bracelet → nothing).
 //
 // Wix applies 2 and 4 to the order itself, and stacks WELCOME10 on top of the
 // bracelet + ring 10% (owner OK'd, 2026-09-22). WELCOME10 does NOT combine with
@@ -46,11 +48,10 @@ export const BUY2GET1_LIVE = true;
 export const BUY2GET1_RINGS_LIVE = false;
 
 /**
- * Buy 2 get 1 free on Adorn (jewellery sets). Flip to true only after Wix's
- * automatic rule on the Adorn category exists AND a read-only /api/offers
- * check of 3 sets returns the free one.
+ * Buy 2 get 1 free on Adorn (jewellery sets) — a Wix automatic rule on the
+ * Jewellery Set category since 2026-10-12. Turn off if that rule is removed.
  */
-export const ADORN_B2G1_LIVE = false;
+export const ADORN_B2G1_LIVE = true;
 
 export type OfferKey = "welcome" | "combo" | "b2g1" | "b2g1Rings" | "b2g1Adorn" | "prepaid";
 

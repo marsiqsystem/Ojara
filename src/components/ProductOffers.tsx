@@ -190,9 +190,9 @@ export default function ProductOffers({
                   ✓ Add this to the 2 {kind === "adorn" ? "pieces" : "bracelets"} in your bag — the lowest-priced of the 3 is free
                 </b>
               ) : kind === "adorn" ? (
-                "Pick any 3 — another colour counts. The lowest-priced one is free."
+                "Pick any 3 — another colour counts. The lowest-priced one is free. Not with WELCOME10."
               ) : (
-                "Pick any 3 bracelets — the lowest-priced one is free."
+                "Pick any 3 bracelets — the lowest-priced one is free. Not with WELCOME10."
               )}
             </p>
           </div>
