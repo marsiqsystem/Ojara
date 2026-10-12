@@ -143,6 +143,9 @@ const COLLECTION_TYPE: Record<string, PieceType> = {
   pendants: "pendant",
   "jewellery-sets": "set",
   "jewelry-sets": "set",
+  // The intern's Wix category (2026-10-12) is singular.
+  "jewellery-set": "set",
+  "jewelry-set": "set",
   sets: "set",
   bangles: "bangle",
   anklets: "anklet",

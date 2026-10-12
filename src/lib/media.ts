@@ -197,15 +197,6 @@ export const REELS: Reel[] = [
     tags: ["lifestyle"],
     line: "adorn",
   }),
-  reel("noor-pov-order", {
-    title: "POV: you ordered from OJARA",
-    alt: "The Noor necklace set and earrings on a stand, in changing light",
-    kind: "brand",
-    talking: false,
-    product: ["noor"],
-    tags: ["unboxing"],
-    line: "adorn",
-  }),
   reel("adorn-worn-night", {
     title: "Worn: a drop necklace after dark",
     alt: "A drop necklace and earrings worn, lit by a single light",
