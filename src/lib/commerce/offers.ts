@@ -20,8 +20,12 @@
 //      category (the lowest-priced of every 3 free). Bracelets and Adorn never
 //      count towards each other. Off (ADORN_B2G1_LIVE) until Wix has the rule.
 //
-// Wix applies 2 and 4 to the order itself, and stacks WELCOME10 on top (owner
-// OK'd stacking, 2026-09-22). The bag therefore asks Wix what they're worth
+// Wix applies 2 and 4 to the order itself, and stacks WELCOME10 on top of the
+// bracelet + ring 10% (owner OK'd, 2026-09-22). WELCOME10 does NOT combine with
+// buy 2 get 1 (owner, 2026-10-12: it halved the margin on a 3-piece order). Wix
+// itself would stack them, so the site enforces it: the bag doesn't auto-apply
+// it, /api/coupon refuses it, and /api/checkout strips it from the Wix checkout
+// (earnsBuy2Get1 / isBuy2Get1Rule). The bag therefore asks Wix what they're worth
 // (useWixOffers); estimateOffers below is only a preview for places that have no
 // Wix answer (product page cards) and a fallback when Wix can't be reached.
 // Checked against Wix's totals, 2026-09-22.
@@ -73,6 +77,17 @@ export const allOffersLive = (keys: readonly OfferKey[]): boolean => keys.every(
 export const WELCOME_CODE = COUPON_TIERS[0]?.code ?? "WELCOME10";
 export const WELCOME_PERCENT = Math.round((COUPON_TIERS[0]?.value ?? 0.1) * 100);
 export const COMBO_PERCENT = 10;
+
+/** Wix's buy 2 get 1 rules — "Buy 2 Get 1 Free" (bracelets) and the Adorn one. */
+export const isBuy2Get1Rule = (ruleName: string): boolean => /buy\s*2\s*get\s*1/i.test(ruleName);
+
+/** The rule name on a Wix appliedDiscounts entry ("" for a coupon). */
+export const ruleNameOf = (applied: {
+  discountRule?: { name?: { original?: string; translated?: string } } | null;
+}): string => applied?.discountRule?.name?.translated || applied?.discountRule?.name?.original || "";
+
+/** Why the first-order code is off a bag — shown where the code would have been. */
+export const WELCOME_NOT_WITH_B2G1 = `${WELCOME_CODE} doesn't combine with Buy 2 Get 1 — your free piece is the bigger saving.`;
 
 /**
  * How a piece counts for the automatic offers. Wix's rules key on categories:
@@ -169,6 +184,12 @@ export const estimateOffers = (lines: OfferLine[]): OfferEstimate => {
   return { combo, comboCount, free, freeCount, adornFree, adornFreeCount, total: combo + free + adornFree };
 };
 
+/** Does this bag get a piece free? Then WELCOME10 stays off it (owner, 2026-10-12). */
+export const earnsBuy2Get1 = (lines: OfferLine[]): boolean => {
+  const e = estimateOffers(lines);
+  return e.freeCount + e.adornFreeCount > 0;
+};
+
 export interface OfferNudge {
   /** Which offer adding this piece earns. */
   offer: "b2g1" | "b2g1Adorn" | "combo";
@@ -199,14 +220,14 @@ export const offerNudges = (mix: BagMix): OfferNudge[] => {
             add: "bracelet",
             count: 1,
             message: "Add 1 more bracelet — get 1 free",
-            detail: "Buy 2, get 1 free: the lowest-priced of your 3 bracelets is on us.",
+            detail: "Buy 2, get 1 free: the lowest-priced of your 3 bracelets is on us. Not with WELCOME10.",
           }
         : {
             offer: "b2g1",
             add: "bracelet",
             count: 2,
             message: "Add 2 more bracelets — 1 is free",
-            detail: "Buy 2, get 1 free: 3 bracelets for the price of 2. The lowest-priced one is on us.",
+            detail: "Buy 2, get 1 free: 3 bracelets for the price of 2. The lowest-priced one is on us. Not with WELCOME10.",
           },
     );
   }
@@ -220,14 +241,14 @@ export const offerNudges = (mix: BagMix): OfferNudge[] => {
             add: "adorn",
             count: 1,
             message: "Add 1 more set — get 1 free",
-            detail: "Buy 2, get 1 free on jewellery: the lowest-priced of your 3 pieces is on us.",
+            detail: "Buy 2, get 1 free on jewellery: the lowest-priced of your 3 pieces is on us. Not with WELCOME10.",
           }
         : {
             offer: "b2g1Adorn",
             add: "adorn",
             count: 2,
             message: "Add 2 more sets — 1 is free",
-            detail: "Buy 2, get 1 free on jewellery: 3 pieces for the price of 2. Another colour counts.",
+            detail: "Buy 2, get 1 free on jewellery: 3 pieces for the price of 2. Another colour counts. Not with WELCOME10.",
           },
     );
   }
@@ -277,7 +298,7 @@ export const liveOffers = (): OfferCard[] => [
         {
           key: "b2g1" as const,
           title: "Buy 2 Get 1 Free",
-          detail: "On gemstone bracelets — the third one is on us",
+          detail: "On gemstone bracelets — the third one is on us. Not with WELCOME10",
         },
       ]
     : []),
@@ -286,7 +307,7 @@ export const liveOffers = (): OfferCard[] => [
         {
           key: "b2g1Adorn" as const,
           title: "Buy 2 Get 1 Free · jewellery sets",
-          detail: "Pick any 3 sets or colours — the lowest-priced one is on us",
+          detail: "Pick any 3 sets or colours — the lowest-priced one is on us. Not with WELCOME10",
         },
       ]
     : []),

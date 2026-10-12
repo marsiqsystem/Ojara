@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { UPSELL_ENABLED, WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
-import { PREPAID_DISCOUNT } from "@/lib/commerce/pricing";
+import { PREPAID_DISCOUNT, isTierCode } from "@/lib/commerce/pricing";
+import { isBuy2Get1Rule, ruleNameOf } from "@/lib/commerce/offers";
 import { normalizeSubdivision } from "@/lib/commerce/indiaStates";
 import { clientIp, isRateLimited, isSameOrigin } from "@/lib/apiGuard";
 import {
@@ -344,6 +345,19 @@ export async function POST(req: Request) {
           selectedCarrierServiceOption: shippingOptions[0],
         },
       });
+    }
+
+    // 2b. WELCOME10 doesn't combine with buy 2 get 1 (owner, 2026-10-12). The
+    // bag never sends that pair, but Wix itself would stack them — so strip the
+    // code here and the order can't carry both, whatever the browser sent.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const appliedNow: any[] = updatedCheckout?.appliedDiscounts || [];
+    if (
+      appliedNow.some((d) => d?.coupon && isTierCode(String(d.coupon.code || ""))) &&
+      appliedNow.some((d) => isBuy2Get1Rule(ruleNameOf(d)))
+    ) {
+      const stripped = await wixClient.checkout.removeCoupon(checkoutId);
+      updatedCheckout = stripped?.checkout || (await wixClient.checkout.getCheckout(checkoutId));
     }
 
     // 3. Bail early on calculation errors (else createOrder fails opaquely).

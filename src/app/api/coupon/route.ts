@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
 import { wixAdminClientServer } from "@/lib/wixAdminClientServer";
+import { isBuy2Get1Rule, ruleNameOf } from "@/lib/commerce/offers";
+import { isTierCode } from "@/lib/commerce/pricing";
 
 // ============================================================================
 // Live coupon validation — asks Wix's own engine what a code is worth on THIS
@@ -112,6 +114,12 @@ export async function POST(req: Request) {
 
     if (!couponHit) {
       return NextResponse.json({ ok: true, valid: false, reason: "rejected" });
+    }
+
+    // WELCOME10 doesn't combine with buy 2 get 1 (owner, 2026-10-12). Wix would
+    // stack them, so refuse it here; /api/checkout strips it from the order too.
+    if (isTierCode(code) && applied.some((d) => isBuy2Get1Rule(ruleNameOf(d)))) {
+      return NextResponse.json({ ok: true, valid: false, reason: "b2g1" });
     }
 
     const discount = Math.max(

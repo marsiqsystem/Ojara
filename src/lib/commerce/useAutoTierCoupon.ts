@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useCartStore, useCartHydrated } from "@/lib/store/useCartStore";
 import { COUPON_TIERS, bestTierFor, cartSubtotal, isTierCode } from "./pricing";
+import { earnsBuy2Get1, offerLineOf, WELCOME_NOT_WITH_B2G1 } from "./offers";
 
 /**
  * The auto-applied codes it's honest to advertise right now: every one except
@@ -20,7 +21,9 @@ export function useAvailableTiers() {
 //
 //   • applies the code as soon as the bag qualifies, drops it when it doesn't;
 //   • never touches a code the shopper typed or removed (shopperChoseCoupon);
-//   • skips codes Wix has refused this visit (markTierCodeUnavailable).
+//   • skips codes Wix has refused this visit (markTierCodeUnavailable);
+//   • keeps it off a bag that gets a piece free — WELCOME10 doesn't combine
+//     with buy 2 get 1 (owner, 2026-10-12), and comes back if the bag shrinks.
 //
 // It only sets the code. useLiveCoupon (bag + checkout) still validates it with
 // Wix and prices it, so the discount shown is always Wix's. Mount ONCE — the
@@ -44,6 +47,14 @@ export function useCouponAutoRemoveHandler(
 
   return (reason: string, code: string) => {
     const bagChanged = reason === "empty" || reason === "no-priced-lines";
+    // WELCOME10 on a buy 2 get 1 bag. useAutoTierCoupon already keeps it off the
+    // bags it can see earn a free piece; Wix saying so anyway means the two
+    // disagree, so park the code for the visit rather than re-apply it in a loop.
+    if (reason === "b2g1") {
+      if (!shopperChoseCoupon && isTierCode(code)) markTierCodeUnavailable(code.toUpperCase());
+      notify(WELCOME_NOT_WITH_B2G1);
+      return;
+    }
     if (!shopperChoseCoupon && isTierCode(code)) {
       if (!bagChanged) {
         markTierCodeUnavailable(code.toUpperCase());
@@ -72,6 +83,7 @@ export function useAutoTierCoupon() {
   const subtotal = cartSubtotal(
     cartItems.map((ci) => ({ price: ci.product.price, quantity: ci.quantity })),
   );
+  const freePiece = earnsBuy2Get1(cartItems.map((ci) => offerLineOf(ci.product, ci.quantity)));
 
   useEffect(() => {
     // Wait for the persisted bag, or an empty first render would clear a
@@ -82,7 +94,7 @@ export function useAutoTierCoupon() {
     const legacyLadderCode = /^OJAS1[05]$/.test(appliedCoupon);
     if (appliedCoupon && !isTierCode(appliedCoupon) && !legacyLadderCode) return;
 
-    const target = bestTierFor(subtotal, new Set(unavailableTierCodes))?.code ?? "";
+    const target = freePiece ? "" : (bestTierFor(subtotal, new Set(unavailableTierCodes))?.code ?? "");
     if (target !== appliedCoupon) setAppliedCoupon(target);
-  }, [hydrated, subtotal, appliedCoupon, shopperChoseCoupon, unavailableTierCodes, setAppliedCoupon]);
+  }, [hydrated, subtotal, freePiece, appliedCoupon, shopperChoseCoupon, unavailableTierCodes, setAppliedCoupon]);
 }
