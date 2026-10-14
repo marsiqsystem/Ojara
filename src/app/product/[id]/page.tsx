@@ -411,6 +411,89 @@ export default async function ProductDetailPage({
             </span>
             <span className="underline-offset-2 hover:underline">Be the first to review</span>
           </a>
+          {/* Price, the markdown, and the rupee saving. */}
+          <div className="mt-4">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-3xl font-semibold tracking-tight text-midnight-navy sm:text-4xl">
+                {formatPrice(product.price)}
+              </span>
+              {discountPercent > 0 && (
+                <>
+                  <span className="text-lg text-midnight-navy/40 line-through">
+                    {formatPrice(product.originalPrice!)}
+                  </span>
+                  <span className="rounded-md bg-champagne-gold px-2.5 py-1 text-sm font-bold text-midnight-navy">
+                    {discountPercent}% OFF
+                  </span>
+                </>
+              )}
+            </div>
+            {discountPercent > 0 && (
+              <p className="mt-1 text-xs font-semibold text-emerald-700">
+                You save {formatPrice(product.originalPrice! - product.price)}
+              </p>
+            )}
+          </div>
+
+          {/* Colour picker, straight under the price and boxed so shoppers see a
+              design comes in several colours (client, 2026-10-14: it sat below
+              the description, where people missed it). Each colour is its own
+              Wix product, so each swatch is a link to that piece (its own
+              photos, price and stock). */}
+          {colours.length > 0 && (
+            <div className="mt-4 rounded-xl border border-champagne-gold/50 bg-sand/40 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-midnight-navy/70">
+                  Colour: <span className="font-semibold text-midnight-navy">{ownColour}</span>
+                </p>
+                <span className="rounded-full bg-champagne-gold px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-[0.15em] text-midnight-navy">
+                  {colours.length} colours available
+                </span>
+              </div>
+              <ul className="mt-3 flex flex-wrap gap-3">
+                {colours.map((c) => {
+                  const active = c.id === product.id;
+                  const label = colourLabelOf(c) ?? c.name;
+                  const soldOut = c.stockCount <= 0;
+                  return (
+                    <li key={c.id}>
+                      <Link
+                        href={`/product/${c.id}`}
+                        scroll={false}
+                        aria-current={active ? "page" : undefined}
+                        aria-label={`${label}${soldOut ? " (sold out)" : ""}`}
+                        title={label}
+                        className={`group flex w-16 flex-col items-center gap-1 ${soldOut ? "opacity-40" : ""}`}
+                      >
+                        <span
+                          className={`relative block h-20 w-16 overflow-hidden rounded-lg border-2 bg-ivory transition-colors ${
+                            active
+                              ? "border-midnight-navy ring-2 ring-champagne-gold/60"
+                              : "border-champagne-gold/30 group-hover:border-champagne-gold"
+                          }`}
+                        >
+                          <Image src={c.image} alt="" fill sizes="64px" className="object-cover" />
+                        </span>
+                        <span
+                          className={`w-full truncate text-center text-[0.68rem] leading-tight ${
+                            active ? "font-semibold text-midnight-navy" : "text-midnight-navy/65"
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {ADORN_B2G1_LIVE && (
+                <p className="mt-3 text-xs font-semibold text-emerald-700">
+                  Pick any 3 colours or sets — the lowest-priced one is free.
+                </p>
+              )}
+            </div>
+          )}
+
           {reels.length > 0 && (
             <a
               href="#product-videos"
@@ -449,69 +532,6 @@ export default async function ProductDetailPage({
               >
                 Read more
               </a>
-            </div>
-          )}
-
-          {/* Price, the markdown, and the rupee saving. */}
-          <div className="mt-5">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-3xl font-semibold tracking-tight text-midnight-navy sm:text-4xl">
-                {formatPrice(product.price)}
-              </span>
-              {discountPercent > 0 && (
-                <>
-                  <span className="text-lg text-midnight-navy/40 line-through">
-                    {formatPrice(product.originalPrice!)}
-                  </span>
-                  <span className="rounded-md bg-champagne-gold px-2.5 py-1 text-sm font-bold text-midnight-navy">
-                    {discountPercent}% OFF
-                  </span>
-                </>
-              )}
-            </div>
-            {discountPercent > 0 && (
-              <p className="mt-1 text-xs font-semibold text-emerald-700">
-                You save {formatPrice(product.originalPrice! - product.price)}
-              </p>
-            )}
-          </div>
-
-          {/* Colour picker — each colour is its own Wix product, so each swatch is
-              a link to that piece (its own photos, price and stock). */}
-          {colours.length > 0 && (
-            <div className="mt-5">
-              <p className="text-sm text-midnight-navy/70">
-                Colour: <span className="font-semibold text-midnight-navy">{ownColour}</span>
-                <span className="text-midnight-navy/50"> · {colours.length} colours</span>
-              </p>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {colours.map((c) => {
-                  const active = c.id === product.id;
-                  const label = colourLabelOf(c) ?? c.name;
-                  const soldOut = c.stockCount <= 0;
-                  return (
-                    <li key={c.id}>
-                      <Link
-                        href={`/product/${c.id}`}
-                        scroll={false}
-                        aria-current={active ? "page" : undefined}
-                        aria-label={`${label}${soldOut ? " (sold out)" : ""}`}
-                        title={label}
-                        className={`relative block h-16 w-14 overflow-hidden rounded-lg border-2 transition-colors ${
-                          active ? "border-midnight-navy" : "border-transparent hover:border-champagne-gold"
-                        } ${soldOut ? "opacity-40" : ""}`}
-                      >
-                        <Image src={c.image} alt="" fill sizes="56px" className="object-cover" />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-              {ADORN_B2G1_LIVE && (
-                <p className="mt-2 text-xs font-semibold text-emerald-700">
-                  Pick any 3 colours or sets — the lowest-priced one is free.
-                </p>
-              )}
             </div>
           )}
 

@@ -1,5 +1,6 @@
 import { WIX_ENABLED } from "./commerce/config";
 import { matchesIntentionCollection } from "./commerce/bundle";
+import { allOffersLive, type OfferKey } from "./commerce/offers";
 import {
   OCCASIONS,
   PIECE_TYPE_INFO,
@@ -313,6 +314,14 @@ export const getProductsByLine = async (line: Line): Promise<Product[]> =>
 
 // Local mock mode only: the intention collections the site launched with.
 // Live, every Wix collection the team creates becomes a category (wixCategories).
+// Wix collection artwork that names an offer shows only while that offer is
+// live, like every other piece of offer artwork (offers.ts isOfferLive). The
+// team's Rings image reads "Buy 2 Rings Get 1 Free", which Wix doesn't give
+// (2026-10-14); until it does, the tile falls back to a ring photo.
+const COLLECTION_ART_OFFERS: Record<string, OfferKey[]> = {
+  rings: ["b2g1Rings"],
+};
+
 const MOCK_COLLECTIONS = [
   "all-products",
   "protection-evil-eye",
@@ -373,15 +382,19 @@ const wixCategories = async (products: Product[]): Promise<Category[]> => {
       return isPieceOrOccasionCollection(slug) ? "type" : "intention";
     };
     // All Products, then piece collections (Bracelets, Rings), then intentions,
-    // then Adorn's own; Wix's order within each.
+    // then Adorn's own; the biggest first within each (Bracelets, the bestseller,
+    // ahead of Rings).
     const ORDER: Category["group"][] = ["type", "intention", "adorn"];
     const items = rawItems
-      .map((col) => ({ col, group: groupOf(col) }))
-      .filter((x): x is { col: WixRawCollection; group: Category["group"] } => !!x.group)
+      .map((col) => ({ col, group: groupOf(col), size: membersOf(col.id).length }))
+      .filter(
+        (x): x is { col: WixRawCollection; group: Category["group"]; size: number } => !!x.group,
+      )
       .sort(
         (a, b) =>
           Number(b.col.slug === "all-products") - Number(a.col.slug === "all-products") ||
-          ORDER.indexOf(a.group) - ORDER.indexOf(b.group),
+          ORDER.indexOf(a.group) - ORDER.indexOf(b.group) ||
+          b.size - a.size,
       );
 
     // Product photo per collection, used when the collection has no image of its own.
@@ -390,11 +403,10 @@ const wixCategories = async (products: Product[]): Promise<Category[]> => {
     return items.map(({ col, group }): Category & { wixCollectionId: string } => {
       // `undefined`, not `null` — Category.image is optional, and a null here was
       // only tolerated because the caller was untyped.
-      let imageUrl =
-        col.media?.mainMedia?.image?.url ||
-        col.image ||
-        collectionImages[col.id] ||
-        undefined;
+      const ownArt = allOffersLive(COLLECTION_ART_OFFERS[col.slug ?? ""] ?? [])
+        ? col.media?.mainMedia?.image?.url || col.image
+        : undefined;
+      let imageUrl = ownArt || collectionImages[col.id] || undefined;
       if (imageUrl && !imageUrl.startsWith("http") && !imageUrl.startsWith("/")) {
         imageUrl = `https://static.wixstatic.com/media/${imageUrl}`;
       }
