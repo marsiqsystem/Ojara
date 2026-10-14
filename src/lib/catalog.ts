@@ -7,6 +7,7 @@ import {
   classifyOccasions,
   classifyPieceType,
   colourOf,
+  isPieceOrOccasionCollection,
   lineOf,
   type Line,
 } from "./lines";
@@ -310,7 +311,9 @@ export const getAllProducts = async (): Promise<Product[]> => {
 export const getProductsByLine = async (line: Line): Promise<Product[]> =>
   (await getAllProducts()).filter((p) => lineOf(p) === line);
 
-const ALLOWED_COLLECTIONS = [
+// Local mock mode only: the intention collections the site launched with.
+// Live, every Wix collection the team creates becomes a category (wixCategories).
+const MOCK_COLLECTIONS = [
   "all-products",
   "protection-evil-eye",
   "wealth-success",
@@ -342,32 +345,49 @@ const fetchCollectionImages = async (): Promise<Record<string, string>> => {
   return byCollection;
 };
 
-// The Intentions categories: the owner's Wix intention collections.
-const intentionCategories = async (): Promise<Category[]> => {
-  if (!WIX_ENABLED) {
-    return mockCategories.filter((c) => ALLOWED_COLLECTIONS.includes(c.slug));
-  }
+// The team's Wix collections, as categories. Any collection with products shows
+// up — no list to keep in sync here. A hard-coded list of five slugs hid every
+// collection the team made in Wix (Bracelets, Rings, Jewellery Set…, 2026-10-14)
+// and, once they deleted the old intention collections, left the home page with
+// two tiles. Skipped: empty collections (a page with nothing on it), and Adorn
+// piece/occasion collections ("jewellery-set", "earrings") — adornCategories
+// already builds those pages from the catalogue.
+const wixCategories = async (products: Product[]): Promise<Category[]> => {
+  const mock = () => mockCategories.filter((c) => MOCK_COLLECTIONS.includes(c.slug));
+  if (!WIX_ENABLED) return mock();
 
   try {
     const rawItems = await fetchWixCollectionsRaw();
-    if (!rawItems.length) {
-      return mockCategories.filter((c) => ALLOWED_COLLECTIONS.includes(c.slug));
-    }
-    const items: WixRawCollection[] = rawItems.filter((col: WixRawCollection) =>
-      ALLOWED_COLLECTIONS.includes(col.slug ?? ""),
-    );
+    if (!rawItems.length) return mock();
 
-    // Sort to match ALLOWED_COLLECTIONS order exactly
-    items.sort(
-      (a, b) =>
-        ALLOWED_COLLECTIONS.indexOf(a.slug ?? "") -
-        ALLOWED_COLLECTIONS.indexOf(b.slug ?? ""),
-    );
+    const membersOf = (id: string) =>
+      (products as ProductWithCollections[]).filter((p) => p.collectionIds?.includes(id));
+    const groupOf = (col: WixRawCollection): Category["group"] | undefined => {
+      const slug = col.slug ?? "";
+      const members = membersOf(col.id);
+      if (!slug || !members.length) return undefined;
+      if (slug === "all-products") return "type";
+      if (members.every((p) => lineOf(p) === "adorn")) {
+        return isPieceOrOccasionCollection(slug) ? undefined : "adorn";
+      }
+      return isPieceOrOccasionCollection(slug) ? "type" : "intention";
+    };
+    // All Products, then piece collections (Bracelets, Rings), then intentions,
+    // then Adorn's own; Wix's order within each.
+    const ORDER: Category["group"][] = ["type", "intention", "adorn"];
+    const items = rawItems
+      .map((col) => ({ col, group: groupOf(col) }))
+      .filter((x): x is { col: WixRawCollection; group: Category["group"] } => !!x.group)
+      .sort(
+        (a, b) =>
+          Number(b.col.slug === "all-products") - Number(a.col.slug === "all-products") ||
+          ORDER.indexOf(a.group) - ORDER.indexOf(b.group),
+      );
 
     // Product photo per collection, used when the collection has no image of its own.
     const collectionImages = await fetchCollectionImages();
 
-    return items.map((col): Category & { wixCollectionId: string } => {
+    return items.map(({ col, group }): Category & { wixCollectionId: string } => {
       // `undefined`, not `null` — Category.image is optional, and a null here was
       // only tolerated because the caller was untyped.
       let imageUrl =
@@ -379,21 +399,24 @@ const intentionCategories = async (): Promise<Category[]> => {
         imageUrl = `https://static.wixstatic.com/media/${imageUrl}`;
       }
 
+      const name = (col.name || "").trim();
       return {
         slug: col.slug || col.id,
-        label: col.name || "",
-        title: col.name || "",
+        label: name,
+        title: name,
         tagline:
           col.description ||
-          "Natural crystal bracelets, curated for your intentions.",
-        group: col.slug === "all-products" ? "type" : "intention",
+          (group === "adorn"
+            ? "Stone jewellery from OJARA Adorn."
+            : "Natural crystal bracelets, curated for your intentions."),
+        group,
         image: imageUrl,
         wixCollectionId: col.id,
       };
     });
   } catch (e) {
     console.error("Wix fetch collections failed, falling back to mock:", e);
-    return mockCategories.filter((c) => ALLOWED_COLLECTIONS.includes(c.slug));
+    return mock();
   }
 };
 
@@ -453,10 +476,17 @@ const adornCategories = (products: Product[]): Category[] => {
   return [...byType, ...byOccasion];
 };
 
-/** Intentions categories (Wix collections), then Adorn's piece and occasion pages. */
+/** Wix collections, with Adorn's piece and occasion pages ahead of Adorn's own collections. */
 export const getCategories = async (): Promise<Category[]> => {
-  const [intentions, products] = await Promise.all([intentionCategories(), getAllProducts()]);
-  return [...intentions, ...adornCategories(products)];
+  const products = await getAllProducts();
+  const wix = await wixCategories(products);
+  const list = [
+    ...wix.filter((c) => c.group !== "adorn"),
+    ...adornCategories(products),
+    ...wix.filter((c) => c.group === "adorn"),
+  ];
+  // One page per slug — a Wix collection can't shadow a built page or vice versa.
+  return list.filter((c, i) => list.findIndex((d) => d.slug === c.slug) === i);
 };
 
 export const getCategoryBySlug = async (slug: string): Promise<Category | undefined> => {
@@ -493,10 +523,15 @@ export const getProductById = async (id: string): Promise<Product | undefined> =
 export const getProductsByCategory = async (category: Category): Promise<Product[]> => {
   const catalog = await getAllProducts();
 
+  const wixColId = (category as Category & { wixCollectionId?: string })
+    .wixCollectionId;
+
   if (category.group === "adorn") {
     return catalog.filter(
       (p) =>
         lineOf(p) === "adorn" &&
+        // An Adorn collection the team made in Wix lists its own members.
+        (!wixColId || !!(p as ProductWithCollections).collectionIds?.includes(wixColId)) &&
         (!category.pieceType || p.pieceType === category.pieceType) &&
         (!category.occasion || !!p.occasions?.includes(category.occasion)),
     );
@@ -509,8 +544,6 @@ export const getProductsByCategory = async (category: Category): Promise<Product
   // Wix collection members first (the owner's curation), then pieces whose stones
   // match the intention. The Wix intention collections held one piece each
   // (2026-09-16), so the category pages the home page links to were near-empty.
-  const wixColId = (category as Category & { wixCollectionId?: string })
-    .wixCollectionId;
   if (wixColId) {
     const inCollection = (all as ProductWithCollections[]).filter((product) =>
       product.collectionIds?.includes(wixColId),

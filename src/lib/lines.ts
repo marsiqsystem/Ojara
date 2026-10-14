@@ -240,6 +240,16 @@ export const classifyOccasions = (name: string, collectionSlugs: readonly string
   return hit ? [hit[1]] : [];
 };
 
+/**
+ * A Wix collection named after a piece or an occasion ("earrings",
+ * "jewellery-set", "festive"…). For Adorn pieces those pages are built from the
+ * catalogue (catalog.ts adornCategories), so the collection needs no page of its own.
+ */
+export const isPieceOrOccasionCollection = (slug: string): boolean => {
+  const s = slug.replace(/^adorn-/, "");
+  return s in COLLECTION_TYPE || s in OCCASION_COLLECTIONS;
+};
+
 // ---------------------------------------------------------------------------
 // Adorn's exchange rule (owner, 2026-10-11): sets include earrings, a hygiene
 // item, so no change-of-mind exchange — damaged or wrong pieces are replaced.

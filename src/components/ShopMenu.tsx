@@ -113,7 +113,10 @@ export default function ShopMenu() {
       items: [
         { slug: "", label: "Bracelets", href: `${LINES.intentions.href}?type=bracelets` },
         { slug: "", label: "Rings", href: `${LINES.intentions.href}?type=rings` },
-        ...categories.filter((c) => c.group !== "adorn" && c.slug !== "all-products"),
+        // Wix's own Bracelets/Rings collections would repeat the two links above.
+        ...categories.filter(
+          (c) => c.group !== "adorn" && !["all-products", "bracelets", "rings"].includes(c.slug),
+        ),
       ],
     },
     { line: LINES.adorn, items: categories.filter((c) => c.group === "adorn") },
