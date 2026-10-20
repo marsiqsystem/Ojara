@@ -27,7 +27,9 @@
 // buy 2 get 1 (owner, 2026-10-12: it halved the margin on a 3-piece order). Wix
 // itself would stack them, so the site enforces it: the bag doesn't auto-apply
 // it, /api/coupon refuses it, and /api/checkout strips it from the Wix checkout
-// (earnsBuy2Get1 / isBuy2Get1Rule). The bag therefore asks Wix what they're worth
+// (earnsBuy2Get1 / isBuy2Get1Rule). Nor does it apply to jewellery sets at all
+// (owner, 2026-10-20): a bag with any Adorn piece gets no WELCOME10, enforced the
+// same three ways (keepsWelcomeOff / adornCatalogIds). The bag therefore asks Wix what they're worth
 // (useWixOffers); estimateOffers below is only a preview for places that have no
 // Wix answer (product page cards) and a fallback when Wix can't be reached.
 // Checked against Wix's totals, 2026-09-22.
@@ -89,6 +91,7 @@ export const ruleNameOf = (applied: {
 
 /** Why the first-order code is off a bag — shown where the code would have been. */
 export const WELCOME_NOT_WITH_B2G1 = `${WELCOME_CODE} doesn't combine with Buy 2 Get 1 — your free piece is the bigger saving.`;
+export const WELCOME_NOT_ON_SETS = `${WELCOME_CODE} isn't valid on jewellery sets.`;
 
 /**
  * How a piece counts for the automatic offers. Wix's rules key on categories:
@@ -191,6 +194,12 @@ export const earnsBuy2Get1 = (lines: OfferLine[]): boolean => {
   return e.freeCount + e.adornFreeCount > 0;
 };
 
+/** Is there a jewellery set (Adorn piece) in this bag? Then no WELCOME10 (owner, 2026-10-20). */
+export const hasAdorn = (lines: OfferLine[]): boolean => bagMix(lines).adorn > 0;
+
+/** Should WELCOME10 stay off this bag — a free piece, or any jewellery set? */
+export const keepsWelcomeOff = (lines: OfferLine[]): boolean => earnsBuy2Get1(lines) || hasAdorn(lines);
+
 export interface OfferNudge {
   /** Which offer adding this piece earns. */
   offer: "b2g1" | "b2g1Adorn" | "combo";
@@ -242,14 +251,14 @@ export const offerNudges = (mix: BagMix): OfferNudge[] => {
             add: "adorn",
             count: 1,
             message: "Add 1 more set — get 1 free",
-            detail: "Buy 2, get 1 free on jewellery: the lowest-priced of your 3 pieces is on us. Not with WELCOME10.",
+            detail: "Buy 2, get 1 free on jewellery: the lowest-priced of your 3 pieces is on us.",
           }
         : {
             offer: "b2g1Adorn",
             add: "adorn",
             count: 2,
             message: "Add 2 more sets — 1 is free",
-            detail: "Buy 2, get 1 free on jewellery: 3 pieces for the price of 2. Another colour counts. Not with WELCOME10.",
+            detail: "Buy 2, get 1 free on jewellery: 3 pieces for the price of 2. Another colour counts.",
           },
     );
   }
@@ -291,7 +300,7 @@ export const liveOffers = (): OfferCard[] => [
   {
     key: "welcome",
     title: `${WELCOME_PERCENT}% off your first order`,
-    detail: `Code ${WELCOME_CODE} — added to your bag for you`,
+    detail: `Code ${WELCOME_CODE} — added to your bag for you. Not on jewellery sets`,
     code: WELCOME_CODE,
   },
   ...(BUY2GET1_LIVE
@@ -308,7 +317,7 @@ export const liveOffers = (): OfferCard[] => [
         {
           key: "b2g1Adorn" as const,
           title: "Buy 2 Get 1 Free · jewellery sets",
-          detail: "Pick any 3 sets or colours — the lowest-priced one is on us. Not with WELCOME10",
+          detail: "Pick any 3 sets or colours — the lowest-priced one is on us. WELCOME10 not valid on sets",
         },
       ]
     : []),

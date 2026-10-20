@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
 import { wixAdminClientServer } from "@/lib/wixAdminClientServer";
 import { isBuy2Get1Rule, ruleNameOf } from "@/lib/commerce/offers";
+import { adornCatalogIds } from "@/lib/catalog";
 import { isTierCode } from "@/lib/commerce/pricing";
 
 // ============================================================================
@@ -84,6 +85,15 @@ export async function POST(req: Request) {
 
   if (lineItems.length === 0) {
     return NextResponse.json({ ok: true, valid: false, reason: "no-priced-lines" });
+  }
+
+  // WELCOME10 isn't valid on jewellery sets (owner, 2026-10-20) — refuse it on
+  // any bag holding one; /api/checkout strips it from the order too.
+  if (isTierCode(code)) {
+    const adorn = await adornCatalogIds().catch(() => new Set<string>());
+    if (lines.some((l) => l.wixCatalogItemId && adorn.has(l.wixCatalogItemId))) {
+      return NextResponse.json({ ok: true, valid: false, reason: "sets" });
+    }
   }
 
   try {

@@ -26,7 +26,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCartStore } from "@/lib/store/useCartStore";
 import { cartSubtotal, evaluateCoupon } from "./pricing";
-import { WELCOME_NOT_WITH_B2G1 } from "./offers";
+import { WELCOME_NOT_ON_SETS, WELCOME_NOT_WITH_B2G1 } from "./offers";
 
 export interface CouponLine {
   id: string;
@@ -188,7 +188,12 @@ export function useLiveCoupon(
           }
           return {
             ok: false,
-            error: data.reason === "b2g1" ? WELCOME_NOT_WITH_B2G1 : "That code isn’t valid.",
+            error:
+              data.reason === "b2g1"
+                ? WELCOME_NOT_WITH_B2G1
+                : data.reason === "sets"
+                  ? WELCOME_NOT_ON_SETS
+                  : "That code isn’t valid.",
           };
         }
         // Wix unreachable → fall back to the local mirror (pre-existing behaviour).

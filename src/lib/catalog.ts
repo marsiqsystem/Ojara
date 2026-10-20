@@ -308,6 +308,17 @@ export const getAllProducts = async (): Promise<Product[]> => {
   }
 };
 
+/**
+ * Wix product ids of every Adorn piece (jewellery sets) — for the server routes
+ * that keep WELCOME10 off a bag holding one (owner, 2026-10-20). Same cached read.
+ */
+export const adornCatalogIds = async (): Promise<Set<string>> =>
+  new Set(
+    (await getAllProducts())
+      .filter((p) => lineOf(p) === "adorn")
+      .map((p) => p.wixCatalogItemId || p.id),
+  );
+
 /** One line's pieces, in catalogue order. */
 export const getProductsByLine = async (line: Line): Promise<Product[]> =>
   (await getAllProducts()).filter((p) => lineOf(p) === line);

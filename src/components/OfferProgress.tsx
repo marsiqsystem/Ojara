@@ -5,6 +5,7 @@ import {
   bagMix,
   isBuy2Get1Rule,
   offerNudges,
+  WELCOME_NOT_ON_SETS,
   WELCOME_NOT_WITH_B2G1,
   WELCOME_CODE,
   WELCOME_PERCENT,
@@ -46,8 +47,16 @@ export default function OfferProgress({
       ? [{ label: `${WELCOME_PERCENT}% off first order (${WELCOME_CODE})`, amount: welcomeDiscount }]
       : []),
   ];
-  // A free piece is why WELCOME10 left the bag — say so where it would have been.
-  const welcomeOff = welcomeDiscount === 0 && offers.some((o) => isBuy2Get1Rule(o.name));
+  // A jewellery set or a free piece is why WELCOME10 left the bag — say so where
+  // it would have been.
+  const welcomeOff =
+    welcomeDiscount === 0
+      ? mix.adorn > 0
+        ? WELCOME_NOT_ON_SETS
+        : offers.some((o) => isBuy2Get1Rule(o.name))
+          ? WELCOME_NOT_WITH_B2G1
+          : ""
+      : "";
   if (applied.length === 0 && nudges.length === 0) return null;
 
   return (
@@ -62,7 +71,7 @@ export default function OfferProgress({
           ))}
         </ul>
       )}
-      {welcomeOff && <p className="mt-1 text-[0.68rem] leading-snug text-midnight-navy/60">{WELCOME_NOT_WITH_B2G1}</p>}
+      {welcomeOff && <p className="mt-1 text-[0.68rem] leading-snug text-midnight-navy/60">{welcomeOff}</p>}
 
       {nudges.length > 0 && (
         <ul className={`space-y-2 ${applied.length > 0 ? "mt-2 border-t border-champagne-gold/30 pt-2" : ""}`}>

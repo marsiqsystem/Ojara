@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { UPSELL_ENABLED, WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
 import { PREPAID_DISCOUNT, isTierCode } from "@/lib/commerce/pricing";
 import { isBuy2Get1Rule, ruleNameOf } from "@/lib/commerce/offers";
+import { adornCatalogIds } from "@/lib/catalog";
 import { normalizeSubdivision } from "@/lib/commerce/indiaStates";
 import { clientIp, isRateLimited, isSameOrigin } from "@/lib/apiGuard";
 import {
@@ -352,9 +353,17 @@ export async function POST(req: Request) {
     // code here and the order can't carry both, whatever the browser sent.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const appliedNow: any[] = updatedCheckout?.appliedDiscounts || [];
+    // Nor on jewellery sets at all (owner, 2026-10-20): any Adorn piece → no code.
+    const welcomeOn = appliedNow.some(
+      (d) => d?.coupon && isTierCode(String(d.coupon.code || "")),
+    );
+    const adorn = welcomeOn ? await adornCatalogIds().catch(() => new Set<string>()) : null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const checkoutLines: any[] = updatedCheckout?.lineItems || [];
     if (
-      appliedNow.some((d) => d?.coupon && isTierCode(String(d.coupon.code || ""))) &&
-      appliedNow.some((d) => isBuy2Get1Rule(ruleNameOf(d)))
+      welcomeOn &&
+      (appliedNow.some((d) => isBuy2Get1Rule(ruleNameOf(d))) ||
+        checkoutLines.some((li) => adorn?.has(String(li?.catalogReference?.catalogItemId || ""))))
     ) {
       const stripped = await wixClient.checkout.removeCoupon(checkoutId);
       updatedCheckout = stripped?.checkout || (await wixClient.checkout.getCheckout(checkoutId));

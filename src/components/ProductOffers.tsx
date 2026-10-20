@@ -49,10 +49,11 @@ export default function ProductOffers({
   const hydrated = useCartHydrated();
   const cartItems = useCartStore((s) => s.cartItems);
   const appliedCoupon = useCartStore((s) => s.appliedCoupon);
-  // WELCOME10 drops out once Wix has refused it this visit (already used).
-  const welcomeAvailable = useAvailableTiers().some((t) => t.code === WELCOME_CODE);
-
   const kind = pieceKind({ name: productName, line, pieceType });
+  // WELCOME10 drops out once Wix has refused it this visit (already used), and is
+  // never offered on a jewellery set (owner, 2026-10-20).
+  const welcomeAvailable =
+    useAvailableTiers().some((t) => t.code === WELCOME_CODE) && kind !== "adorn";
   // Adorn (stone jewellery) isn't in Wix's Bracelets / Rings rules: it gets its
   // own buy 2 get 1, first order and prepaid.
   const showCombo = kind !== "adorn";
@@ -190,7 +191,7 @@ export default function ProductOffers({
                   ✓ Add this to the 2 {kind === "adorn" ? "pieces" : "bracelets"} in your bag — the lowest-priced of the 3 is free
                 </b>
               ) : kind === "adorn" ? (
-                "Pick any 3 — another colour counts. The lowest-priced one is free. Not with WELCOME10."
+                "Pick any 3 — another colour counts. The lowest-priced one is free."
               ) : (
                 "Pick any 3 bracelets — the lowest-priced one is free. Not with WELCOME10."
               )}
