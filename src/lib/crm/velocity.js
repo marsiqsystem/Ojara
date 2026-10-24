@@ -80,6 +80,20 @@ function formatOrderDate(d) {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
 }
 
+/**
+ * Velocity REQUIRES a non-empty sku on every order item (a missing/"" sku returns
+ * HTTP 400 "Missing required fields for item N: sku"). Many Wix products have no
+ * SKU, so derive a deterministic one from the item name (same name -> same sku).
+ */
+function makeSku(name, fallback = "OJARA-ITEM") {
+  const slug = String(name || "")
+    .trim().toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32);
+  return slug || fallback;
+}
+
 /** Map OUR normalized order -> Velocity's forward-order body. */
 function buildShipmentPayload(o) {
   const c = cfg();
@@ -91,12 +105,12 @@ function buildShipmentPayload(o) {
   const items = productItems.length
     ? productItems.map((it) => ({
         name: it.name || o.product || "Item",
-        sku: it.sku || "",
+        sku: (it.sku && String(it.sku).trim()) || makeSku(it.name || o.product),
         units: Number(it.quantity) || 1,
         selling_price:
           it.price != null && it.price !== "" ? Number(it.price) || 0 : amount,
       }))
-    : [{ name: o.product || "Item", sku: o.sku || "", units: 1, selling_price: amount }];
+    : [{ name: o.product || "Item", sku: (o.sku && String(o.sku).trim()) || makeSku(o.product), units: 1, selling_price: amount }];
 
   const totalUnits = items.reduce((s, it) => s + (Number(it.units) || 1), 0) || 1;
 
