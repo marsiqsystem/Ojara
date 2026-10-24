@@ -39,8 +39,16 @@ import { PREPAID_ENABLED } from "./config";
 import { COUPON_TIERS, PREPAID_DISCOUNT } from "./pricing";
 import { lineOf, pieceTypeOf, type Classifiable } from "@/lib/lines";
 
-/** "Buy 2 get 1 free" on bracelets — live in Wix as an AUTOMATIC discount. */
-export const BUY2GET1_LIVE = true;
+/**
+ * "Buy 2 get 1 free" on bracelets.
+ * REMOVED 2026-10-24 (client's call): the offer is off across the whole site.
+ * This gate hides every B2G1 surface (category labels, product pills, bundle
+ * cards, banners, cart/checkout optics, upsell copy, offer estimates).
+ * ⚠️ The actual discount is a Wix AUTOMATIC rule — the owner must ALSO delete the
+ * "Buy 2 Get 1 Free" automatic discount in the Wix dashboard, or Wix will still
+ * give a free piece at checkout even though the site no longer advertises it.
+ */
+export const BUY2GET1_LIVE = false;
 
 /**
  * Buy 2 RINGS get 1 free — on some of the owner's banners, not on the poster.
@@ -50,10 +58,12 @@ export const BUY2GET1_LIVE = true;
 export const BUY2GET1_RINGS_LIVE = false;
 
 /**
- * Buy 2 get 1 free on Adorn (jewellery sets) — a Wix automatic rule on the
- * Jewellery Set category since 2026-10-12. Turn off if that rule is removed.
+ * Buy 2 get 1 free on Adorn (jewellery sets).
+ * REMOVED 2026-10-24 (client's call) along with the bracelet B2G1 above.
+ * ⚠️ The owner must ALSO delete the Wix automatic rule "Buy 2 Get 1 Free —
+ * Jewellery Sets" in the Wix dashboard, or Wix still frees a set at checkout.
  */
-export const ADORN_B2G1_LIVE = true;
+export const ADORN_B2G1_LIVE = false;
 
 export type OfferKey = "welcome" | "combo" | "b2g1" | "b2g1Rings" | "b2g1Adorn" | "prepaid";
 
