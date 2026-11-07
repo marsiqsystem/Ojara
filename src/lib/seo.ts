@@ -150,7 +150,10 @@ const returnPolicy = () => ({
 });
 
 /** Product schema for a product detail page. */
-export const productSchema = (product: Product) => ({
+export const productSchema = (
+  product: Product,
+  rating?: { ratingValue: number; reviewCount: number },
+) => ({
   "@context": "https://schema.org",
   "@type": "Product",
   name: fullNameOf(product),
@@ -174,9 +177,19 @@ export const productSchema = (product: Product) => ({
     shippingDetails: shippingDetails(),
     hasMerchantReturnPolicy: returnPolicy(),
   },
-  // aggregateRating / review are intentionally omitted — OJARA has no verified
-  // reviews yet, and fabricating them risks a Google structured-data penalty. Add
-  // them here only when real, first-party reviews exist.
+  // Only real, approved Wix reviews (the same ones shown on the page) — Google
+  // penalises a rating that isn't visible to shoppers.
+  ...(rating && rating.reviewCount > 0
+    ? {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: Number(rating.ratingValue.toFixed(1)),
+          reviewCount: rating.reviewCount,
+          bestRating: 5,
+          worstRating: 1,
+        },
+      }
+    : {}),
 });
 
 type Crumb = { name: string; url: string };

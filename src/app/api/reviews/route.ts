@@ -3,6 +3,8 @@ import nodemailer from "nodemailer";
 import { SUPPORT_EMAIL, BRAND_NAME } from "@/lib/commerce/config";
 import { brandMarkHtml, logoAttachments } from "@/lib/emailBrand";
 import { isValidEmail } from "@/lib/validateEmail";
+import { getAllProducts } from "@/lib/catalog";
+import { createWixReview } from "@/lib/reviews";
 import {
   isHoneypotFilled,
   isRateLimited,
@@ -12,16 +14,10 @@ import {
 
 // Product review submissions.
 //
-// STORAGE: there is none yet. The Wix Reviews app is NOT installed on the site
-// (the Reviews API returns 428 APP_NOT_INSTALLED), and there's no database, so a
-// review cannot be persisted or published from here. Until then this delivers
-// each review to the owner's inbox — nothing is silently dropped, and the owner
-// decides what to publish.
-//
-// TO MAKE REVIEWS PUBLIC: install the Wix Reviews app in the dashboard, then swap
-// the sendMail below for a Wix Reviews createReview call. The client contract
-// (rating/title/body/photo) already matches Wix's review shape, so the form and
-// the UI don't change.
+// STORAGE: the Wix Reviews app (installed 2026-11-07). Each review is saved there
+// (lib/reviews.ts) and appears on the product page once its moderation status is
+// APPROVED — auto or manual is the owner's setting in the Wix dashboard. The owner
+// also still gets every review by email, so nothing is lost if Wix is down.
 
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024; // 4MB — Gmail rejects large attachments
 
@@ -36,7 +32,7 @@ const escapeHtml = (s: unknown) =>
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { productId, productName, rating, name, email, review, photo } = body;
+    const { productId, wixProductId, productName, rating, name, email, review, photo } = body;
 
     // Bot filled the honeypot: pretend success, send nothing.
     if (isHoneypotFilled(body)) {
@@ -103,10 +99,30 @@ export async function POST(req: Request) {
       };
     }
 
+    // Save into Wix Reviews — only against a product that really is in the
+    // catalogue, so nobody can post reviews onto arbitrary ids.
+    const catalog = await getAllProducts().catch(() => []);
+    const known = typeof wixProductId === "string"
+      && catalog.some((p) => p.wixCatalogItemId === wixProductId);
+    const saved = known
+      ? await createWixReview({
+          wixProductId,
+          name: String(name),
+          email: email?.trim() || undefined,
+          rating: stars,
+          body: String(review),
+          photo: photoAttachment,
+        })
+      : ({ ok: false, error: "unknown product" } as const);
+    const savedLine = saved.ok
+      ? `Saved in Wix Reviews (status: ${saved.status || "unknown"}${photoAttachment ? saved.photoSaved ? ", photo saved" : ", photo NOT saved" : ""}).`
+      : `NOT saved in Wix Reviews (${saved.error}). Add it by hand if you want it on the site.`;
+
     const gmailUser = process.env.GMAIL_USER;
     const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
     if (!gmailUser || !gmailAppPassword) {
       console.error("GMAIL_USER or GMAIL_APP_PASSWORD missing from env.");
+      if (saved.ok) return NextResponse.json({ ok: true, status: saved.status });
       return NextResponse.json(
         { error: "Reviews are temporarily unavailable." },
         { status: 500 },
@@ -120,7 +136,7 @@ export async function POST(req: Request) {
 
     const starsHtml = "★".repeat(stars) + "☆".repeat(5 - stars);
 
-    await transporter.sendMail({
+    const mail = transporter.sendMail({
       from: `"${BRAND_NAME} Website" <${gmailUser}>`,
       to: SUPPORT_EMAIL,
       ...(email?.trim()
@@ -151,6 +167,7 @@ export async function POST(req: Request) {
           <h3 style="margin-top:20px;margin-bottom:6px;">Review</h3>
           <div style="white-space:pre-wrap;background:#faf6ee;border:1px solid #eee;border-radius:8px;padding:12px;">${escapeHtml(review)}</div>
           ${photoAttachment ? `<p style="color:#6b7280;font-size:13px;margin-top:14px;">A customer photo is attached.</p>` : ""}
+          <p style="color:#6b7280;font-size:13px;margin-top:14px;">${escapeHtml(savedLine)}</p>
         </div>
       `,
       attachments: [
@@ -159,7 +176,16 @@ export async function POST(req: Request) {
       ],
     });
 
-    return NextResponse.json({ ok: true });
+    // The email is a copy once Wix has the review — a Gmail failure then must
+    // not tell the customer their review was lost.
+    try {
+      await mail;
+    } catch (mailErr) {
+      if (!saved.ok) throw mailErr;
+      console.error("Review email failed (review is saved in Wix):", mailErr);
+    }
+
+    return NextResponse.json({ ok: true, status: saved.ok ? saved.status : undefined });
   } catch (err: unknown) {
     console.error("Review submission failed:", err);
     return NextResponse.json(

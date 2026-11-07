@@ -29,6 +29,7 @@ import { whatsappLink, SITE_URL } from "@/lib/commerce/config";
 import { pickUpsellProducts, ritualPairsFor } from "@/lib/commerce/bundle";
 import { ADORN_B2G1_LIVE, pieceKind } from "@/lib/commerce/offers";
 import { productSpecs } from "@/lib/productSpecs";
+import { fetchApprovedReviews } from "@/lib/reviews";
 
 // ============================================================================
 // Product page — laid out in the order a shopper decides (the Viora rebuild):
@@ -220,6 +221,12 @@ export default async function ProductDetailPage({
   const listing = groupByDesign(catalog.filter((p) => !colours.some((c) => c.id === p.id && c.id !== product.id)));
   const pairs = ritualPairsFor(product, listing);
   const ownColour = colourLabelOf(product);
+  // Approved Wix reviews, pooled across every colour of the design (each colour
+  // is its own Wix product, and "the Noor Set" is one thing to a shopper).
+  const reviewIds = [...new Set([product, ...colours].map((p) => p.wixCatalogItemId).filter((x): x is string => !!x))];
+  const reviews = await fetchApprovedReviews(reviewIds);
+  const reviewCount = reviews.length;
+  const ratingAvg = reviewCount ? reviews.reduce((s, r) => s + r.rating, 0) / reviewCount : 0;
   // "Complete the look" — the other line, colour-matched (lib/lookPairs).
   const lookPicks = crossLinePicks(product, listing, 6);
   // Bracelet + ring offer: the other kind of piece, best matches first, for the
@@ -259,7 +266,7 @@ export default async function ProductDetailPage({
   return (
     <div className="bg-ivory">
       {/* Product structured data for search engines + AI shopping surfaces */}
-      <JsonLd id="ld-product" data={productSchema(product)} />
+      <JsonLd id="ld-product" data={productSchema(product, { ratingValue: ratingAvg, reviewCount })} />
       <JsonLd id="ld-breadcrumb" data={breadcrumbSchema(breadcrumbCrumbs)} />
       {/* Fires the Meta Pixel ViewContent event for this product */}
       <ProductViewTracker product={product} />
@@ -396,20 +403,31 @@ export default async function ProductDetailPage({
             {product.name}
           </h1>
 
-          {/* Rating line. No published reviews yet, so it invites the first one
-              rather than inventing a score — and jumps to the reviews section. */}
+          {/* Rating line: the real Wix average when approved reviews exist,
+              otherwise an invite to write the first — never an invented score. */}
           <a
             href="#reviews"
             className="mt-2 inline-flex items-center gap-2 self-start text-sm text-midnight-navy/60 hover:text-midnight-navy"
           >
-            <span className="flex gap-0.5 text-midnight-navy/25" aria-hidden="true">
+            <span className="flex gap-0.5" aria-hidden="true">
               {[1, 2, 3, 4, 5].map((n) => (
-                <svg key={n} width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  key={n}
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className={reviewCount && n <= Math.round(ratingAvg) ? "text-champagne-gold" : "text-midnight-navy/25"}
+                >
                   <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z" />
                 </svg>
               ))}
             </span>
-            <span className="underline-offset-2 hover:underline">Be the first to review</span>
+            <span className="underline-offset-2 hover:underline">
+              {reviewCount
+                ? `${ratingAvg.toFixed(1)} · ${reviewCount} review${reviewCount > 1 ? "s" : ""}`
+                : "Be the first to review"}
+            </span>
           </a>
           {/* Price, the markdown, and the rupee saving. */}
           <div className="mt-4">
@@ -710,8 +728,14 @@ export default async function ProductDetailPage({
           {/* Accordions — description, shipping */}
           <RitualAccordion product={product} />
 
-          {/* Reviews — honest empty state + star/photo submission form */}
-          <ProductReviews productId={product.id} productName={product.name} adorn={isAdorn} />
+          {/* Reviews — approved Wix reviews (or an honest empty state) + the form */}
+          <ProductReviews
+            productId={product.id}
+            wixProductId={product.wixCatalogItemId}
+            productName={fullNameOf(product)}
+            adorn={isAdorn}
+            reviews={reviews}
+          />
         </div>
       </div>
 

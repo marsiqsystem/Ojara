@@ -17,7 +17,7 @@ import "server-only";
 
 import { WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
 
-export type ContactSource = "newsletter" | "contact-form";
+export type ContactSource = "newsletter" | "contact-form" | "review";
 
 // Wix labels are how the owner segments the CRM. `custom.` is the required
 // namespace for self-created labels; Wix creates them on first use via
@@ -25,6 +25,7 @@ export type ContactSource = "newsletter" | "contact-form";
 const LABEL_KEYS: Record<ContactSource, { key: string; displayName: string }> = {
   newsletter: { key: "custom.inner-circle", displayName: "Inner Circle" },
   "contact-form": { key: "custom.website-enquiry", displayName: "Website Enquiry" },
+  review: { key: "custom.reviewer", displayName: "Reviewer" },
 };
 
 export type UpsertContactInput = {
