@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
 import { getCategories, getProductsByLine } from "@/lib/catalog";
 import { parseShopParams, type RawShopParams } from "@/lib/shopFilters";
-import { LINES } from "@/lib/lines";
+import { BRACELETS_LIVE, INTENTIONS_PIECES, LINES } from "@/lib/lines";
 import ShopView from "@/components/shop/ShopView";
 
 const line = LINES.intentions;
 
 export const metadata: Metadata = {
-  title: "Gemstone Bracelets & Rings — Intentions",
+  title: BRACELETS_LIVE ? "Gemstone Bracelets & Rings — Intentions" : "Gemstone Rings — Intentions",
   description:
-    "OJARA Intentions: natural gemstone bracelets and rings — Black Tourmaline and evil eye for protection, Citrine and Pyrite for abundance, Amethyst for calm. Lab-certified, free delivery, Cash on Delivery.",
+    `OJARA Intentions: natural gemstone ${INTENTIONS_PIECES} — Black Tourmaline and evil eye for protection, Citrine and Pyrite for abundance, Amethyst for calm. Lab-certified, free delivery, Cash on Delivery.`,
   alternates: { canonical: line.href },
   openGraph: {
-    title: "Intentions — Gemstone Bracelets & Rings | OJARA",
+    title: BRACELETS_LIVE ? "Intentions — Gemstone Bracelets & Rings | OJARA" : "Intentions — Gemstone Rings | OJARA",
     description: line.pitch,
     url: line.href,
     type: "website",
@@ -34,7 +34,7 @@ export default async function IntentionsPage({
       basePath={line.href}
       line="intentions"
       eyebrow={`OJARA ${line.name} · ${line.promise}`}
-      title="Gemstone bracelets & rings"
+      title={BRACELETS_LIVE ? "Gemstone bracelets & rings" : "Gemstone rings"}
       intro={line.pitch}
       products={products}
       categories={categories.filter((c) => c.slug !== "all-products" && c.group !== "adorn")}

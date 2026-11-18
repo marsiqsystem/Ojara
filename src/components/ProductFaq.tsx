@@ -1,8 +1,9 @@
 import { hasSpecificIntention, type Product } from "@/lib/mockData";
 import FaqAccordion, { type FaqItem } from "@/components/FaqAccordion";
-import { ADORN_EXCHANGE_POLICY, lineOf } from "@/lib/lines";
+import { ADORN_EXCHANGE_POLICY, BRACELETS_LIVE, lineOf } from "@/lib/lines";
 import { productSpecs } from "@/lib/productSpecs";
 import { DISPATCH_POLICY_TEXT } from "@/lib/deliveryEstimate";
+import { INTENTIONS_EXCHANGE_POLICY } from "@/lib/policy";
 
 /**
  * Item-specific FAQ for the product page. Builds questions from the product's
@@ -31,7 +32,7 @@ const adornFaqs = (product: Product): FaqItem[] => [
     answer: `${DISPATCH_POLICY_TEXT} Delivery is free across India and Cash on Delivery is available.`,
   },
   {
-    question: "Can I order it with a gemstone bracelet?",
+    question: `Can I order it with a gemstone ${BRACELETS_LIVE ? "bracelet" : "ring"}?`,
     answer:
       "Yes. Adorn and Intentions pieces go in the same bag and check out as one order, with free delivery and Cash on Delivery on the whole order.",
   },
@@ -72,7 +73,7 @@ export default function ProductFaq({ product }: { product: Product }) {
     {
       question: "What if it isn't the right fit?",
       answer:
-        "We offer exchanges rather than returns. If the piece isn't the right fit, request an exchange within 48 hours of delivery — unused and in its original packaging — and we'll help you swap it.",
+        INTENTIONS_EXCHANGE_POLICY,
     },
   ];
 

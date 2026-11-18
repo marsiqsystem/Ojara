@@ -1,6 +1,6 @@
-import { SITE_URL, BRAND_NAME, SUPPORT_EMAIL } from "@/lib/commerce/config";
+import { SITE_URL, BRAND_NAME, SUPPORT_EMAIL, SUPPORT_PHONE_TEL } from "@/lib/commerce/config";
 import type { Product } from "@/lib/mockData";
-import { fullNameOf } from "@/lib/lines";
+import { INTENTIONS_PIECES, fullNameOf } from "@/lib/lines";
 
 // Central SEO constants + JSON-LD builders. SITE_URL already resolves to the live
 // domain (https://www.ojara.co.in) in production — see commerce/config.ts.
@@ -9,7 +9,7 @@ export { SITE_URL };
 export const SITE_NAME = BRAND_NAME; // "OJARA"
 
 export const SITE_DESCRIPTION =
-  "OJARA makes jewellery in two lines. Intentions: natural gemstone bracelets and rings — Black Tourmaline and evil eye for protection, Citrine for abundance, Carnelian for courage, Lapis Lazuli for clarity — each cleansed before it reaches you. Adorn: stone jewellery — necklace sets with matching earrings for festive days and every day.";
+  `OJARA makes jewellery in two lines. Intentions: natural gemstone ${INTENTIONS_PIECES} — Black Tourmaline and evil eye for protection, Citrine for abundance, Carnelian for courage, Lapis Lazuli for clarity — each cleansed before it reaches you. Adorn: stone jewellery — necklace sets with matching earrings for festive days and every day.`;
 
 // OJARA's real social profiles. Add a Facebook/Pinterest URL here once confirmed —
 // sameAs feeds Google's entity graph and AI answer engines.
@@ -34,8 +34,16 @@ export const COMMERCE_FACTS = {
   dispatchCutoffHourIST: 20,
   transitDaysMin: 3,
   transitDaysMax: 7,
-  // No refunds; exchange only, within 48 hours of delivery (2 calendar days).
+  // Change of mind: exchange only, within 48 hours of delivery (2 calendar
+  // days). Damaged, defective or wrong pieces: report within the same 48 hours
+  // for a replacement or a refund (client, 2026-11-16).
   returnWindowDays: 2,
+  // Approved refunds reach the original payment method in 5–7 business days.
+  refundDaysMin: 5,
+  refundDaysMax: 7,
+  // An exchange / replacement piece is delivered within 5–7 days.
+  replacementDaysMin: 5,
+  replacementDaysMax: 7,
 } as const;
 
 /** Absolute URL helper — joins a path onto SITE_URL with no double slashes. */
@@ -68,6 +76,7 @@ export const organizationNode = () => ({
   image: absoluteUrl("/logo.png"),
   description: SITE_DESCRIPTION,
   email: SUPPORT_EMAIL,
+  telephone: SUPPORT_PHONE_TEL,
   sameAs: SOCIAL_PROFILES,
 });
 

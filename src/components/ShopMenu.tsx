@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Category } from "@/lib/catalog";
-import { LINES } from "@/lib/lines";
+import { BRACELETS_LIVE, LINES } from "@/lib/lines";
 
 // Hover to open on pointer devices, click/Enter on touch and keyboard. Closing
 // is deliberately forgiving: a short delay on mouseleave so a diagonal path from
@@ -111,7 +111,9 @@ export default function ShopMenu() {
       line: LINES.intentions,
       // By piece first (the commonest way in), then by intention.
       items: [
-        { slug: "", label: "Bracelets", href: `${LINES.intentions.href}?type=bracelets` },
+        ...(BRACELETS_LIVE
+          ? [{ slug: "", label: "Bracelets", href: `${LINES.intentions.href}?type=bracelets` }]
+          : []),
         { slug: "", label: "Rings", href: `${LINES.intentions.href}?type=rings` },
         // Wix's own Bracelets/Rings collections would repeat the two links above.
         ...categories.filter(

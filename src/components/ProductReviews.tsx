@@ -225,7 +225,7 @@ export default function ProductReviews({
             promise already stands:{" "}
             {adorn
               ? "every piece is checked and packed with care before it reaches you."
-              : "every bracelet is checked, cleansed, and charged before it reaches you."}
+              : "every piece is checked, cleansed, and charged before it reaches you."}
           </p>
           <div className="mx-auto my-5 h-px w-16 bg-champagne-gold/40" />
           <p className="mx-auto max-w-md text-sm leading-6 text-midnight-navy/60">

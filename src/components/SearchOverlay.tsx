@@ -8,15 +8,22 @@ import { lockScroll, unlockScroll } from "@/lib/scrollLock";
 import { formatPrice } from "@/lib/format";
 import { trackEvent } from "@/lib/analytics/capi";
 import type { Product } from "@/lib/catalog";
-import { fullNameOf, groupByDesign } from "@/lib/lines";
+import { BRACELETS_LIVE, fullNameOf, groupByDesign } from "@/lib/lines";
 
 // Trending searches deep-link to the most relevant piece, shown when the field
 // is empty.
-const trending = [
-  { label: "Evil Eye", href: "/product/black-tourmaline-evil-eye" },
-  { label: "Citrine", href: "/product/citrine-bracelet" },
-  { label: "Lapis Lazuli", href: "/product/lapis-lazuli-bracelet" },
-];
+// While bracelets are hidden (lib/lines BRACELETS_LIVE), the gemstone rings.
+const trending = BRACELETS_LIVE
+  ? [
+      { label: "Evil Eye", href: "/product/black-tourmaline-evil-eye" },
+      { label: "Citrine", href: "/product/citrine-bracelet" },
+      { label: "Lapis Lazuli", href: "/product/lapis-lazuli-bracelet" },
+    ]
+  : [
+      { label: "Citrine", href: "/product/ojara-citrinering" },
+      { label: "Amethyst", href: "/product/amethyst-ring" },
+      { label: "Lapis Lazuli", href: "/product/lapis-lazuli-ring" },
+    ];
 
 // Match a product against the typed query. A hit is either a substring of the
 // full name, or any WORD of the name starting with the query — so "citr", "lapis"

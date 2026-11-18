@@ -2,16 +2,17 @@ import type { Metadata } from "next";
 import { getAllProducts, getCategories } from "@/lib/catalog";
 import { parseShopParams, type RawShopParams } from "@/lib/shopFilters";
 import ShopView from "@/components/shop/ShopView";
+import { INTENTIONS_PIECES } from "@/lib/lines";
 
 export const metadata: Metadata = {
   title: "Shop All Jewellery",
   description:
-    "Every OJARA piece in one place — natural gemstone bracelets and rings, and stone jewellery: necklace sets with matching earrings. Free delivery across India, Cash on Delivery.",
+    `Every OJARA piece in one place — natural gemstone ${INTENTIONS_PIECES}, and stone jewellery: necklace sets with matching earrings. Free delivery across India, Cash on Delivery.`,
   alternates: { canonical: "/collection" },
   openGraph: {
     title: "Shop All | OJARA",
     description:
-      "Natural gemstone bracelets and rings, and stone jewellery — necklace sets with matching earrings.",
+      `Natural gemstone ${INTENTIONS_PIECES}, and stone jewellery — necklace sets with matching earrings.`,
     url: "/collection",
     type: "website",
   },
@@ -33,7 +34,7 @@ export default async function CollectionPage({
       basePath="/collection"
       eyebrow="The full range"
       title="Shop all"
-      intro="Gemstone bracelets and rings, and stone jewellery for every occasion."
+      intro={`Gemstone ${INTENTIONS_PIECES}, and stone jewellery for every occasion.`}
       products={products}
       // "All Products" is the same list as this page — the "All" pill covers it.
       categories={categories.filter((c) => c.slug !== "all-products")}

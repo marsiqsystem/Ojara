@@ -116,3 +116,10 @@ export const SUPPORT_EMAIL =
   process.env.SUPPORT_EMAIL || process.env.GMAIL_USER || "ojara.jewel@gmail.com";
 
 export const BRAND_NAME = "OJARA";
+
+// Business contact, shown on Contact, the policies and the footer (client,
+// 2026-11-16 — also what Razorpay's website review looks for).
+export const SUPPORT_PHONE = "+91 90383 71477";
+/** For tel: links — digits only, with the country code. */
+export const SUPPORT_PHONE_TEL = "+919038371477";
+export const PROPRIETOR_NAME = "Rohit Das";

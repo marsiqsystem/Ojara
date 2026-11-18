@@ -17,6 +17,7 @@ import TrustSection from "@/components/media/TrustSection";
 import { reelsForTags } from "@/lib/media";
 import LineDoors from "@/components/home/LineDoors";
 import CompleteTheLook from "@/components/home/CompleteTheLook";
+import { BRACELETS_LIVE } from "@/lib/lines";
 
 // Self-canonical for the homepage. The root layout deliberately sets no canonical
 // (see layout.tsx), so the home route declares its own here.
@@ -46,7 +47,9 @@ export default function Home() {
       {/* The fork: Intentions (meaning) or Adorn (sparkle). */}
       <LineDoors />
       <CategoryStrip />
-      <ProductGrid variant="bracelets" />
+      {/* While bracelets are hidden (lib/lines BRACELETS_LIVE), the rings take
+          the bracelets' place as the first pieces on the page. */}
+      <ProductGrid variant={BRACELETS_LIVE ? "bracelets" : "rings"} />
       <div className="bg-ivory px-4 sm:px-6 py-12 sm:py-16">
         <div className="mx-auto max-w-[1600px]">
           {/* The owner's offer artwork, contained, after the first pieces — only
@@ -78,7 +81,7 @@ export default function Home() {
       <CompleteTheLook />
       <ShopByPrice />
       <OffersBanner />
-      <ProductGrid variant="rings" />
+      {BRACELETS_LIVE && <ProductGrid variant="rings" />}
       <ComboFeature />
       <GiftingSection />
       <TrustSection />

@@ -1,6 +1,6 @@
 import type { Product } from "@/lib/mockData";
 import { PRICE_BANDS, bandByKey, inBand } from "@/lib/priceBands";
-import { LINES, PIECE_TYPE_INFO, lineOf, pieceTypeOf, type Line, type PieceType } from "@/lib/lines";
+import { BRACELETS_LIVE, LINES, PIECE_TYPE_INFO, lineOf, pieceTypeOf, type Line, type PieceType } from "@/lib/lines";
 
 // ============================================================================
 // Shop filters + sorts — shared by /collection, /intentions, /adorn and
@@ -19,9 +19,14 @@ export const SHOP_SORTS: { key: ShopSort; label: string }[] = [
   { key: "saving", label: "Biggest saving" },
 ];
 
-/** ?type= keys are the plural slugs ("bracelets", "earrings") — old links keep working. */
-const typeBySlug = (slug: string | undefined): PieceType | undefined =>
-  PIECE_TYPE_INFO.find((t) => t.slug === slug)?.key;
+/**
+ * ?type= keys are the plural slugs ("bracelets", "earrings") — old links keep
+ * working. While bracelets are hidden, ?type=bracelets just shows everything.
+ */
+const typeBySlug = (slug: string | undefined): PieceType | undefined => {
+  const key = PIECE_TYPE_INFO.find((t) => t.slug === slug)?.key;
+  return key === "bracelet" && !BRACELETS_LIVE ? undefined : key;
+};
 const LINE_KEYS = Object.keys(LINES) as Line[];
 const savingRate = (p: Product) =>
   p.originalPrice && p.originalPrice > p.price ? (p.originalPrice - p.price) / p.originalPrice : 0;

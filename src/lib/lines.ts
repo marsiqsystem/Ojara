@@ -25,6 +25,19 @@
 
 export type Line = "intentions" | "adorn";
 
+/**
+ * BRACELETS SWITCH — the client asked to hide the Bracelet category (2026-11-16).
+ * While false, every bracelet (Intentions and Adorn) is left out of the catalogue
+ * the site reads (lib/catalog getAllProducts), so the shop, menus, category pages,
+ * search, home rails, sitemap and Google feed drop them; a bracelet's product page
+ * redirects to the shop; the bracelet + ring offer and bracelet reels hide. The
+ * products stay untouched in Wix. Flip to true to bring them all back.
+ */
+export const BRACELETS_LIVE = false;
+
+/** What Intentions sells, in copy: "bracelets and rings", or "rings" while bracelets are hidden. */
+export const INTENTIONS_PIECES = BRACELETS_LIVE ? "bracelets and rings" : "rings";
+
 export type PieceType =
   | "bracelet"
   | "ring"
@@ -53,7 +66,7 @@ export const LINES: Record<Line, LineInfo> = {
   intentions: {
     key: "intentions",
     name: "Intentions",
-    descriptor: "Natural gemstone bracelets & rings",
+    descriptor: BRACELETS_LIVE ? "Natural gemstone bracelets & rings" : "Natural gemstone rings",
     promise: "Worn for what it means",
     pitch: "Natural gemstones, each worn as a daily reminder of what you're working toward.",
     href: "/intentions",
@@ -199,6 +212,10 @@ export const lineOf = (p: Classifiable): Line => p.line ?? classifyLine(p.name, 
 
 export const isAdorn = (p: Classifiable): boolean => lineOf(p) === "adorn";
 
+/** Kept off the site right now (see BRACELETS_LIVE). */
+export const isHiddenPiece = (p: Classifiable): boolean =>
+  !BRACELETS_LIVE && pieceTypeOf(p) === "bracelet";
+
 // ---------------------------------------------------------------------------
 // Occasions — how Adorn is shopped ("something for Diwali", "studs for work").
 // From the owner's Wix collections first ("festive", "everyday", "party",
@@ -257,7 +274,7 @@ export const isPieceOrOccasionCollection = (slug: string): boolean => {
 // ---------------------------------------------------------------------------
 
 export const ADORN_EXCHANGE_POLICY =
-  "Earrings and jewellery sets can't be exchanged for a change of mind, for hygiene reasons. If your piece arrives damaged or isn't what you ordered, tell us within 48 hours of delivery with your unboxing video and we'll replace it at no cost.";
+  "Earrings and jewellery sets can't be exchanged for a change of mind, for hygiene reasons. If your piece arrives damaged or isn't what you ordered, tell us within 48 hours of delivery with your unboxing video and we'll replace it or refund you, at no cost.";
 
 // ---------------------------------------------------------------------------
 // Colours. Wix holds each colour of an Adorn design as its own product, named

@@ -37,7 +37,7 @@
 
 import { PREPAID_ENABLED } from "./config";
 import { COUPON_TIERS, PREPAID_DISCOUNT } from "./pricing";
-import { lineOf, pieceTypeOf, type Classifiable } from "@/lib/lines";
+import { BRACELETS_LIVE, lineOf, pieceTypeOf, type Classifiable } from "@/lib/lines";
 
 /**
  * "Buy 2 get 1 free" on bracelets.
@@ -71,8 +71,10 @@ export type OfferKey = "welcome" | "combo" | "b2g1" | "b2g1Rings" | "b2g1Adorn" 
 export const isOfferLive = (key: OfferKey): boolean => {
   switch (key) {
     case "welcome":
-    case "combo":
       return true;
+    // Bracelet + ring needs a bracelet — off while bracelets are hidden.
+    case "combo":
+      return BRACELETS_LIVE;
     case "b2g1":
       return BUY2GET1_LIVE;
     case "b2g1Rings":
@@ -272,6 +274,7 @@ export const offerNudges = (mix: BagMix): OfferNudge[] => {
           },
     );
   }
+  if (!BRACELETS_LIVE) return nudges;
   if (mix.bracelets > mix.rings) {
     nudges.push({
       offer: "combo",
@@ -340,9 +343,13 @@ export const liveOffers = (): OfferCard[] => [
         },
       ]
     : []),
-  {
-    key: "combo",
-    title: `Bracelet + ring: ${COMBO_PERCENT}% off the ring`,
-    detail: "A gemstone bracelet with a gemstone ring — no code needed",
-  },
+  ...(BRACELETS_LIVE
+    ? [
+        {
+          key: "combo" as const,
+          title: `Bracelet + ring: ${COMBO_PERCENT}% off the ring`,
+          detail: "A gemstone bracelet with a gemstone ring — no code needed",
+        },
+      ]
+    : []),
 ];

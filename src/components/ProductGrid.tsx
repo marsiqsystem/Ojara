@@ -96,8 +96,9 @@ export default async function ProductGrid({
     );
   }
 
-  const showRings = variant === "rings" || variant === "both";
-  const showBracelets = variant === "bracelets" || variant === "both";
+  const showRings = (variant === "rings" || variant === "both") && rings.length > 0;
+  const showBracelets = (variant === "bracelets" || variant === "both") && bracelets.length > 0;
+  if (!showRings && !showBracelets) return null;
 
   // The #collection anchor (the hero's "Shop bracelets" button) should land on
   // whichever rail appears first in the flow — bracelets when it's shown alone.

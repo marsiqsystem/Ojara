@@ -4,6 +4,8 @@ import BackButton from "@/components/BackButton";
 import FaqAccordion, { type FaqItem } from "@/components/FaqAccordion";
 import JsonLd from "@/components/seo/JsonLd";
 import { faqSchema } from "@/lib/seo";
+import { INTENTIONS_EXCHANGE_POLICY, REFUND_POLICY_SHORT } from "@/lib/policy";
+import { INTENTIONS_PIECES } from "@/lib/lines";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -16,7 +18,7 @@ const faqs: FaqItem[] = [
   {
     question: "What's the difference between Intentions and Adorn?",
     answer:
-      "OJARA has two lines. Intentions are natural gemstone bracelets and rings, each worn for what its stone has long stood for. Adorn is stone jewellery — necklace sets with matching earrings, worn for how they look. Both go in the same bag, with free delivery and Cash on Delivery.",
+      `OJARA has two lines. Intentions are natural gemstone ${INTENTIONS_PIECES}, each worn for what its stone has long stood for. Adorn is stone jewellery — necklace sets with matching earrings, worn for how they look. Both go in the same bag, with free delivery and Cash on Delivery.`,
   },
   {
     question: "Are your Intentions crystals genuine and ethically sourced?",
@@ -51,12 +53,15 @@ const faqs: FaqItem[] = [
   {
     question: "How long will shipping take?",
     answer:
-      "We ship within India only — we don't deliver internationally. Orders arrive within 3–7 business days. You'll receive tracking as soon as your order ships. See our Shipping & Returns page for full details.",
+      "We ship within India only — we don't deliver internationally. Orders are delivered within 3–8 working days of being placed (3–7 business days after dispatch). You'll receive tracking as soon as your order ships. See our Shipping, Returns & Refunds page for full details.",
   },
   {
     question: "What is your exchange policy?",
-    answer:
-      "We don't offer returns or refunds — we offer exchanges. If your piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging, and we'll help you swap it. Earrings and jewellery sets (OJARA Adorn) are the exception: for hygiene they can't be exchanged for a change of mind, but if one arrives damaged or isn't what you ordered, tell us within 48 hours with your unboxing video and we'll replace it.",
+    answer: `${INTENTIONS_EXCHANGE_POLICY} Earrings and jewellery sets (OJARA Adorn) are the exception: for hygiene they can't be exchanged for a change of mind, but if one arrives damaged or isn't what you ordered, tell us within 48 hours with your unboxing video and we'll replace it or refund you.`,
+  },
+  {
+    question: "Do you offer returns and refunds?",
+    answer: REFUND_POLICY_SHORT,
   },
 ];
 

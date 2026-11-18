@@ -8,6 +8,8 @@ import {
   classifyOccasions,
   classifyPieceType,
   colourOf,
+  INTENTIONS_PIECES,
+  isHiddenPiece,
   isPieceOrOccasionCollection,
   lineOf,
   type Line,
@@ -293,7 +295,11 @@ const withPreview = (products: Product[]): Product[] =>
     ? [...products, ...ADORN_PREVIEW_PRODUCTS.map((p) => withLine(p))]
     : products;
 
-export const getAllProducts = async (): Promise<Product[]> => {
+/** Everything the site sells right now — hidden pieces (BRACELETS_LIVE) left out. */
+export const getAllProducts = async (): Promise<Product[]> =>
+  (await allProducts()).filter((p) => !isHiddenPiece(p));
+
+const allProducts = async (): Promise<Product[]> => {
   if (!WIX_ENABLED) {
     return withPreview(mockCatalog());
   }
@@ -417,7 +423,8 @@ const wixCategories = async (products: Product[]): Promise<Category[]> => {
       const ownArt = allOffersLive(COLLECTION_ART_OFFERS[col.slug ?? ""] ?? [])
         ? col.media?.mainMedia?.image?.url || col.image
         : undefined;
-      let imageUrl = ownArt || collectionImages[col.id] || undefined;
+      // A photo of a piece still on sale (hidden bracelets never front a tile).
+      let imageUrl = ownArt || membersOf(col.id).find((p) => p.stockCount > 0)?.image || collectionImages[col.id] || undefined;
       if (imageUrl && !imageUrl.startsWith("http") && !imageUrl.startsWith("/")) {
         imageUrl = `https://static.wixstatic.com/media/${imageUrl}`;
       }
@@ -431,7 +438,7 @@ const wixCategories = async (products: Product[]): Promise<Category[]> => {
           col.description ||
           (group === "adorn"
             ? "Stone jewellery from OJARA Adorn."
-            : "Natural crystal bracelets, curated for your intentions."),
+            : `Natural gemstone ${INTENTIONS_PIECES}, curated for your intentions.`),
         group,
         image: imageUrl,
         wixCollectionId: col.id,

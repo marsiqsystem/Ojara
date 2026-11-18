@@ -27,7 +27,7 @@
 // ============================================================================
 
 import { allOffersLive, type OfferKey } from "./commerce/offers";
-import type { Line } from "./lines";
+import { BRACELETS_LIVE, type Line } from "./lines";
 
 export type ReelKind = "brand" | "creator" | "customer";
 
@@ -305,7 +305,16 @@ export const REELS: Reel[] = [
 
 /** Reels whose every promised offer is live, from one line. */
 export const liveReels = (line: Line = "intentions"): Reel[] =>
-  REELS.filter((r) => (r.line ?? "intentions") === line && allOffersLive(r.offers ?? []));
+  REELS.filter(
+    (r) =>
+      (r.line ?? "intentions") === line &&
+      allOffersLive(r.offers ?? []) &&
+      // Bracelets hidden (lib/lines BRACELETS_LIVE): no reel that shows one.
+      (BRACELETS_LIVE || !showsBracelet(r)),
+  );
+
+/** Does this reel show a bracelet? Its alt text says what's on screen. */
+const showsBracelet = (r: Reel): boolean => /bracelet/i.test(`${r.alt} ${r.title}`);
 
 const words = (name: string) => name.toLowerCase().split(/[^a-z]+/).filter(Boolean);
 

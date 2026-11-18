@@ -1,5 +1,7 @@
 "use client";
 
+import { INTENTIONS_PIECES } from "@/lib/lines";
+import { SUPPORT_PHONE } from "@/lib/commerce/config";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -52,7 +54,7 @@ export default function EnergyGuideChat() {
           // Canned reply — the same words come back no matter what is typed. It used
           // to recommend a "Raw Pyrite Cluster", a product OJARA has never sold. Keep
           // it to what is true of every piece and hand the shopper somewhere real.
-          text: "Thank you for writing in. Every OJARA piece is a natural gemstone bracelet — Citrine for abundance, Black Tourmaline for protection, Carnelian for courage, Lapis Lazuli for clarity. Browse the collection, or write to us at ojara.jewel@gmail.com and a guide will help you choose.",
+          text: `Thank you for writing in. OJARA Intentions are natural gemstone ${INTENTIONS_PIECES} — Citrine for abundance, Amethyst for calm, Lapis Lazuli for clarity — and OJARA Adorn is stone jewellery. Browse the collection, or write to us at ojara.jewel@gmail.com or call ${SUPPORT_PHONE}, and we'll help you choose.`,
         },
       ]);
       setIsTyping(false);

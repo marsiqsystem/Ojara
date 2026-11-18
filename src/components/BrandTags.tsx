@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Line } from "@/lib/lines";
+import { BRACELETS_LIVE, type Line } from "@/lib/lines";
 
 // The "brand tags" band (owner call, 2026-09-12): a thin trust strip spelling
 // out the core promises the brand makes on every order. Since the sales rebuild
@@ -40,7 +40,7 @@ const tags: BrandTag[] = [
   },
   {
     title: "48-Hour Easy Exchange",
-    description: "Changed your mind about a bracelet or ring? Swap it within 48 hours.",
+    description: `Changed your mind about a ${BRACELETS_LIVE ? "bracelet or ring" : "gemstone ring"}? Swap it within 48 hours.`,
     icon: (
       <svg {...iconProps}>
         <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5" />

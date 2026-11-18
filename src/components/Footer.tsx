@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
+import { BRACELETS_LIVE } from "@/lib/lines";
+import { PROPRIETOR_NAME, SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL } from "@/lib/commerce/config";
 
 interface FooterColumn {
   title: string;
@@ -52,7 +54,7 @@ const columns: FooterColumn[] = [
   {
     title: "Support",
     links: [
-      { label: "Shipping & Exchanges", href: "/shipping-returns" },
+      { label: "Shipping & Refunds", href: "/shipping-returns" },
       { label: "FAQ", href: "/faq" },
       { label: "Contact", href: "/contact" },
     ],
@@ -86,9 +88,21 @@ export default function Footer() {
               </p>
             </div>
             <p className="mt-4 text-sm leading-6 text-champagne-gold/90">
-              Natural gemstone bracelets for what you carry, and stone jewellery
-              for how you shine.
+              Natural gemstone {BRACELETS_LIVE ? "bracelets" : "rings"} for what you carry, and stone
+              jewellery for how you shine.
             </p>
+            {/* How to reach the business (client, 2026-11-16). */}
+            <address className="mt-4 text-sm not-italic leading-6 text-champagne-gold/90">
+              <a href={`tel:${SUPPORT_PHONE_TEL}`} className="hover:text-ivory">
+                {SUPPORT_PHONE}
+              </a>
+              <br />
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="break-all hover:text-ivory">
+                {SUPPORT_EMAIL}
+              </a>
+              <br />
+              <span className="text-champagne-gold/70">Proprietor: {PROPRIETOR_NAME}</span>
+            </address>
 
             {/* Social */}
             <div className="mt-6 flex items-center gap-3">

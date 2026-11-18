@@ -5,6 +5,7 @@ import { hasSpecificIntention, type Product } from "@/lib/mockData";
 import { ADORN_EXCHANGE_POLICY, isAdorn } from "@/lib/lines";
 import { COMMERCE_FACTS } from "@/lib/seo";
 import { DISPATCH_POLICY_TEXT } from "@/lib/deliveryEstimate";
+import { INTENTIONS_EXCHANGE_POLICY } from "@/lib/policy";
 
 interface Section {
   key: string;
@@ -30,13 +31,13 @@ export default function RitualAccordion({ product }: { product: Product }) {
     // The ritual guidance now lives in the "Your ritual" steps above (RitualSteps).
     {
       key: "shipping",
-      title: "Shipping & Exchanges",
+      title: "Shipping, Exchanges & Refunds",
       // Same numbers as the shipping policy + delivery dates (COMMERCE_FACTS).
       // This used to say "dispatch within 24-48 hours", contradicting the policy.
       body: `Free delivery on every order across India, with Cash on Delivery available. ${DISPATCH_POLICY_TEXT} Orders arrive ${COMMERCE_FACTS.transitDaysMin}–${COMMERCE_FACTS.transitDaysMax} business days after dispatch. ${
         isAdorn(product)
           ? ADORN_EXCHANGE_POLICY
-          : "We don't offer returns or refunds — we offer exchanges: if the piece isn't the right fit, request an exchange within 48 hours of delivery, unused and in its original packaging."
+          : INTENTIONS_EXCHANGE_POLICY
       }`,
     },
   ];

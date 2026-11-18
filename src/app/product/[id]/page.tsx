@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getAllProducts, getCategories, getCategoryBySlug, getProductById } from "@/lib/catalog";
-import { LINES, OCCASIONS, colourLabelOf, colourSiblings, fullNameOf, groupByDesign, lineOf, pieceTypeInfo, pieceTypeOf } from "@/lib/lines";
+import { LINES, OCCASIONS, colourLabelOf, colourSiblings, fullNameOf, groupByDesign, isHiddenPiece, lineOf, pieceTypeInfo, pieceTypeOf } from "@/lib/lines";
 import Image from "next/image";
 import { crossLinePicks } from "@/lib/lookPairs";
 import { products, hasSpecificIntention } from "@/lib/mockData";
@@ -173,6 +173,11 @@ export default async function ProductDetailPage({
 
   if (!product) {
     notFound();
+  }
+  // A hidden piece (bracelets, client's call 2026-11-16): ads and old links land
+  // on the gemstone rings instead of a page we no longer sell from.
+  if (isHiddenPiece(product)) {
+    redirect(LINES.intentions.href);
   }
 
   // Which line this piece is (lib/lines): Adorn gets the stone-jewellery page —

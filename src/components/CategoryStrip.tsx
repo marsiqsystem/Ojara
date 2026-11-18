@@ -5,7 +5,7 @@ import {
   getProductsByCategory,
   type Category,
 } from "@/lib/catalog";
-import { groupByDesign } from "@/lib/lines";
+import { LINES, groupByDesign } from "@/lib/lines";
 import { COMBO_PERCENT, isOfferLive } from "@/lib/commerce/offers";
 import ScrollRail from "@/components/ScrollRail";
 
@@ -63,7 +63,7 @@ export default async function CategoryStrip() {
             </h2>
             <p className="mt-1 text-sm text-midnight-navy/60">
               {categories.some((c) => c.group === "adorn")
-                ? "Natural gemstone bracelets & rings, and stone jewellery."
+                ? `${LINES.intentions.descriptor}, and stone jewellery.`
                 : "Browse every OJARA collection."}
             </p>
           </div>

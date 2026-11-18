@@ -3,7 +3,7 @@ import FindYourStone from "@/components/FindYourStone";
 import { getAllProducts } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
 import { COMBO_PERCENT, WELCOME_CODE, WELCOME_PERCENT } from "@/lib/commerce/offers";
-import { LINES, lineOf } from "@/lib/lines";
+import { BRACELETS_LIVE, LINES, lineOf } from "@/lib/lines";
 
 export default async function Hero() {
   // "From ₹X" off the live catalogue, so the price promise is always true.
@@ -13,6 +13,8 @@ export default async function Hero() {
   // Adorn joins the hero the moment it has a piece in stock.
   const adornFrom = lowest(inStock.filter((p) => lineOf(p) === "adorn"));
   const twoLines = adornFrom > 0;
+  // What the Intentions price is "from" — rings alone while bracelets are hidden.
+  const intentionsWord = BRACELETS_LIVE ? "Bracelets" : "Gemstone rings";
 
   return (
     // Shorter on phones (was 88vh) so the offer, the price and the first pieces
@@ -57,14 +59,14 @@ export default async function Hero() {
         </h1>
         <p className="mt-5 max-w-xl text-sm leading-7 tracking-wide text-ivory/85 sm:mt-8 sm:text-base sm:leading-8 md:text-lg">
           {twoLines
-            ? "Natural gemstone bracelets for what you carry — and stone jewellery for how you show up."
+            ? `Natural gemstone ${BRACELETS_LIVE ? "bracelets" : "rings"} for what you carry — and stone jewellery for how you show up.`
             : "Handcrafted bracelets of natural gemstones — worn as a daily reminder of the intention you carry."}
         </p>
         {fromPrice > 0 && (
           <p className="mt-4 text-sm font-semibold tracking-wide text-ivory">
             {twoLines
-              ? `Bracelets from ${formatPrice(fromPrice)} · Stone jewellery from ${formatPrice(adornFrom)}`
-              : `Bracelets from ${formatPrice(fromPrice)} · Cash on Delivery · Free delivery`}
+              ? `${intentionsWord} from ${formatPrice(fromPrice)} · Stone jewellery from ${formatPrice(adornFrom)}`
+              : `${intentionsWord} from ${formatPrice(fromPrice)} · Cash on Delivery · Free delivery`}
           </p>
         )}
         <p className="mt-2 text-xs tracking-wide text-ivory/75 sm:text-sm">

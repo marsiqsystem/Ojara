@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import ContactForm from "@/components/ContactForm";
-import { SUPPORT_EMAIL } from "@/lib/commerce/config";
+import { PROPRIETOR_NAME, SUPPORT_EMAIL, SUPPORT_PHONE, SUPPORT_PHONE_TEL } from "@/lib/commerce/config";
 import BackButton from "@/components/BackButton";
 
 export const metadata: Metadata = {
@@ -64,6 +64,37 @@ export default function ContactPage() {
           </p>
 
           <div className="mt-8 flex flex-col gap-4">
+            <a
+              href={`tel:${SUPPORT_PHONE_TEL}`}
+              className="group flex items-center justify-between rounded-2xl border border-champagne-gold/25 bg-sand/50 px-4 sm:px-6 py-5 transition-all duration-150 hover:border-champagne-gold/60 active:scale-[0.99]"
+            >
+              <span className="min-w-0">
+                <span className="block text-xs text-midnight-navy/60">
+                  Call us
+                </span>
+                <span className="mt-1 block font-heading text-lg text-midnight-navy">
+                  {SUPPORT_PHONE}
+                </span>
+              </span>
+              <span className="ml-4 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-ivory shadow-sm">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-midnight-navy"
+                  aria-hidden="true"
+                >
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+                </svg>
+              </span>
+            </a>
+
             <a
               href={INSTAGRAM_URL}
               target="_blank"
@@ -144,6 +175,8 @@ export default function ContactPage() {
               <address className="mt-3 text-sm not-italic leading-7 text-midnight-navy/80">
                 <span className="font-semibold text-midnight-navy">OJARA</span>
                 <br />
+                Proprietor: {PROPRIETOR_NAME}
+                <br />
                 9/D, New Panchanantala Road
                 <br />
                 Police Station &amp; Post Office &mdash; Belgharia
@@ -151,6 +184,8 @@ export default function ContactPage() {
                 Kolkata &ndash; 700 056
                 <br />
                 West Bengal, India
+                <br />
+                Phone: <a href={`tel:${SUPPORT_PHONE_TEL}`} className="underline underline-offset-2">{SUPPORT_PHONE}</a>
               </address>
             </div>
           </div>

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import PolicyPage from "@/components/PolicyPage";
+import { PROPRIETOR_NAME, SUPPORT_EMAIL, SUPPORT_PHONE } from "@/lib/commerce/config";
+import { INTENTIONS_EXCHANGE_POLICY, REFUND_POLICY_SHORT } from "@/lib/policy";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -12,7 +14,7 @@ export default function TermsPage() {
   return (
     <PolicyPage
       title="Terms of Service"
-      updated="July 2026"
+      updated="November 2026"
       intro="These Terms of Service govern your access to and use of the OJARA website and your purchase of our products. Please read them carefully. By placing an order or using this site, you agree to be bound by these terms."
       sections={[
         {
@@ -43,17 +45,25 @@ export default function TermsPage() {
           ],
         },
         {
-          heading: "Returns & Exchanges",
+          heading: "Exchanges, Returns & Refunds",
           body: [
-            "We do not offer returns or refunds. If your piece isn't the right fit, you may request an exchange within 48 hours of delivery, provided the item is unused and in its original packaging.",
-            "To start an exchange, email ojara.jewel@gmail.com with your order number and a photo within 48 hours of delivery. Requests made after 48 hours cannot be accepted. Damaged or incorrect items are handled separately — see our Shipping & Exchanges page.",
-            "Earrings and jewellery sets (OJARA Adorn) cannot be exchanged for a change of mind, for hygiene reasons. A damaged or incorrect Adorn piece is replaced if reported within 48 hours of delivery with the unboxing video.",
+            INTENTIONS_EXCHANGE_POLICY,
+            `To start an exchange or a return, email ${SUPPORT_EMAIL} or call ${SUPPORT_PHONE} with your order number and a photo within 48 hours of delivery. Requests made after 48 hours cannot be accepted.`,
+            REFUND_POLICY_SHORT,
+            "Earrings and jewellery sets (OJARA Adorn) cannot be exchanged for a change of mind, for hygiene reasons. A damaged or incorrect Adorn piece is replaced or refunded if reported within 48 hours of delivery with the unboxing video.",
+            "Full details, including cancellations, are on our Shipping, Returns & Refunds page.",
           ],
         },
         {
           heading: "Intellectual Property",
           body: [
             "All content on this site — including text, imagery, logos, and design — is the property of OJARA and protected by applicable intellectual property laws. You may not reproduce or use it without our written permission.",
+          ],
+        },
+        {
+          heading: "Contact",
+          body: [
+            `OJARA is owned and operated by ${PROPRIETOR_NAME} (proprietor), 9/D, New Panchanantala Road, Belgharia, Kolkata – 700 056, West Bengal, India. Phone: ${SUPPORT_PHONE} · Email: ${SUPPORT_EMAIL}.`,
           ],
         },
         {

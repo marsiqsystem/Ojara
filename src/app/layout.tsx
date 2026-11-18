@@ -17,6 +17,7 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import { GoogleTagManagerNoScript } from "@/components/analytics/GoogleTagManager";
 import { MetaPixelNoScript } from "@/components/analytics/MetaPixel";
 import JsonLd from "@/components/seo/JsonLd";
+import { BRACELETS_LIVE } from "@/lib/lines";
 import {
   SITE_URL,
   SITE_NAME,
@@ -60,13 +61,17 @@ export const metadata: Metadata = {
   applicationName: SITE_NAME,
   keywords: [
     "OJARA",
-    "gemstone bracelets",
-    "crystal bracelets",
-    "black tourmaline bracelet",
-    "evil eye bracelet",
-    "citrine bracelet",
-    "carnelian bracelet",
-    "lapis lazuli bracelet",
+    ...(BRACELETS_LIVE
+      ? [
+          "gemstone bracelets",
+          "crystal bracelets",
+          "black tourmaline bracelet",
+          "evil eye bracelet",
+          "citrine bracelet",
+          "carnelian bracelet",
+          "lapis lazuli bracelet",
+        ]
+      : ["gemstone rings", "citrine ring", "amethyst ring", "lapis lazuli ring"]),
     "healing crystals India",
     "stone jewellery",
     "necklace set with earrings",
@@ -84,14 +89,14 @@ export const metadata: Metadata = {
     url: SITE_URL,
     title: "OJARA | Wear Your Intention. Wear Your Shine.",
     description:
-      "Natural gemstone bracelets worn for what they mean, and stone jewellery for how you shine. Free delivery across India, Cash on Delivery.",
+      `Natural gemstone ${BRACELETS_LIVE ? "bracelets" : "rings"} worn for what they mean, and stone jewellery for how you shine. Free delivery across India, Cash on Delivery.`,
     images: [{ url: DEFAULT_OG_IMAGE, alt: "OJARA" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "OJARA | Wear Your Intention. Wear Your Shine.",
     description:
-      "Natural gemstone bracelets worn for what they mean, and stone jewellery for how you shine. Free delivery across India, Cash on Delivery.",
+      `Natural gemstone ${BRACELETS_LIVE ? "bracelets" : "rings"} worn for what they mean, and stone jewellery for how you shine. Free delivery across India, Cash on Delivery.`,
     images: [DEFAULT_OG_IMAGE],
   },
   icons: {

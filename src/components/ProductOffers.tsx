@@ -14,6 +14,7 @@ import {
   WELCOME_CODE,
   WELCOME_PERCENT,
   bagMix,
+  isOfferLive,
   offerLineOf,
   pieceKind,
 } from "@/lib/commerce/offers";
@@ -56,7 +57,7 @@ export default function ProductOffers({
     useAvailableTiers().some((t) => t.code === WELCOME_CODE) && kind !== "adorn";
   // Adorn (stone jewellery) isn't in Wix's Bracelets / Rings rules: it gets its
   // own buy 2 get 1, first order and prepaid.
-  const showCombo = kind !== "adorn";
+  const showCombo = kind !== "adorn" && isOfferLive("combo");
   const other = kind === "ring" ? "bracelet" : "ring";
   // The rest of the bag, not counting this piece.
   const bag = bagMix(
