@@ -1,6 +1,6 @@
 import { NextResponse, after } from "next/server";
 import { UPSELL_ENABLED, WIX_ADMIN_ENABLED } from "@/lib/commerce/config";
-import { PREPAID_DISCOUNT, isTierCode } from "@/lib/commerce/pricing";
+import { COD_CHARGE, PREPAID_DISCOUNT, isTierCode } from "@/lib/commerce/pricing";
 import { isBuy2Get1Rule, ruleNameOf } from "@/lib/commerce/offers";
 import { adornCatalogIds } from "@/lib/catalog";
 import { normalizeSubdivision } from "@/lib/commerce/indiaStates";
@@ -12,6 +12,7 @@ import {
   verifyPrepaidPayment,
   type VerifiedPayment,
 } from "@/lib/razorpayServer";
+import { verifyPhonePePayment } from "@/lib/phonepeServer";
 import {
   sendOrderConfirmationEmail,
   type OrderEmailParams,
@@ -47,6 +48,8 @@ type CheckoutAddressPayload = {
   postalCode: string;
   paymentMethod: "COD" | "PREPAID";
   razorpayPaymentId?: string;
+  /** PhonePe merchantOrderId (redirect-flow prepaid). Verified via Order Status. */
+  phonepeOrderId?: string;
 };
 
 // Ceiling on the client-supplied Sacred Bundle discount. The tier tops out at
@@ -137,6 +140,7 @@ export async function POST(req: Request) {
     const postalCode = normalizeText(details?.postalCode);
     const paymentMethod = details?.paymentMethod === "PREPAID" ? "PREPAID" : "COD";
     const razorpayPaymentId = normalizeText(details?.razorpayPaymentId);
+    const phonepeOrderId = normalizeText(details?.phonepeOrderId);
 
     // The coupon code rides along so the owner sees it on the Wix order.
     const couponCode = normalizeText(body?.couponCode).toUpperCase();
@@ -169,17 +173,34 @@ export async function POST(req: Request) {
     // the Wix order PAID (and take the prepaid discount off) for any string it was sent. The
     // amount is checked further down, once Wix has priced the checkout.
     let payment: VerifiedPayment | null = null;
+    let paymentProvider: "razorpay" | "phonepe" | null = null;
     if (paymentMethod === "PREPAID") {
-      const check = await verifyPrepaidPayment(razorpayPaymentId);
-      if (!check.ok) {
-        return NextResponse.json({ error: check.error }, { status: check.status });
+      if (phonepeOrderId) {
+        // PhonePe (redirect flow): confirm the order is COMPLETED via PhonePe's
+        // own Order Status API before anything is built. Mapped to the shared
+        // VerifiedPayment shape; status "captured" so the Razorpay-only capture
+        // step below is a no-op (a COMPLETED PhonePe payment is already settled).
+        const check = await verifyPhonePePayment(phonepeOrderId);
+        if (!check.ok) {
+          return NextResponse.json({ error: check.error }, { status: check.status });
+        }
+        payment = { id: check.payment.id, amount: check.payment.amount, status: "captured" };
+        paymentProvider = "phonepe";
+      } else {
+        const check = await verifyPrepaidPayment(razorpayPaymentId);
+        if (!check.ok) {
+          return NextResponse.json({ error: check.error }, { status: check.status });
+        }
+        payment = check.payment;
+        paymentProvider = "razorpay";
       }
-      payment = check.payment;
     }
-    // Rupees Razorpay actually took — replaces the amount the browser used to send.
+    // Rupees actually taken — replaces the amount the browser used to send.
     const razorpayAmount = payment ? payment.amount.toFixed(2) : "";
     // Only a verified payment id is ever written onto an order or an email.
     const paidPaymentId = payment ? payment.id : "";
+    // Owner-facing label so a PhonePe order never reads "Razorpay" on Wix.
+    const providerLabel = paymentProvider === "phonepe" ? "PhonePe" : "Razorpay";
 
     // ------------------------------------------------- Meta Purchase (server)
     // The browser also fires Purchase, but ad blockers, a crashed tab or a
@@ -311,16 +332,16 @@ export async function POST(req: Request) {
         (paymentMethod === "COD"
           ? `Payment: Cash on Delivery (COD). Phone: ${phone}. Pincode: ${postalCode}.`
           : `Payment: Prepaid. Phone: ${phone}. Pincode: ${postalCode}.` +
-            (paidPaymentId ? ` Razorpay Payment ID: ${paidPaymentId}.` : "") +
+            (paidPaymentId ? ` ${providerLabel} Payment ID: ${paidPaymentId}.` : "") +
             (razorpayAmount ? ` Amount paid: ${razorpayAmount}.` : "")),
       customFields: [
         {
           title: "Payment Method",
-          value: paymentMethod === "COD" ? "Cash on Delivery" : "Prepaid (Razorpay)",
+          value: paymentMethod === "COD" ? "Cash on Delivery" : `Prepaid (${providerLabel})`,
         },
         { title: "Customer Phone", value: phone },
         ...(paidPaymentId
-          ? [{ title: "Razorpay Payment ID", value: paidPaymentId }]
+          ? [{ title: `${providerLabel} Payment ID`, value: paidPaymentId }]
           : []),
         ...(razorpayAmount ? [{ title: "Amount Paid", value: razorpayAmount }] : []),
         ...(couponCode ? [{ title: "Coupon", value: couponCode }] : []),
@@ -381,6 +402,9 @@ export async function POST(req: Request) {
     }
 
     const prepaidDiscountAmount = payment ? PREPAID_DISCOUNT : 0;
+    // COD carries a delivery + handling charge; prepaid keeps free delivery. Added
+    // to the Wix order below as an ADDITIONAL FEE so the courier collects it.
+    const codChargeAmount = paymentMethod === "COD" ? COD_CHARGE : 0;
 
     // 3b. Prepaid: the payment must cover THIS order, before any order exists.
     // Wix's checkout total already carries the coupon; the adjustments made in
@@ -401,17 +425,22 @@ export async function POST(req: Request) {
           { status: 402 },
         );
       }
-      try {
-        await capturePayment(payment);
-        // Burn the payment id against this checkout BEFORE the order exists, so a
-        // replay racing this request is refused by verifyPrepaidPayment.
-        await markPaymentUsed(payment.id, checkoutId);
-      } catch (e) {
-        console.error("Razorpay capture failed:", e);
-        return NextResponse.json(
-          { error: `We couldn't complete your payment. No order was placed — please contact us with payment ID ${payment.id}.` },
-          { status: 502 },
-        );
+      // Razorpay needs an explicit capture + replay-guard. PhonePe is already
+      // COMPLETED (settled) at verify time, and the single-use Wix checkoutId
+      // stops a replay from creating a second order, so this block is skipped.
+      if (paymentProvider === "razorpay") {
+        try {
+          await capturePayment(payment);
+          // Burn the payment id against this checkout BEFORE the order exists, so a
+          // replay racing this request is refused by verifyPrepaidPayment.
+          await markPaymentUsed(payment.id, checkoutId);
+        } catch (e) {
+          console.error("Razorpay capture failed:", e);
+          return NextResponse.json(
+            { error: `We couldn't complete your payment. No order was placed — please contact us with payment ID ${payment.id}.` },
+            { status: 502 },
+          );
+        }
       }
     }
 
@@ -456,6 +485,7 @@ export async function POST(req: Request) {
     let finalTotal = wixOrderTotal;
     let committedOrder: Record<string, unknown> | null = null;
     let discountApplied = false;
+    let codChargeApplied = false;
 
     if (prepaidDiscountAmount > 0 || bundleDiscount > 0) {
       try {
@@ -525,6 +555,62 @@ export async function POST(req: Request) {
       }
     }
 
+    // 5b. COD: add the delivery + handling charge as an ADDITIONAL FEE (not a line
+    // item, not a negative discount) via a draft-order edit, so the Wix order TOTAL
+    // — and the amount the courier is told to collect — includes it. The mirror of
+    // the prepaid −₹25 above; prepaid orders keep free delivery and never reach here.
+    // Based on `finalTotal` so a COD order that also earned a bundle discount keeps
+    // it. Best-effort: on any failure the underlying order stands, and we still
+    // report the intended total so the email/tracking match what the shopper agreed
+    // to, logging loudly so the Wix order can be corrected by hand.
+    if (codChargeAmount > 0) {
+      const baseBeforeFee = Number.isFinite(finalTotal) ? finalTotal : wixOrderTotal;
+      try {
+        const draftRes = await wixClient.draftOrders.createDraftOrder({
+          sourceOrderId: orderId,
+        });
+        const draftId =
+          draftRes?.calculatedDraftOrder?.draftOrder?._id ||
+          draftRes?.draftOrder?._id;
+        if (!draftId) throw new Error("Draft order id missing from response.");
+
+        await wixClient.draftOrders.createCustomAdditionalFees(draftId, {
+          customAdditionalFees: [
+            {
+              name: "Delivery + COD Charges",
+              price: { amount: codChargeAmount.toFixed(2) },
+              applyToDraftOrder: true,
+            },
+          ],
+        });
+
+        const commitRes = await wixClient.draftOrders.commitDraftOrder(draftId, {
+          commitSettings: {
+            sendNotificationsToBuyer: false,
+            sendNotificationsToBusiness: false,
+          },
+          reason: "COD delivery & handling charge",
+        });
+
+        committedOrder = commitRes?.orderAfterCommit || committedOrder;
+        const committedTotal = (committedOrder?.priceSummary as
+          | { total?: { amount?: string } }
+          | undefined)?.total?.amount;
+        finalTotal =
+          committedTotal != null
+            ? Number(committedTotal)
+            : Number((baseBeforeFee + codChargeAmount).toFixed(2));
+        codChargeApplied = true;
+      } catch (feeErr) {
+        console.error(
+          `COD charge (draft edit) FAILED for order ${orderId} — the Wix order may ` +
+            `still show the product-only total and must be corrected manually:`,
+          feeErr,
+        );
+        finalTotal = Number((baseBeforeFee + codChargeAmount).toFixed(2));
+      }
+    }
+
     // 6. Record the payment so the order reads as PAID for finalTotal.
     let paymentMarkedPaid = false;
     if (payment) {
@@ -536,7 +622,7 @@ export async function POST(req: Request) {
               regularPaymentDetails: {
                 offlinePayment: true,
                 status: "APPROVED",
-                paymentMethod: "Razorpay",
+                paymentMethod: providerLabel,
                 providerTransactionId: paidPaymentId,
               },
             },
@@ -604,6 +690,7 @@ export async function POST(req: Request) {
         shipping: ps?.shipping?.amount || undefined,
         tax: ps?.tax?.amount || undefined,
         discount: ps?.discount?.amount || undefined,
+        codCharge: codChargeAmount > 0 ? codChargeAmount.toFixed(2) : undefined,
         total:
           ps?.total?.amount ||
           (Number.isFinite(emailAmount) ? emailAmount.toFixed(2) : undefined),
@@ -664,6 +751,7 @@ export async function POST(req: Request) {
       orderNumber: orderNumberForShopper,
       paymentMarkedPaid,
       discountApplied,
+      codChargeApplied,
       finalTotal: Number.isFinite(finalTotal) ? finalTotal : undefined,
     });
   } catch (err: unknown) {

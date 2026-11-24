@@ -9,7 +9,7 @@ import { useCartStore } from "@/lib/store/useCartStore";
 import { useWixClient } from "@/hooks/useWixClient";
 import { formatPrice } from "@/lib/format";
 import {
-  PREPAID_DISCOUNT,
+  COD_CHARGE,
   computeTotals,
   isTierCode,
 } from "@/lib/commerce/pricing";
@@ -21,6 +21,7 @@ import {
   BRAND_NAME,
   LOW_STOCK_THRESHOLD,
   PREPAID_ENABLED,
+  PREPAID_PROVIDER,
   WIX_ENABLED,
 } from "@/lib/commerce/config";
 import { useCouponAutoRemoveHandler } from "@/lib/commerce/useAutoTierCoupon";
@@ -270,6 +271,8 @@ export default function CheckoutModal() {
       offerDiscount: offers.total,
     });
   const totals = totalsFor(isPrepaid);
+  // Which gateway secures the online payment, for the shopper-facing copy.
+  const prepaidSecuredBy = PREPAID_PROVIDER === "phonepe" ? "PhonePe" : "Razorpay";
   const prepaidTotal = totalsFor(true).total;
   const codTotal = totalsFor(false).total;
 
@@ -499,6 +502,7 @@ export default function CheckoutModal() {
       subtotal: String(totals.subtotal),
       shipping: "0",
       discount: String(totals.offerDiscount + totals.couponDiscount + totals.prepaidDiscount),
+      codCharge: totals.codCharge > 0 ? String(totals.codCharge) : undefined,
       total: String(totals.total),
     },
     amount: totals.total.toFixed(2),
@@ -506,76 +510,92 @@ export default function CheckoutModal() {
     stateName: nameOfState(stateCode),
   });
 
+  // Materialise a Wix checkout from the current cart (live mode). Returns the
+  // checkoutId, or undefined in mock mode. Shared by every payment path so the
+  // Razorpay, COD and PhonePe flows build an identical checkout.
+  const createWixCheckoutId = async (): Promise<string | undefined> => {
+    if (!WIX_ENABLED) return undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const wc = wixClient as any;
+    const WIX_STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
+    const lineItems = lines
+      .filter((l) => l.wixCatalogItemId)
+      .map((l) => ({
+        catalogReference: { appId: WIX_STORES_APP_ID, catalogItemId: l.wixCatalogItemId },
+        quantity: l.quantity,
+      }));
+    if (lineItems.length) {
+      await wc.currentCart.deleteCurrentCart().catch(() => {});
+      await wc.currentCart.addToCurrentCart({ lineItems });
+    }
+    // Apply the coupon natively so Wix's engine computes the discount and it
+    // shows on the resulting order. Best-effort: if Wix rejects it, the order
+    // still proceeds.
+    if (appliedCoupon) {
+      try {
+        await wc.currentCart.updateCurrentCart({ couponCode: appliedCoupon });
+      } catch (couponErr) {
+        console.error("Wix rejected coupon", appliedCoupon, couponErr);
+      }
+    }
+    const checkoutResult = await wc.currentCart.createCheckoutFromCurrentCart({ channelType: "WEB" });
+    const checkoutId = checkoutResult?.checkoutId;
+    if (!checkoutId) throw new Error("Wix returned an empty checkoutId.");
+    return checkoutId;
+  };
+
+  // The exact /api/checkout request body. `ids` carries whichever gateway's
+  // reference applies — Razorpay payment id, or PhonePe merchantOrderId. Built
+  // once so the direct (COD/Razorpay) and redirect (PhonePe) paths never drift.
+  const buildCheckoutBody = (
+    method: PaymentMethod,
+    checkoutId: string | undefined,
+    ids: { razorpayPaymentId?: string; phonepeOrderId?: string } = {},
+  ) => {
+    const payload = buildOrderPayload();
+    return {
+      checkoutId,
+      details: {
+        email: email.trim(),
+        fullName: fullName.trim(),
+        phone,
+        addressLine1: address.trim(),
+        addressLine2: landmark.trim(),
+        city: city.trim(),
+        state: stateCode,
+        postalCode: pincode.trim(),
+        paymentMethod: method,
+        razorpayPaymentId: ids.razorpayPaymentId,
+        phonepeOrderId: ids.phonepeOrderId,
+      },
+      items: payload.items,
+      summary: payload.summary,
+      amount: payload.amount,
+      couponCode: payload.couponCode,
+      // Lets the server fire its own Meta Purchase the moment the order exists.
+      // It reuses event_id `purchase-<orderId>`, the same id the browser
+      // Purchase uses, so Meta counts ONE conversion.
+      tracking: {
+        ...trackingContext(),
+        contentIds: contentIds(lines),
+        contents: toContents(lines),
+        numItems: itemCount,
+        value: totals.total,
+      },
+    };
+  };
+
   // Turn the cart into an order via /api/checkout. Live mode first materialises
-  // a Wix checkout from the current cart.
+  // a Wix checkout from the current cart. (COD + Razorpay — the direct path.)
   const finalizeOrder = async (
     method: PaymentMethod,
     razorpayPaymentId?: string,
   ): Promise<{ orderId: string; orderNumber?: string }> => {
-    const payload = buildOrderPayload();
-
-    let checkoutId: string | undefined;
-    if (WIX_ENABLED) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const wc = wixClient as any;
-      const WIX_STORES_APP_ID = "215238eb-22a5-4c36-9e7b-e7c08025e04e";
-      const lineItems = lines
-        .filter((l) => l.wixCatalogItemId)
-        .map((l) => ({
-          catalogReference: { appId: WIX_STORES_APP_ID, catalogItemId: l.wixCatalogItemId },
-          quantity: l.quantity,
-        }));
-      if (lineItems.length) {
-        await wc.currentCart.deleteCurrentCart().catch(() => {});
-        await wc.currentCart.addToCurrentCart({ lineItems });
-      }
-      // Apply the coupon natively so Wix's engine computes the discount and it
-      // shows on the resulting order. Best-effort: if Wix rejects it, the order
-      // still proceeds.
-      if (appliedCoupon) {
-        try {
-          await wc.currentCart.updateCurrentCart({ couponCode: appliedCoupon });
-        } catch (couponErr) {
-          console.error("Wix rejected coupon", appliedCoupon, couponErr);
-        }
-      }
-      const checkoutResult = await wc.currentCart.createCheckoutFromCurrentCart({ channelType: "WEB" });
-      checkoutId = checkoutResult?.checkoutId;
-      if (!checkoutId) throw new Error("Wix returned an empty checkoutId.");
-    }
-
+    const checkoutId = await createWixCheckoutId();
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        checkoutId,
-        details: {
-          email: email.trim(),
-          fullName: fullName.trim(),
-          phone,
-          addressLine1: address.trim(),
-          addressLine2: landmark.trim(),
-          city: city.trim(),
-          state: stateCode,
-          postalCode: pincode.trim(),
-          paymentMethod: method,
-          razorpayPaymentId,
-        },
-        items: payload.items,
-        summary: payload.summary,
-        amount: payload.amount,
-        couponCode: payload.couponCode,
-        // Lets the server fire its own Meta Purchase the moment the order exists.
-        // It reuses event_id `purchase-<orderId>`, the same id the browser
-        // Purchase uses, so Meta counts ONE conversion.
-        tracking: {
-          ...trackingContext(),
-          contentIds: contentIds(lines),
-          contents: toContents(lines),
-          numItems: itemCount,
-          value: totals.total,
-        },
-      }),
+      body: JSON.stringify(buildCheckoutBody(method, checkoutId, { razorpayPaymentId })),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Order creation failed.");
@@ -626,6 +646,7 @@ export default function CheckoutModal() {
       items: lines.map((l) => ({ name: l.name, quantity: l.quantity, price: l.price, image: l.image })),
       subtotal: totals.subtotal,
       discount: totals.offerDiscount + totals.couponDiscount + totals.prepaidDiscount,
+      codCharge: totals.codCharge,
       total: totals.total,
     });
     clearCart();
@@ -716,6 +737,68 @@ export default function CheckoutModal() {
     rzp.open();
   };
 
+  // PREPAID via PhonePe (redirect flow): create the Wix checkout, stash the exact
+  // /api/checkout payload, start the PhonePe payment, and send the shopper off.
+  // The order is created on return (/checkout/phonepe-return), which replays the
+  // stash once PhonePe's Order Status API confirms the payment COMPLETED.
+  const runPhonePeOrder = async () => {
+    const checkoutId = await createWixCheckoutId();
+
+    const initRes = await fetch("/api/phonepe/initiate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: totals.total, email: email.trim(), phone }),
+    });
+    const initData = await initRes.json().catch(() => ({}));
+    if (!initRes.ok || !initData?.redirectUrl || !initData?.merchantOrderId) {
+      throw new Error(initData?.error || "Could not start the payment.");
+    }
+    const merchantOrderId: string = initData.merchantOrderId;
+
+    const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
+    const snapshot = {
+      orderId: "", // filled on return, once /api/checkout creates the order
+      placedAt: Date.now(),
+      firstName: nameParts[0] || "",
+      email: email.trim(),
+      phoneLast4: phone.slice(-4),
+      city: city.trim(),
+      paymentMethod: "PREPAID" as const,
+      items: lines.map((l) => ({
+        name: l.name,
+        quantity: l.quantity,
+        price: l.price,
+        image: l.image,
+      })),
+      subtotal: totals.subtotal,
+      discount: totals.offerDiscount + totals.couponDiscount + totals.prepaidDiscount,
+      codCharge: totals.codCharge,
+      total: totals.total,
+    };
+
+    try {
+      localStorage.setItem(
+        "ojara_phonepe_pending",
+        JSON.stringify({
+          merchantOrderId,
+          body: buildCheckoutBody("PREPAID", checkoutId, {
+            phonepeOrderId: merchantOrderId,
+          }),
+          snapshot,
+        }),
+      );
+    } catch {
+      // Without the stash the return page can't replay the order — refuse rather
+      // than take a payment we couldn't turn into an order.
+      throw new Error(
+        "Your browser is blocking checkout storage. Please enable it and try again.",
+      );
+    }
+
+    // Hand off to PhonePe. We stay "processing"; the page is navigating away.
+    window.location.href = initData.redirectUrl;
+  };
+
   const handlePayment = async () => {
     if (!lines.length) return setError("Your bag is empty.");
     const fieldErrors = validateFields({
@@ -765,7 +848,11 @@ export default function CheckoutModal() {
 
     try {
       if (paymentMethod === "PREPAID") {
-        await runPrepaidOrder(); // stays "processing" until its callbacks fire
+        if (PREPAID_PROVIDER === "phonepe") {
+          await runPhonePeOrder(); // redirects to PhonePe; stays "processing"
+        } else {
+          await runPrepaidOrder(); // Razorpay widget; stays "processing"
+        }
         return;
       }
       const { orderId, orderNumber } = await finalizeOrder("COD");
@@ -783,8 +870,10 @@ export default function CheckoutModal() {
     {
       id: "PREPAID",
       label: "Pay online",
-      badge: PREPAID_ENABLED ? `Save ${formatPrice(PREPAID_DISCOUNT)}` : "Coming soon",
-      sub: "UPI, cards & wallets · secured by Razorpay",
+      // The full gap vs COD (the ₹25 discount + the ₹49 COD charge waived), so the
+      // badge matches the real difference in the amounts shown beside each option.
+      badge: PREPAID_ENABLED ? `Save ${formatPrice(codTotal - prepaidTotal)}` : "Coming soon",
+      sub: `UPI, cards & wallets · free delivery · secured by ${prepaidSecuredBy}`,
       amount: prepaidTotal,
       disabled: !PREPAID_ENABLED,
     },
@@ -792,7 +881,7 @@ export default function CheckoutModal() {
       id: "COD",
       label: "Cash on Delivery",
       badge: "Pay when it arrives",
-      sub: "Pay the courier in cash or UPI",
+      sub: `Pay the courier in cash or UPI · includes ${formatPrice(COD_CHARGE)} delivery & handling`,
       amount: codTotal,
       disabled: false,
     },
@@ -1294,10 +1383,17 @@ export default function CheckoutModal() {
                   <span className="tabular-nums">− {formatPrice(totals.prepaidDiscount)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-midnight-navy/75">
-                <span>Delivery</span>
-                <span className="font-semibold text-emerald-700">FREE</span>
-              </div>
+              {totals.codCharge > 0 ? (
+                <div className="flex justify-between text-midnight-navy/75">
+                  <span>Delivery &amp; handling (COD)</span>
+                  <span className="tabular-nums">+ {formatPrice(totals.codCharge)}</span>
+                </div>
+              ) : (
+                <div className="flex justify-between text-midnight-navy/75">
+                  <span>Delivery</span>
+                  <span className="font-semibold text-emerald-700">FREE</span>
+                </div>
+              )}
               <div className="mt-2 flex justify-between border-t border-midnight-navy/15 pt-3 text-base font-bold text-midnight-navy">
                 <span>{isPrepaid ? "Total" : "Total (pay on delivery)"}</span>
                 <span className="tabular-nums">{formatPrice(totals.total)}</span>
@@ -1352,7 +1448,7 @@ export default function CheckoutModal() {
           </div>
           <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[0.68rem] text-midnight-navy/55">
             <LockIcon className="h-3.5 w-3.5" />
-            {isPrepaid ? "Secured by Razorpay" : "Pay on delivery"} ·{" "}
+            {isPrepaid ? `Secured by ${prepaidSecuredBy}` : "Pay on delivery"} ·{" "}
             {cartItems.some((ci) => !isAdorn(ci.product)) ? "48-hr exchange" : "Damage cover"} ·{" "}
             {pincodeStatus === "found" ? `Arrives ${deliveryWindowLabel()}` : "Free delivery across India"}
           </p>

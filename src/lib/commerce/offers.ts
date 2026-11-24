@@ -10,8 +10,9 @@
 //      the Bracelets category (owner re-created it 2026-09-22; the old B2G1FREE
 //      coupon failed on Catalog V3). Every 3rd bracelet free — Wix frees the
 //      lowest-priced one. Rings don't count.
-//   3. ₹49 off prepaid — PREPAID_DISCOUNT in ./pricing, shown only once online
-//      payment is on (PREPAID_ENABLED).
+//   3. ₹25 off prepaid — PREPAID_DISCOUNT in ./pricing, shown only once online
+//      payment is on (PREPAID_ENABLED). COD instead carries a ₹49 delivery +
+//      handling charge (COD_CHARGE), added to the order server-side.
 //   4. Bracelet + ring — a Wix AUTOMATIC "buy X get Y": buy 1 bracelet, get 10%
 //      off 1 ring. The 10% comes off the RING only, once per bracelet + ring pair
 //      (owner OK'd, 2026-09-22). No code.

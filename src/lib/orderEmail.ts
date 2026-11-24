@@ -46,6 +46,8 @@ export type OrderEmailParams = {
     shipping?: string;
     tax?: string;
     discount?: string;
+    /** COD delivery + handling charge (₹), shown as a positive line on COD orders. */
+    codCharge?: string;
     total?: string;
   };
   address: { line1?: string; city?: string; state?: string; postalCode?: string };
@@ -172,6 +174,9 @@ export const renderOrderEmail = (
     (s.discount && Number(s.discount) > 0
       ? summaryRow("Discount", `-${s.discount}`, { accent: true })
       : "") +
+    (s.codCharge && Number(s.codCharge) > 0
+      ? summaryRow("Delivery & handling (COD)", s.codCharge)
+      : "") +
     summaryRow(isPrepaid ? "Total paid" : "Total to pay", s.total || params.amount, {
       bold: true,
     });
@@ -289,6 +294,9 @@ export const renderOrderEmail = (
     s.shipping ? `Shipping: ${fmtINR(s.shipping)}` : "",
     s.tax ? `Tax: ${fmtINR(s.tax)}` : "",
     s.discount && Number(s.discount) > 0 ? `Discount: -${fmtINR(s.discount)}` : "",
+    s.codCharge && Number(s.codCharge) > 0
+      ? `Delivery & handling (COD): ${fmtINR(s.codCharge)}`
+      : "",
     `${isPrepaid ? "Total paid" : "Total to pay"}: ${fmtINR(
       s.total || params.amount,
     )}`,

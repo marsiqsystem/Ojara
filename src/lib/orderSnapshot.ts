@@ -20,6 +20,8 @@ export interface OrderSnapshot {
   items: { name: string; quantity: number; price: number; image: string }[];
   subtotal: number;
   discount: number;
+  /** COD delivery + handling charge added to the total (0 on prepaid). */
+  codCharge?: number;
   total: number;
 }
 

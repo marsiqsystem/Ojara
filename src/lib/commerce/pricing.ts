@@ -5,9 +5,14 @@
 // dashboard. Read the rules below before changing anything.
 //
 //   • subtotal        — Σ price×qty. The ONLY number allowed to touch money.
-//   • prepaid −₹49    — flat online-payment discount. Client-side, STACKS on top
+//   • prepaid −₹25    — flat online-payment discount. Client-side, STACKS on top
 //                       of any coupon, and is NOT a Wix coupon (Wix can't model a
 //                       stacking flat discount — §8 reconciles it on the order).
+//   • COD +₹49        — delivery + handling charge on Cash-on-Delivery orders.
+//                       Prepaid keeps FREE delivery; COD carries this fee so the
+//                       courier collects it. Added to the Wix order server-side as
+//                       an ADDITIONAL FEE (not a discount) — see /api/checkout.
+//                       Net gap between COD and prepaid is therefore ₹49 + ₹25.
 //   • offers          — Wix AUTOMATIC discount rules (bracelet + ring 10%, buy 2
 //                       get 1). No code: Wix applies them to the order itself, so
 //                       the bag asks Wix what they're worth (/api/offers,
@@ -21,8 +26,9 @@
 //                       fee struck off. Neither was ever charged, so it was an
 //                       invented saving. Shipping reads a plain "FREE"; don't add
 //                       a shown-then-waived fee back unless it's a real charge.
-//   • total          — max(0, subtotal − offers − couponDiscount − prepaidDiscount).
-//                       THIS is what Razorpay charges.
+//   • total          — max(0, subtotal − offers − couponDiscount − prepaidDiscount
+//                       + codCharge). Prepaid: the Razorpay amount. COD: the cash
+//                       the courier collects.
 //
 // NOTE: since coupons are now validated live against Wix (/api/coupon), you no
 // longer have to mirror every dashboard coupon here. Keep a tier only if you want
@@ -30,9 +36,14 @@
 // code. Wix remains the authority on validity, expiry, minimums and per-buyer use.
 // ============================================================================
 
-/** Flat "pay online" discount — the poster's "₹49 off on prepaid orders".
- *  Stacks on any coupon. Not a Wix coupon. */
-export const PREPAID_DISCOUNT = 49;
+/** Flat "pay online" discount — ₹25 off when the shopper pays online.
+ *  Stacks on any coupon. Not a Wix coupon (reconciled on the order server-side). */
+export const PREPAID_DISCOUNT = 25;
+
+/** Delivery + handling charge on Cash-on-Delivery orders. Prepaid keeps free
+ *  delivery. Added to the Wix order server-side as an additional fee so the
+ *  courier collects it (see /api/checkout). Not charged on prepaid. */
+export const COD_CHARGE = 49;
 
 export type CouponType = "FLAT" | "PERCENT";
 
@@ -155,6 +166,8 @@ export interface Totals {
   offerDiscount: number;
   couponDiscount: number;
   prepaidDiscount: number;
+  /** COD delivery + handling charge added to the total (0 on prepaid). */
+  codCharge: number;
   /** Sacred Bundle discount folded into the total (0 when none earned). */
   bundleDiscount: number;
   /** The real amount charged. Never negative. */
@@ -183,15 +196,21 @@ export const computeTotals = ({
   }
 
   const prepaidDiscount = isPrepaid ? PREPAID_DISCOUNT : 0;
+  // COD carries the delivery + handling charge; prepaid keeps free delivery.
+  const codCharge = isPrepaid ? 0 : COD_CHARGE;
   const bundle = Math.max(0, Math.round(bundleDiscount));
   const offers = Math.max(0, Math.round(offerDiscount));
-  const total = Math.max(0, subtotal - offers - couponDiscount - prepaidDiscount - bundle);
+  const total = Math.max(
+    0,
+    subtotal - offers - couponDiscount - prepaidDiscount - bundle + codCharge,
+  );
 
   return {
     subtotal,
     offerDiscount: offers,
     couponDiscount,
     prepaidDiscount,
+    codCharge,
     bundleDiscount: bundle,
     total,
   };

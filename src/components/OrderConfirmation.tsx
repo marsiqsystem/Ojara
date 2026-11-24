@@ -150,10 +150,17 @@ export default function OrderConfirmation({
                   <span className="tabular-nums">− {formatPrice(snapshot.discount)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-midnight-navy/70">
-                <span>Delivery</span>
-                <span className="font-semibold text-emerald-700">FREE</span>
-              </div>
+              {snapshot.codCharge && snapshot.codCharge > 0 ? (
+                <div className="flex justify-between text-midnight-navy/70">
+                  <span>Delivery &amp; handling (COD)</span>
+                  <span className="tabular-nums">+ {formatPrice(snapshot.codCharge)}</span>
+                </div>
+              ) : (
+                <div className="flex justify-between text-midnight-navy/70">
+                  <span>Delivery</span>
+                  <span className="font-semibold text-emerald-700">FREE</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-midnight-navy/10 pt-2 text-base font-bold text-midnight-navy">
                 <span>{isCod ? "To pay on delivery" : "Paid"}</span>
                 <span className="tabular-nums">{formatPrice(snapshot.total)}</span>

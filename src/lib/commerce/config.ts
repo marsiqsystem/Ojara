@@ -28,6 +28,23 @@ export const RAZORPAY_ENABLED = !!(
   process.env.RAZORPAY_KEY_SECRET
 );
 
+/**
+ * True when PhonePe PG server credentials exist. PhonePe (Standard Checkout v2)
+ * is the temporary bridge gateway ([[ojara-payment-gateway-plan]]); unlike
+ * Razorpay it is a pure server-side REDIRECT flow, so there is no browser key —
+ * the public "show Pay Online" switch is NEXT_PUBLIC_PHONEPE_ENABLED, set
+ * alongside these server-only secrets.
+ */
+export const PHONEPE_ENABLED = !!(
+  process.env.PHONEPE_CLIENT_ID && process.env.PHONEPE_CLIENT_SECRET
+);
+
+/** Which PhonePe host set to hit. Defaults to production. */
+export const PHONEPE_ENV: "sandbox" | "production" =
+  (process.env.PHONEPE_ENV || "production").toLowerCase() === "sandbox"
+    ? "sandbox"
+    : "production";
+
 // ---------------------------------------------------------------------------
 // PREPAID SWITCH — self-gating on whether a Razorpay key is present in the env.
 //
@@ -48,7 +65,23 @@ export const RAZORPAY_ENABLED = !!(
 // selectable method, and the −₹49 prepaid incentive is hidden — in checkout and
 // on the product page's "Offers for you". Lives here so both read one switch.
 // ---------------------------------------------------------------------------
-export const PREPAID_ENABLED = !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+export const PREPAID_ENABLED =
+  !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
+  process.env.NEXT_PUBLIC_PHONEPE_ENABLED === "true";
+
+/**
+ * Which prepaid provider the browser should drive when PREPAID_ENABLED is on.
+ * PhonePe wins when its public flag is set (the live bridge gateway); Razorpay
+ * stays the fallback so the old in-page widget still works in any environment
+ * that only carries Razorpay keys. Both read NEXT_PUBLIC_* values, so this is
+ * safe to evaluate in the browser.
+ */
+export const PREPAID_PROVIDER: "phonepe" | "razorpay" | null =
+  process.env.NEXT_PUBLIC_PHONEPE_ENABLED === "true"
+    ? "phonepe"
+    : process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+      ? "razorpay"
+      : null;
 
 /**
  * "Only N left" shows at or below this many units. Wix tracks real stock, so the

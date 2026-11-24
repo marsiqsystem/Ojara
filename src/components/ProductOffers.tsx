@@ -25,7 +25,7 @@ import type { Line, PieceType } from "@/lib/lines";
  * "Offers for you" on the product page — the Viora pattern, filled with the
  * offers OJARA actually runs (lib/commerce/offers): the first-order code, the
  * bracelet + ring combo (10% off the ring, told from THIS piece's side), buy 2
- * get 1 on bracelets, and ₹49 off prepaid once online payment is
+ * get 1 on bracelets, and ₹25 off prepaid once online payment is
  * on. Each card reads against what's already in the bag. "Browse rings" opens
  * the matching pieces right here, one tap to add — no leaving the page.
  */
