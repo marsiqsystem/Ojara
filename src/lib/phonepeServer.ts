@@ -161,7 +161,7 @@ export type VerifiedPayment = {
 };
 
 export type PaymentCheck =
-  | { ok: true; payment: VerifiedPayment }
+  | { ok: true; payment: VerifiedPayment; metaInfo: Record<string, string> }
   | { ok: false; status: number; error: string };
 
 /**
@@ -194,7 +194,11 @@ export const verifyPhonePePayment = async (
       amount?: number | string;
       code?: string;
       message?: string;
+      metaInfo?: Record<string, string>;
     };
+    console.log(
+      `[phonepe] status ${merchantOrderId}: http=${res.status} state=${data.state} amount=${data.amount}`,
+    );
     if (!res.ok) {
       console.error("PhonePe status lookup failed:", res.status, data);
       return { ok: false, status: 502, error: "Couldn't confirm your payment with PhonePe." };
@@ -213,6 +217,10 @@ export const verifyPhonePePayment = async (
     return {
       ok: true,
       payment: { id: merchantOrderId, amount: amountRupees, status: "COMPLETED" },
+      // metaInfo is echoed back from initiate — the TRUSTED source of the
+      // checkout context for the webhook (it comes from PhonePe's authenticated
+      // status API, not from the untrusted webhook body).
+      metaInfo: data.metaInfo || {},
     };
   } catch (e) {
     console.error("PhonePe status error:", e);

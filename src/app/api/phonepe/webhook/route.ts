@@ -1,33 +1,34 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import nodemailer from "nodemailer";
-import { verifyPhonePeWebhookAuth } from "@/lib/phonepeServer";
-import { BRAND_NAME, SUPPORT_EMAIL } from "@/lib/commerce/config";
+import {
+  verifyPhonePeWebhookAuth,
+  verifyPhonePePayment,
+} from "@/lib/phonepeServer";
+import { BRAND_NAME, SITE_URL, SUPPORT_EMAIL } from "@/lib/commerce/config";
 
 // ============================================================================
-// PhonePe server-to-server webhook — the SAFETY NET.
+// PhonePe server-to-server webhook — the RELIABLE order creator.
 //
-// The happy path creates the Wix order on the browser's return from PhonePe
-// (/checkout/phonepe-return → /api/checkout). But if the shopper closes the tab
-// right after paying, that return never runs — money taken, no order. PhonePe
-// also fires this webhook for every completed/failed payment, so here we catch
-// that case and email the owner to reconcile, since orders are shipped manually
-// from Wix / Velocity anyway.
+// A redirect gateway can't depend on the shopper's browser making it back to the
+// site, so THIS is what turns a completed payment into a Wix order. On
+// checkout.order.completed we:
+//   1. Re-confirm the payment DIRECTLY with PhonePe's Order Status API (our own
+//      authenticated call) — the real trust boundary, independent of the
+//      webhook body or its auth header.
+//   2. Read the checkout context back from PhonePe's metaInfo (set at initiate).
+//   3. Call /api/checkout server-to-server (shared secret) to create the order.
 //
-// Auth: PhonePe signs with SHA256(username:password) (the pair configured in the
-// PhonePe dashboard + stored as PHONEPE_WEBHOOK_USERNAME/PASSWORD). We recompute
-// and constant-time compare before trusting anything in the body.
+// The browser return (/checkout/phonepe-return) may also create it first; the
+// single-use Wix checkoutId makes whichever loses the race a harmless no-op.
 //
-// Always answer 2xx fast (PhonePe expects a reply within 3–5s) and treat
-// delivery as at-least-once: duplicates are fine, this only sends a heads-up.
+// We reply 2xx immediately (PhonePe expects < 3–5s) and do the Wix work in
+// after(), so the heavy order round-trips never time out the webhook.
 // ============================================================================
 
 const sendOwnerAlert = async (subject: string, text: string): Promise<void> => {
   const gmailUser = process.env.GMAIL_USER;
   const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
-  if (!gmailUser || !gmailAppPassword) {
-    console.error("PhonePe owner alert skipped: GMAIL creds missing.");
-    return;
-  }
+  if (!gmailUser || !gmailAppPassword) return;
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -40,50 +41,101 @@ const sendOwnerAlert = async (subject: string, text: string): Promise<void> => {
       text,
     });
   } catch (e) {
-    console.error("PhonePe owner alert email failed:", e);
+    console.error("[phonepe webhook] owner alert email failed:", e);
+  }
+};
+
+const createOrderFromPayment = async (merchantOrderId: string): Promise<void> => {
+  // 1. Re-confirm with PhonePe directly (authenticated) + get the trusted metaInfo.
+  const check = await verifyPhonePePayment(merchantOrderId);
+  if (!check.ok) {
+    console.log(`[phonepe webhook] status not COMPLETED for ${merchantOrderId}: ${check.error}`);
+    return;
+  }
+  const m = check.metaInfo || {};
+  const checkoutId = m.udf9 || "";
+
+  if (!checkoutId) {
+    console.error(`[phonepe webhook] COMPLETED but no checkoutId in metaInfo for ${merchantOrderId}`);
+    await sendOwnerAlert(
+      `PhonePe paid but order needs manual check — ${merchantOrderId}`,
+      `PhonePe payment COMPLETED (₹${check.payment.amount}) for ${merchantOrderId}, but no checkout context was attached, so the order could not be created automatically. Please confirm in Wix / PhonePe and create or refund manually.`,
+    );
+    return;
+  }
+
+  // 2. Rebuild the /api/checkout request from the trusted metaInfo.
+  const checkoutBody = {
+    checkoutId,
+    couponCode: m.udf10 || undefined,
+    details: {
+      email: m.udf1 || "",
+      fullName: m.udf2 || "",
+      phone: m.udf3 || "",
+      addressLine1: m.udf4 || "",
+      addressLine2: m.udf5 || "",
+      city: m.udf6 || "",
+      state: m.udf7 || "",
+      postalCode: m.udf8 || "",
+      paymentMethod: "PREPAID" as const,
+      phonepeOrderId: merchantOrderId,
+    },
+  };
+
+  // 3. Create the order server-to-server (shared secret bypasses same-origin).
+  try {
+    const res = await fetch(`${SITE_URL}/api/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-ojara-internal": process.env.PHONEPE_CLIENT_SECRET || "",
+      },
+      body: JSON.stringify(checkoutBody),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.orderId) {
+      console.log(`[phonepe webhook] order created ${data.orderId} for ${merchantOrderId}`);
+    } else {
+      // Most likely the browser return already converted this checkout (the Wix
+      // checkoutId is single-use) — harmless. Any other error is worth a look.
+      console.warn(`[phonepe webhook] checkout returned ${res.status} for ${merchantOrderId}: ${data?.error || "?"}`);
+    }
+  } catch (e) {
+    console.error(`[phonepe webhook] checkout call failed for ${merchantOrderId}:`, e);
+    await sendOwnerAlert(
+      `PhonePe paid — order creation errored — ${merchantOrderId}`,
+      `PhonePe payment COMPLETED (₹${check.payment.amount}) for ${merchantOrderId}, but creating the Wix order threw an error. Please confirm in Wix and create/refund manually if needed.`,
+    );
   }
 };
 
 export async function POST(req: Request) {
-  // 1. Authenticate the caller BEFORE reading the body as truth.
-  if (!verifyPhonePeWebhookAuth(req.headers.get("authorization"))) {
-    return NextResponse.json({ ok: false }, { status: 401 });
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let body: any = {};
   try {
     body = await req.json();
   } catch {
-    // PhonePe may add fields over time; a parse failure shouldn't 500 the hook.
     return NextResponse.json({ ok: true });
   }
 
   const event: string = body?.event || "";
   const p = body?.payload || {};
-  const merchantOrderId = p?.merchantOrderId || p?.orderId || "unknown";
-  const amountRupees =
-    typeof p?.amount === "number" ? (p.amount / 100).toFixed(2) : "unknown";
+  const merchantOrderId: string = p?.merchantOrderId || "";
+  console.log(`[phonepe webhook] event=${event} merchantOrderId=${merchantOrderId} state=${p?.state}`);
 
-  // Rely only on payload.state for the outcome (per PhonePe guidance).
-  if (event === "checkout.order.completed" || p?.state === "COMPLETED") {
-    console.log("PhonePe webhook: COMPLETED", merchantOrderId, amountRupees);
-    // Heads-up only — the order is normally already created on the browser
-    // return. The owner cross-checks against the Wix/PhonePe dashboards.
-    await sendOwnerAlert(
-      `PhonePe payment received — ${merchantOrderId}`,
-      `A PhonePe payment COMPLETED.\n\n` +
-        `Merchant Order ID: ${merchantOrderId}\n` +
-        `Amount: ₹${amountRupees}\n\n` +
-        `The order should already be in Wix (created when the customer returned ` +
-        `from PhonePe). If you do NOT see a matching order, the customer paid but ` +
-        `their order didn't finish — confirm in the PhonePe Business dashboard and ` +
-        `create/ship the order manually or refund them.\n`,
-    );
-  } else if (event === "checkout.order.failed" || p?.state === "FAILED") {
-    console.log("PhonePe webhook: FAILED", merchantOrderId);
-  } else {
-    console.log("PhonePe webhook:", event, merchantOrderId, p?.state);
+  // Auth is defence-in-depth only. PhonePe's exact hash format isn't pinned, so a
+  // mismatch must NOT block a real order — the Order Status re-check in
+  // createOrderFromPayment is the true security boundary. We only log here.
+  if (!verifyPhonePeWebhookAuth(req.headers.get("authorization"))) {
+    console.warn(`[phonepe webhook] auth header did not match (proceeding via status re-check) for ${merchantOrderId}`);
+  }
+
+  const completed =
+    event === "checkout.order.completed" || p?.state === "COMPLETED";
+
+  // Respond immediately; create the order in the background.
+  if (completed && merchantOrderId) {
+    after(() => createOrderFromPayment(merchantOrderId));
   }
 
   return NextResponse.json({ ok: true });

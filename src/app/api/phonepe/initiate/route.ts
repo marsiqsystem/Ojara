@@ -43,12 +43,28 @@ export async function POST(req: Request) {
       .toUpperCase()
       .slice(0, 63);
 
-    // Reference data echoed back on status + webhook (udf1..udf10, ≤256 each).
+    // The FULL checkout context rides along as metaInfo (udf1..udf10, ≤256 each).
+    // PhonePe echoes it back on the Order Status API + the webhook, so the webhook
+    // can create the Wix order server-side even if the shopper never returns to
+    // the site. This is what makes the order reliable, not browser-dependent.
+    const d = (body?.details || {}) as Record<string, unknown>;
+    const s = (k: string) => (typeof d[k] === "string" ? (d[k] as string).trim().slice(0, 256) : "");
     const metaInfo: Record<string, string> = {};
-    const email = typeof body?.email === "string" ? body.email.trim() : "";
-    const phone = typeof body?.phone === "string" ? body.phone.trim() : "";
-    if (email) metaInfo.udf1 = email.slice(0, 256);
-    if (phone) metaInfo.udf2 = phone.slice(0, 256);
+    const put = (k: string, v: string) => { if (v) metaInfo[k] = v; };
+    put("udf1", s("email"));
+    put("udf2", s("fullName"));
+    put("udf3", s("phone"));
+    put("udf4", s("addressLine1"));
+    put("udf5", s("addressLine2"));
+    put("udf6", s("city"));
+    put("udf7", s("state"));
+    put("udf8", s("postalCode"));
+    put("udf9", typeof body?.checkoutId === "string" ? body.checkoutId.trim().slice(0, 256) : "");
+    put("udf10", typeof body?.couponCode === "string" ? body.couponCode.trim().slice(0, 256) : "");
+
+    console.log(
+      `[phonepe] initiate ${merchantOrderId} amount=${amountRupees} checkoutId=${metaInfo.udf9 || "(none)"}`,
+    );
 
     const result = await initiatePhonePePayment({
       merchantOrderId,

@@ -747,7 +747,23 @@ export default function CheckoutModal() {
     const initRes = await fetch("/api/phonepe/initiate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: totals.total, email: email.trim(), phone }),
+      body: JSON.stringify({
+        amount: totals.total,
+        checkoutId,
+        couponCode: appliedCoupon || undefined,
+        // Carried into PhonePe metaInfo so the webhook can create the order even
+        // if the shopper never makes it back to the site.
+        details: {
+          email: email.trim(),
+          fullName: fullName.trim(),
+          phone,
+          addressLine1: address.trim(),
+          addressLine2: landmark.trim(),
+          city: city.trim(),
+          state: stateCode,
+          postalCode: pincode.trim(),
+        },
+      }),
     });
     const initData = await initRes.json().catch(() => ({}));
     if (!initRes.ok || !initData?.redirectUrl || !initData?.merchantOrderId) {

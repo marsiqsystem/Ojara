@@ -114,12 +114,21 @@ const flattenCalculationErrors = (value: unknown): string[] => {
 };
 
 export async function POST(req: Request) {
+  // The PhonePe webhook calls this server-to-server (no browser origin) to create
+  // the order reliably. It authenticates with a server-only shared secret; such
+  // calls skip the same-origin + rate-limit guards meant for browser traffic.
+  const internalSecret = req.headers.get("x-ojara-internal");
+  const isInternal =
+    !!internalSecret &&
+    !!process.env.PHONEPE_CLIENT_SECRET &&
+    internalSecret === process.env.PHONEPE_CLIENT_SECRET;
+
   // Only our own checkout may place orders, and not in a burst. Ten per ten
   // minutes per IP leaves a real shopper plenty of retries.
-  if (!isSameOrigin(req)) {
+  if (!isInternal && !isSameOrigin(req)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
-  if (isRateLimited(`checkout:${clientIp(req)}`, 10)) {
+  if (!isInternal && isRateLimited(`checkout:${clientIp(req)}`, 10)) {
     return NextResponse.json(
       { error: "Too many attempts. Please wait a few minutes and try again." },
       { status: 429 },
@@ -186,6 +195,9 @@ export async function POST(req: Request) {
         }
         payment = { id: check.payment.id, amount: check.payment.amount, status: "captured" };
         paymentProvider = "phonepe";
+        console.log(
+          `[checkout] phonepe verified order=${phonepeOrderId} paid=${payment.amount} internal=${isInternal} checkoutId=${checkoutId || "(none)"}`,
+        );
       } else {
         const check = await verifyPrepaidPayment(razorpayPaymentId);
         if (!check.ok) {
@@ -414,6 +426,9 @@ export async function POST(req: Request) {
         Number(updatedCheckout?.priceSummary?.total?.amount) -
         prepaidDiscountAmount -
         bundleDiscount;
+      console.log(
+        `[checkout] amount check: paid=${payment.amount} wixTotal=${updatedCheckout?.priceSummary?.total?.amount} prepaidDisc=${prepaidDiscountAmount} bundle=${bundleDiscount} expected=${expectedTotal}`,
+      );
       if (!paymentCoversTotal(payment.amount, expectedTotal)) {
         console.error(
           `Prepaid amount mismatch: paid ${payment.amount}, order ${expectedTotal}, payment ${payment.id}`,

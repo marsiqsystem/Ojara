@@ -28,8 +28,8 @@ const iconProps = {
 
 const tags: BrandTag[] = [
   {
-    title: "Free Pan-India Shipping",
-    description: "Delivered to your door, no extra charge.",
+    title: "Free Shipping on Prepaid",
+    description: "Pay online and delivery is on us, across India.",
     icon: (
       <svg {...iconProps}>
         <path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z" />
