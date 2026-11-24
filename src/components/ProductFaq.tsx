@@ -34,7 +34,7 @@ const adornFaqs = (product: Product): FaqItem[] => [
   {
     question: `Can I order it with a gemstone ${BRACELETS_LIVE ? "bracelet" : "ring"}?`,
     answer:
-      "Yes. Adorn and Intentions pieces go in the same bag and check out as one order, with free delivery and Cash on Delivery on the whole order.",
+      "Yes. Adorn and Intentions pieces go in the same bag and check out as one order, with free delivery on prepaid orders and Cash on Delivery on the whole order.",
   },
   {
     question: "What if it arrives damaged?",

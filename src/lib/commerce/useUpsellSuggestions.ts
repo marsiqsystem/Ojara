@@ -105,7 +105,7 @@ const lookRail = (
     const from = Math.min(...adorn.map((p) => p.price));
     return {
       title: `Complete the look — stone jewellery from ${formatPrice(from)}`,
-      subtitle: "Stone jewellery to wear with it. Same order, same free delivery.",
+      subtitle: "Stone jewellery to wear with it. Same order, delivered together.",
       products: adorn.slice(0, limit),
     };
   }
@@ -117,7 +117,7 @@ const lookRail = (
       title: `Add a gemstone bracelet — from ${formatPrice(from)}`,
       subtitle: BUY2GET1_LIVE
         ? "Natural stones, worn with meaning. Buy 2 bracelets, get 1 free."
-        : "Natural stones, worn with meaning. Same order, same free delivery.",
+        : "Natural stones, worn with meaning. Same order, delivered together.",
       products: bracelets.slice(0, limit),
     };
   }

@@ -66,12 +66,12 @@ export default async function Hero() {
           <p className="mt-4 text-sm font-semibold tracking-wide text-ivory">
             {twoLines
               ? `${intentionsWord} from ${formatPrice(fromPrice)} · Stone jewellery from ${formatPrice(adornFrom)}`
-              : `${intentionsWord} from ${formatPrice(fromPrice)} · Cash on Delivery · Free delivery`}
+              : `${intentionsWord} from ${formatPrice(fromPrice)} · Cash on Delivery · Free prepaid delivery`}
           </p>
         )}
         <p className="mt-2 text-xs tracking-wide text-ivory/75 sm:text-sm">
           {twoLines
-            ? "Free delivery · Cash on Delivery · One bag for both"
+            ? "Free prepaid delivery · Cash on Delivery · One bag for both"
             : `Buy a bracelet + a ring, get ${COMBO_PERCENT}% off the ring`}
         </p>
         <div className="mt-8 flex w-full flex-col items-center gap-3 sm:mt-12 sm:w-auto sm:flex-row sm:gap-5">

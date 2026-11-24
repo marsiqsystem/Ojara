@@ -89,14 +89,14 @@ export const metadata: Metadata = {
     url: SITE_URL,
     title: "OJARA | Wear Your Intention. Wear Your Shine.",
     description:
-      `Natural gemstone ${BRACELETS_LIVE ? "bracelets" : "rings"} worn for what they mean, and stone jewellery for how you shine. Free delivery across India, Cash on Delivery.`,
+      `Natural gemstone ${BRACELETS_LIVE ? "bracelets" : "rings"} worn for what they mean, and stone jewellery for how you shine. Free delivery on prepaid orders, Cash on Delivery.`,
     images: [{ url: DEFAULT_OG_IMAGE, alt: "OJARA" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "OJARA | Wear Your Intention. Wear Your Shine.",
     description:
-      `Natural gemstone ${BRACELETS_LIVE ? "bracelets" : "rings"} worn for what they mean, and stone jewellery for how you shine. Free delivery across India, Cash on Delivery.`,
+      `Natural gemstone ${BRACELETS_LIVE ? "bracelets" : "rings"} worn for what they mean, and stone jewellery for how you shine. Free delivery on prepaid orders, Cash on Delivery.`,
     images: [DEFAULT_OG_IMAGE],
   },
   icons: {

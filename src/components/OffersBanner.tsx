@@ -30,7 +30,7 @@ export default function OffersBanner() {
           Offers running now
         </h2>
         <p className="mt-2 text-sm text-ivory/75">
-          Every offer below is added for you — free delivery and Cash on Delivery on every order.
+          Every offer below is added for you — free delivery on prepaid orders, with Cash on Delivery available.
         </p>
 
         <ul

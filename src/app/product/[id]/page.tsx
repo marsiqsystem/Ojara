@@ -95,14 +95,14 @@ const chipIcon = (
 const adornAssurances = (wear: string | undefined) =>
   [
     ...(wear ? wear.split(" · ") : []).map((label) => ({ label, icon: chipIcon })),
-    { label: "Free delivery", icon: chipIcon },
+    { label: "Free prepaid delivery", icon: chipIcon },
     { label: "Cash on Delivery", icon: chipIcon },
   ].slice(0, 3);
 
 // Store-wide promises that hold for every order (see /shipping-returns).
 const trustItems = [
   {
-    label: "Free delivery",
+    label: "Free prepaid delivery",
     sub: "All over India",
     icon: <path d="M10 17h4V5H2v12h3M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1M7.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM17.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />,
   },
@@ -213,7 +213,7 @@ export default async function ProductDetailPage({
     ...productSpecs(product)
       .filter((row) => row.label !== "Piece" && row.label !== "Wear")
       .map((row) => (row.label === "Bead size" ? `${row.value} beads` : row.value)),
-    "Free delivery across India · Cash on Delivery",
+    "Free delivery on prepaid orders · Cash on Delivery",
   ].slice(0, 3);
 
   // "Complete your ritual" (Intentions) / "Wear it with" (Adorn) — pieces
@@ -559,7 +559,7 @@ export default async function ProductDetailPage({
           )}
 
           {/* Highlights — ticks for what this piece's own description states
-              (lib/productSpecs.ts), plus free delivery, which is true of every order. */}
+              (lib/productSpecs.ts), plus free delivery on prepaid orders. */}
           <ul className="mt-4 space-y-1.5">
             {highlights.map((h) => (
               <li key={h} className="flex items-center gap-2 text-sm text-midnight-navy/85">
@@ -629,7 +629,7 @@ export default async function ProductDetailPage({
               <PairItWith
                 items={lookPicks}
                 title="Complete the look"
-                subtitle="A natural gemstone bracelet to wear with it — same order, same free delivery."
+                subtitle="A natural gemstone bracelet to wear with it — same order, delivered together."
               />
               <PairItWith
                 items={pairs}
@@ -643,7 +643,7 @@ export default async function ProductDetailPage({
               <PairItWith
                 items={lookPicks}
                 title="Complete the look"
-                subtitle="Stone jewellery to wear with it — same order, same free delivery."
+                subtitle="Stone jewellery to wear with it — same order, delivered together."
               />
             </>
           )}

@@ -23,7 +23,7 @@ export const SOCIAL_PROFILES = ["https://www.instagram.com/ojara.india"];
 export const COMMERCE_FACTS = {
   currency: "INR",
   shippingCountry: "IN",
-  // Free shipping on every order, no minimum spend.
+  // Free shipping on prepaid orders; COD carries a delivery & handling fee.
   shippingCost: 0,
   // Dispatch (owner, 2026-09-17): orders placed before 8 pm IST are packed and
   // shipped the same day; after 8 pm, the next working day. Monday–Saturday —
@@ -111,7 +111,7 @@ export const websiteSchema = () => ({
 });
 
 /**
- * Shipping details node reflecting OJARA's real policy: free shipping across
+ * Shipping details node reflecting OJARA's real policy: free shipping on prepaid,
  * India, 1–3 day handling + 3–7 day transit.
  */
 const shippingDetails = () => ({

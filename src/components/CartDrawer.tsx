@@ -517,7 +517,7 @@ export default function CartDrawer() {
                 Checkout · {formatPrice(total)}
               </button>
               <p className="mt-2 text-center text-[0.68rem] text-midnight-navy/55">
-                {PREPAID_ENABLED ? "UPI · Cards · Cash on Delivery" : "Cash on Delivery"} · Free delivery · {exchangeNote}
+                {PREPAID_ENABLED ? "UPI · Cards · Cash on Delivery" : "Cash on Delivery"} · Free prepaid delivery · {exchangeNote}
               </p>
             </div>
           </>

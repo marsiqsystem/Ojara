@@ -9,7 +9,7 @@ const line = LINES.intentions;
 export const metadata: Metadata = {
   title: BRACELETS_LIVE ? "Gemstone Bracelets & Rings — Intentions" : "Gemstone Rings — Intentions",
   description:
-    `OJARA Intentions: natural gemstone ${INTENTIONS_PIECES} — Black Tourmaline and evil eye for protection, Citrine and Pyrite for abundance, Amethyst for calm. Lab-certified, free delivery, Cash on Delivery.`,
+    `OJARA Intentions: natural gemstone ${INTENTIONS_PIECES} — Black Tourmaline and evil eye for protection, Citrine and Pyrite for abundance, Amethyst for calm. Lab-certified, free delivery on prepaid orders, Cash on Delivery.`,
   alternates: { canonical: line.href },
   openGraph: {
     title: BRACELETS_LIVE ? "Intentions — Gemstone Bracelets & Rings | OJARA" : "Intentions — Gemstone Rings | OJARA",

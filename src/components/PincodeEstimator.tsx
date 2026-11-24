@@ -12,7 +12,7 @@ export default function PincodeEstimator() {
       deliveryDate.setDate(deliveryDate.getDate() + 4);
       const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
       const formattedDate = deliveryDate.toLocaleDateString("en-IN", options);
-      setStatus(`✦ Free Delivery by ${formattedDate}`);
+      setStatus(`✦ Delivery by ${formattedDate}`);
     } else {
       setStatus("Please enter a valid 6-digit pincode.");
     }

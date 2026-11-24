@@ -9,7 +9,7 @@ const line = LINES.adorn;
 export const metadata: Metadata = {
   title: "Stone Jewellery — Necklace & Earring Sets | Adorn",
   description:
-    "OJARA Adorn: stone jewellery — sparkling necklace sets with matching earrings, in several colours, for festive days, parties and every day. Free delivery across India, Cash on Delivery.",
+    "OJARA Adorn: stone jewellery — sparkling necklace sets with matching earrings, in several colours, for festive days, parties and every day. Free delivery on prepaid orders, Cash on Delivery.",
   alternates: { canonical: line.href },
   openGraph: {
     title: "Adorn — Stone Jewellery | OJARA",

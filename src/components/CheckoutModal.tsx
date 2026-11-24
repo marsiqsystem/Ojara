@@ -1466,7 +1466,7 @@ export default function CheckoutModal() {
             <LockIcon className="h-3.5 w-3.5" />
             {isPrepaid ? `Secured by ${prepaidSecuredBy}` : "Pay on delivery"} ·{" "}
             {cartItems.some((ci) => !isAdorn(ci.product)) ? "48-hr exchange" : "Damage cover"} ·{" "}
-            {pincodeStatus === "found" ? `Arrives ${deliveryWindowLabel()}` : "Free delivery across India"}
+            {pincodeStatus === "found" ? `Arrives ${deliveryWindowLabel()}` : "Free delivery on prepaid orders"}
           </p>
         </div>
       </div>

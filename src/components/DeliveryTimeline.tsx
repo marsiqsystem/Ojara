@@ -39,7 +39,7 @@ export default function DeliveryTimeline() {
   }, []);
 
   if (!timeline) {
-    return <p className="text-sm text-midnight-navy/70">Free delivery across India · Cash on Delivery</p>;
+    return <p className="text-sm text-midnight-navy/70">Free delivery on prepaid orders · Cash on Delivery</p>;
   }
 
   const { shipLabel, deliveryLabel, minutesToCutoff } = timeline;

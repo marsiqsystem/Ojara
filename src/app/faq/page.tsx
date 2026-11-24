@@ -18,7 +18,7 @@ const faqs: FaqItem[] = [
   {
     question: "What's the difference between Intentions and Adorn?",
     answer:
-      `OJARA has two lines. Intentions are natural gemstone ${INTENTIONS_PIECES}, each worn for what its stone has long stood for. Adorn is stone jewellery — necklace sets with matching earrings, worn for how they look. Both go in the same bag, with free delivery and Cash on Delivery.`,
+      `OJARA has two lines. Intentions are natural gemstone ${INTENTIONS_PIECES}, each worn for what its stone has long stood for. Adorn is stone jewellery — necklace sets with matching earrings, worn for how they look. Both go in the same bag, with free delivery on prepaid orders and Cash on Delivery.`,
   },
   {
     question: "Are your Intentions crystals genuine and ethically sourced?",

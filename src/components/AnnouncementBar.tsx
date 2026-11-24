@@ -11,7 +11,7 @@ import { liveOffers } from "@/lib/commerce/offers";
 const ROTATE_MS = 4000;
 
 const STANDING_MESSAGES = [
-  "Free delivery across India · Cash on Delivery",
+  "Free delivery on prepaid orders · Cash on Delivery",
   "Ships same day when you order by 8 pm",
   "Lab-certified natural gemstones · Intentions",
 ];

@@ -22,7 +22,7 @@ const REACH_US = `email ${SUPPORT_EMAIL} or call us on ${SUPPORT_PHONE}`;
 export const metadata: Metadata = {
   title: "Shipping, Returns & Refunds",
   alternates: { canonical: "/shipping-returns" },
-  description: `Free shipping across India, delivered in ${deliveryMin}–${deliveryMax} working days. 48-hour exchange; returns and refunds for damaged or wrong items, refunded in ${refundDaysMin}–${refundDaysMax} business days.`,
+  description: `Free shipping on prepaid orders, delivered in ${deliveryMin}–${deliveryMax} working days. 48-hour exchange; returns and refunds for damaged or wrong items, refunded in ${refundDaysMin}–${refundDaysMax} business days.`,
 };
 
 // Policy (client, 2026-11-16): change of mind → 48-hour exchange only; damaged,
@@ -47,7 +47,7 @@ export default function ShippingReturnsPage() {
           heading: "Shipping Costs",
           body: [
             "We ship within India only — we don't deliver internationally.",
-            "Shipping is free on every order, with no minimum spend. Cash on Delivery is available.",
+            "Shipping is free on all prepaid (online) orders, with no minimum spend. Cash on Delivery adds a ₹49 delivery & handling fee.",
           ],
         },
         {
@@ -80,7 +80,7 @@ export default function ShippingReturnsPage() {
             "Refunds are given for approved returns (a damaged, defective or wrong piece) and for orders cancelled before dispatch.",
             `Once your return is approved, the refund is processed within ${refundDaysMin}–${refundDaysMax} business days. Prepaid orders are refunded to the original payment method (UPI, card or net banking). Cash on Delivery orders are refunded by UPI or bank transfer to the details you share with us.`,
             "After we process it, your bank or card issuer may take a few more working days to show the amount in your account.",
-            "Shipping is always free, so there are no shipping charges to deduct.",
+            "Prepaid orders ship free, so there are no prepaid shipping charges to deduct.",
           ],
         },
         {

@@ -34,7 +34,7 @@ export default function RitualAccordion({ product }: { product: Product }) {
       title: "Shipping, Exchanges & Refunds",
       // Same numbers as the shipping policy + delivery dates (COMMERCE_FACTS).
       // This used to say "dispatch within 24-48 hours", contradicting the policy.
-      body: `Free delivery on every order across India, with Cash on Delivery available. ${DISPATCH_POLICY_TEXT} Orders arrive ${COMMERCE_FACTS.transitDaysMin}–${COMMERCE_FACTS.transitDaysMax} business days after dispatch. ${
+      body: `Free delivery on prepaid orders across India, with Cash on Delivery available. ${DISPATCH_POLICY_TEXT} Orders arrive ${COMMERCE_FACTS.transitDaysMin}–${COMMERCE_FACTS.transitDaysMax} business days after dispatch. ${
         isAdorn(product)
           ? ADORN_EXCHANGE_POLICY
           : INTENTIONS_EXCHANGE_POLICY

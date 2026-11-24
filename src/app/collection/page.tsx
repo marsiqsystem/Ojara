@@ -7,7 +7,7 @@ import { INTENTIONS_PIECES } from "@/lib/lines";
 export const metadata: Metadata = {
   title: "Shop All Jewellery",
   description:
-    `Every OJARA piece in one place — natural gemstone ${INTENTIONS_PIECES}, and stone jewellery: necklace sets with matching earrings. Free delivery across India, Cash on Delivery.`,
+    `Every OJARA piece in one place — natural gemstone ${INTENTIONS_PIECES}, and stone jewellery: necklace sets with matching earrings. Free delivery on prepaid orders, Cash on Delivery.`,
   alternates: { canonical: "/collection" },
   openGraph: {
     title: "Shop All | OJARA",
